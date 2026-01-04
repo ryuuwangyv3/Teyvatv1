@@ -5,7 +5,7 @@ import {
   Image as ImageIcon, Video, Globe, LayoutDashboard, Info, MessageSquare, 
   Menu, X, History, ShieldCheck, HardDrive, Loader2, Cloud, Lock, Sparkles, Database, LogOut, CheckCircle2, ChevronDown, Box, CloudLightning
 } from 'lucide-react';
-import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData, SupabaseConfig } from './types';
+import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData } from './types';
 import { DEFAULT_PERSONAS, INITIAL_USER_PROFILE } from './constants';
 import { LANGUAGES, AI_MODELS } from './data';
 import LazyImage from './components/LazyImage';
@@ -18,12 +18,13 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminConsole from './components/AdminConsole'; 
 import { 
   initSupabase, fetchUserProfile, syncUserProfile, 
-  fetchCustomPersonas, syncCustomPersonas, deleteCustomPersona,
-  fetchUserSettings, syncUserSettings, VfsManager,
-  getCurrentSession, signInWithGoogle, checkSchemaHealth, listenToAuthChanges, signOut
+  syncCustomPersonas, deleteCustomPersona,
+  syncUserSettings, VfsManager,
+  getCurrentSession, signInWithGoogle, checkSchemaHealth, listenToAuthChanges, checkDbConnection
 } from './services/supabaseService';
-import { enableRuntimeProtection, SecureStorage } from './services/securityService';
+import { enableRuntimeProtection } from './services/securityService';
 import { getSystemCredentials } from './services/credentials';
+import { setServiceKeys } from './services/geminiService';
 
 // --- EAGER IMPORTS ---
 import Terminal from './components/Terminal';
@@ -44,8 +45,7 @@ const getMenuFromHash = (): MenuType => {
   if (typeof window === 'undefined') return MenuType.TERMINAL;
   const hash = window.location.hash.replace(/^#\//, '').replace(/-/g, '_').toLowerCase();
   const values = Object.values(MenuType);
-  const found = values.find(v => v.toLowerCase() === hash);
-  return (found as MenuType) || MenuType.TERMINAL;
+  return (values.find(v => v.toLowerCase() === hash) as MenuType) || MenuType.TERMINAL;
 };
 
 const getHashFromMenu = (menu: MenuType): string => {
@@ -53,11 +53,8 @@ const getHashFromMenu = (menu: MenuType): string => {
 };
 
 const App: React.FC = () => {
-  // Initialize state from URL hash
   const [activeMenu, setActiveMenu] = useState<MenuType>(() => getMenuFromHash());
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
-  
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [globalErrorLog, setGlobalErrorLog] = useState<string | null>(null);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
@@ -67,8 +64,6 @@ const App: React.FC = () => {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [loadingStep, setLoadingStep] = useState("Initializing VFS...");
   const [showModelSelector, setShowModelSelector] = useState(false);
-  
-  // LIVE CALL PERSISTENCE
   const [isLiveCallOpen, setIsLiveCallOpen] = useState(false);
 
   // State
@@ -82,12 +77,10 @@ const App: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<string>(AI_MODELS[0].id);
   const [currentPersona, setCurrentPersona] = useState<Persona>(DEFAULT_PERSONAS[0]);
 
-  // --- HASH ROUTING SYNC ---
   useEffect(() => {
     const handleHashChange = () => {
       setActiveMenu(getMenuFromHash());
     };
-
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -102,7 +95,6 @@ const App: React.FC = () => {
   useEffect(() => {
     enableRuntimeProtection(); 
     initializeSystem();
-
     const handleResize = () => {
        if (window.innerWidth < 1024) setIsSidebarOpen(false);
        else setIsSidebarOpen(true);
@@ -112,14 +104,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-      const formattedTitle = activeMenu
-        .split('_')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
+      const formattedTitle = activeMenu.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
       document.title = `${formattedTitle} | Akasha System`;
   }, [activeMenu]);
 
-  // --- AUTH LISTENER ---
   useEffect(() => {
       const { subscription } = listenToAuthChanges((user) => {
           if (user) {
@@ -161,16 +149,14 @@ const App: React.FC = () => {
               if (vfsSettings.selectedModel) setSelectedModel(vfsSettings.selectedModel);
           }
 
-          // Local storage override has precedence for UI persistence
-          if (savedModelId) {
-            setSelectedModel(savedModelId);
-          }
+          if (savedModelId) setSelectedModel(savedModelId);
 
           const sysCreds = getSystemCredentials();
           if (sysCreds.openai && !loadedKeys.some(k => k.key === sysCreds.openai)) {
               loadedKeys.push({ key: sysCreds.openai, provider: 'openai', isValid: true, lastChecked: Date.now(), label: 'System Key' });
           }
           setApiKeys(loadedKeys);
+          setServiceKeys(loadedKeys); // Sync service keys pool
 
           if (savedPersonaId) {
               const all = [...(vfsPersonas || []), ...DEFAULT_PERSONAS];
@@ -183,11 +169,14 @@ const App: React.FC = () => {
           setIsSupabaseConnected(connected);
           
           if (connected) {
-              const status = await checkSchemaHealth();
-              if (status === 404) setShowDbSetupModal(true);
-              else if (status === 200) {
+              const ping = await checkDbConnection();
+              if (ping === -2) {
+                  setShowDbSetupModal(true);
+              } else if (ping >= 0) {
                   const session = await getCurrentSession();
-                  if (!session?.user && !localStorage.getItem('has_seen_auth_v2')) setShowAuthModal(true);
+                  if (!session?.user && !localStorage.getItem('has_seen_auth_v2')) {
+                      setShowAuthModal(true);
+                  }
               }
           }
       } catch (err) {
@@ -202,6 +191,7 @@ const App: React.FC = () => {
     syncUserProfile(userProfile);
     syncCustomPersonas(customPersonas);
     syncUserSettings({ voiceConfig, apiKeys, currentLanguage, selectedModel });
+    setServiceKeys(apiKeys); // Ensure service keys are updated whenever apiKeys changes
   }, [userProfile, customPersonas, voiceConfig, apiKeys, currentLanguage, selectedModel, isDataLoaded]);
 
   const handlePersonaChange = (persona: Persona) => {
@@ -277,18 +267,13 @@ const App: React.FC = () => {
               <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 rounded-md hover:bg-white/10"><X /></button>
           </div>
           <nav className="flex-1 overflow-y-auto px-2 space-y-1 custom-scrollbar">
-            {/* LIVE CALL TRIGGER */}
-            <button 
-              onClick={() => setIsLiveCallOpen(true)}
-              className={`w-full flex items-center gap-4 p-3 rounded-xl mb-4 transition-all bg-gradient-to-r from-amber-500/20 to-transparent border-l-4 border-amber-500 text-white shadow-lg shadow-amber-900/10 group`}
-            >
+            <button onClick={() => setIsLiveCallOpen(true)} className={`w-full flex items-center gap-4 p-3 rounded-xl mb-4 transition-all bg-gradient-to-r from-amber-500/20 to-transparent border-l-4 border-amber-500 text-white shadow-lg shadow-amber-900/10 group`}>
               <div className="relative">
                 <PhoneCall className="w-6 h-6 shrink-0 text-amber-500 group-hover:scale-110 transition-transform" />
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
               </div>
               {isSidebarOpen && <span className="font-black uppercase tracking-widest text-xs">Celestial Call</span>}
             </button>
-
             {navItems.map((item) => (
               <button key={item.type} onClick={() => { setActiveMenu(item.type); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-3 rounded-lg transition-all ${activeMenu === item.type ? 'sidebar-item-active' : 'text-gray-400 hover:bg-white/5'}`} title={item.label}>
                 <item.icon className={`w-6 h-6 shrink-0 ${activeMenu === item.type ? 'text-amber-500' : ''}`} />
@@ -302,12 +287,10 @@ const App: React.FC = () => {
               <div className="flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-white/5">
                   <div className="relative cursor-pointer shrink-0" onClick={() => setActiveMenu(MenuType.USER_INFO)}>
                       <LazyImage src={userProfile.avatar} className="w-10 h-10 rounded-xl border border-white/20 shadow-lg group-hover:border-amber-500/50 transition-colors" alt="User" />
-                      {userProfile.isAuth ? (
+                      {userProfile.isAuth && (
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0e121b] rounded-full flex items-center justify-center shadow-md">
                               <CheckCircle2 className="w-2.5 h-2.5 text-white" />
                           </div>
-                      ) : (
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gray-500 border-2 border-[#0e121b] rounded-full shadow-md"></div>
                       )}
                   </div>
                   {isSidebarOpen && (
@@ -332,13 +315,11 @@ const App: React.FC = () => {
                <h2 className="text-lg font-medium genshin-gold uppercase tracking-[0.1em]">{activeMenu.replace('_', ' ')}</h2>
            </div>
            <div className="flex items-center gap-4">
-               {/* GLOBAL AI MODEL SELECTOR (MOVED FROM TERMINAL) */}
                {activeMenu === MenuType.TERMINAL && (
                     <div className="relative" onMouseEnter={() => setShowModelSelector(true)} onMouseLeave={() => setShowModelSelector(false)}>
                         <button className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] hover:text-[#d3bc8e] transition-all bg-white/5 px-4 py-2 rounded-full border border-white/5 hover:border-[#d3bc8e]/30">
                             {AI_MODELS.find(m => m.id === selectedModel)?.provider === 'openai' ? <CloudLightning className="w-3 h-3" /> : <Box className="w-3 h-3" />}
                             <span className="hidden sm:inline">Engine: {AI_MODELS.find(m => m.id === selectedModel)?.label}</span>
-                            <span className="sm:hidden">{AI_MODELS.find(m => m.id === selectedModel)?.label.split(' ').pop()}</span>
                             <ChevronDown className={`w-3 h-3 transition-transform ${showModelSelector ? 'rotate-180' : ''}`} />
                         </button>
                         {showModelSelector && (
@@ -369,7 +350,6 @@ const App: React.FC = () => {
         </section>
       </main>
 
-      {/* PERSISTENT LIVE CALL COMPONENT */}
       <LiveCall 
         currentPersona={currentPersona} 
         voiceConfig={voiceConfig} 
