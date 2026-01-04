@@ -11,8 +11,8 @@ const getDynamicSalt = () => {
 
 const STORAGE_PREFIX = "akasha_vault_v8_";
 
-// SHA-256 Hash of "akasha_root_v7"
-const ADMIN_CREDENTIAL_HASH = "7d57864f9f4c3917d0b306b38c237303f0b2f6c9d9f582f3c32e9a263c7b3394";
+// Updated SHA-256 Hash as provided by the Traveler
+const ADMIN_CREDENTIAL_HASH = "f166f886382b855aac626c2bf9284a50e1e465a9f0e5e7218b4ff73b2c41a4f4";
 
 /**
  * SHA-256 Hashing Utility with explicit Hex encoding
