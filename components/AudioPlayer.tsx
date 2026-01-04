@@ -1,0 +1,326 @@
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, Pause, Loader2, Volume2, VolumeX, Download, Activity, AlertCircle, RotateCcw, Rewind, FastForward } from 'lucide-react';
+import { VoiceConfig } from '../types';
+import { createReverbImpulse, decodeRawPCM } from '../utils/audioUtils';
+
+interface AudioPlayerProps {
+    audioUrl: string;
+    initialVolume: number;
+    voiceConfig: VoiceConfig;
+    autoPlay?: boolean; // Prop baru untuk mengontrol auto-play per pesan
+}
+
+const AudioPlayer: React.FC<AudioPlayerProps> = React.memo(({ audioUrl, initialVolume, voiceConfig, autoPlay = false }) => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [isMuted, setIsMuted] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(false);
+  
+    const audioCtxRef = useRef<AudioContext | null>(null);
+    const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const gainNodeRef = useRef<GainNode | null>(null);
+    const isMounted = useRef(true);
+    const hasAutoPlayed = useRef(false); // Mencegah pemutaran berulang saat re-render
+    
+    const lowEQRef = useRef<BiquadFilterNode | null>(null);
+    const midEQRef = useRef<BiquadFilterNode | null>(null);
+    const highEQRef = useRef<BiquadFilterNode | null>(null);
+    const reverbNodeRef = useRef<ConvolverNode | null>(null);
+    const reverbGainRef = useRef<GainNode | null>(null);
+  
+    const audioBufferRef = useRef<AudioBuffer | null>(null);
+    const startTimeRef = useRef<number>(0);
+    const pauseTimeRef = useRef<number>(0);
+    const animationFrameRef = useRef<number>(0);
+  
+    const initAudioContext = useCallback(() => {
+      if (!audioCtxRef.current) {
+          const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+          audioCtxRef.current = new AudioContext();
+      }
+      return audioCtxRef.current;
+    }, []);
+  
+    useEffect(() => {
+      isMounted.current = true;
+      const loadAudio = async () => {
+          if (!audioUrl) return;
+          if (!isMounted.current) return;
+          
+          setLoading(true);
+          setError(false);
+          try {
+              const response = await fetch(audioUrl);
+              const arrayBuffer = await response.arrayBuffer();
+              
+              if (!isMounted.current) return;
+              const ctx = initAudioContext();
+              
+              try {
+                  const decodedBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+                  if(isMounted.current) {
+                      audioBufferRef.current = decodedBuffer;
+                      setDuration(decodedBuffer.duration);
+                      
+                      // LOGIKA AUTO PLAY: Hanya jalan jika prop autoPlay true dan belum pernah diputar otomatis
+                      if (autoPlay && !hasAutoPlayed.current) {
+                          hasAutoPlayed.current = true;
+                          // Delay kecil agar UI sempat render bubble-nya dulu
+                          setTimeout(() => {
+                              if (isMounted.current) playAudio();
+                          }, 100);
+                      }
+                  }
+              } catch (decodeErr) {
+                  const rawBuffer = decodeRawPCM(arrayBuffer, ctx);
+                  if(isMounted.current) {
+                      audioBufferRef.current = rawBuffer;
+                      setDuration(rawBuffer.duration);
+                      if (autoPlay && !hasAutoPlayed.current) {
+                          hasAutoPlayed.current = true;
+                          setTimeout(() => { if (isMounted.current) playAudio(); }, 100);
+                      }
+                  }
+              }
+          } catch (e) {
+              if(isMounted.current) setError(true);
+          } finally {
+              if(isMounted.current) setLoading(false);
+          }
+      };
+      loadAudio();
+  
+      return () => {
+          isMounted.current = false;
+          stopAudioInternal(false);
+          if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+              audioCtxRef.current.close().catch(() => {});
+              audioCtxRef.current = null;
+          }
+      };
+    }, [audioUrl, initAudioContext]);
+  
+    const applyEffects = useCallback(() => {
+       if (!audioCtxRef.current || !gainNodeRef.current) return;
+       const ctx = audioCtxRef.current;
+       const t = ctx.currentTime;
+  
+       const baseGain = isMuted ? 0 : (voiceConfig.gain || 1.0);
+       gainNodeRef.current.gain.setTargetAtTime(baseGain, t, 0.1);
+  
+       if (sourceRef.current) {
+          sourceRef.current.playbackRate.value = voiceConfig.speed;
+          const detuneVal = (voiceConfig.pitch - 1.0) * 1200; 
+          sourceRef.current.detune.value = detuneVal;
+       }
+  
+       if (lowEQRef.current && midEQRef.current && highEQRef.current) {
+          lowEQRef.current.gain.value = (voiceConfig.eqLow || 0);
+          midEQRef.current.gain.value = (voiceConfig.eqMid || 0);
+          highEQRef.current.gain.value = (voiceConfig.eqHigh || 0);
+       }
+  
+       if (reverbGainRef.current) {
+           reverbGainRef.current.gain.value = (voiceConfig.reverb || 0) / 100;
+       }
+  
+    }, [voiceConfig, isMuted]);
+  
+    useEffect(() => {
+        if (isPlaying) {
+            applyEffects();
+        }
+    }, [voiceConfig, isPlaying, applyEffects]);
+  
+  
+    const playAudio = async () => {
+      const ctx = initAudioContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+      if (!audioBufferRef.current) return;
+  
+      const source = ctx.createBufferSource();
+      source.buffer = audioBufferRef.current;
+      
+      const lowEQ = ctx.createBiquadFilter();
+      lowEQ.type = 'lowshelf';
+      lowEQ.frequency.value = 320;
+      
+      const midEQ = ctx.createBiquadFilter();
+      midEQ.type = 'peaking';
+      midEQ.frequency.value = 1000;
+      
+      const highEQ = ctx.createBiquadFilter();
+      highEQ.type = 'highshelf';
+      highEQ.frequency.value = 3200;
+  
+      const reverbNode = ctx.createConvolver();
+      reverbNode.buffer = createReverbImpulse(ctx, 2.0, 4.0);
+      const reverbGain = ctx.createGain();
+      const masterGain = ctx.createGain();
+  
+      source.connect(lowEQ);
+      lowEQ.connect(midEQ);
+      midEQ.connect(highEQ);
+      highEQ.connect(masterGain);
+      highEQ.connect(reverbNode);
+      reverbNode.connect(reverbGain); 
+      reverbGain.connect(masterGain);
+      masterGain.connect(ctx.destination);
+  
+      sourceRef.current = source;
+      lowEQRef.current = lowEQ;
+      midEQRef.current = midEQ;
+      highEQRef.current = highEQ;
+      reverbNodeRef.current = reverbNode;
+      reverbGainRef.current = reverbGain;
+      gainNodeRef.current = masterGain;
+      
+      applyEffects();
+  
+      const offset = pauseTimeRef.current % (duration || 1);
+      source.start(0, offset);
+      startTimeRef.current = ctx.currentTime - offset;
+  
+      source.onended = () => {
+          if (isMounted.current && ctx.currentTime - startTimeRef.current >= (duration / (voiceConfig.speed || 1)) - 0.1) {
+              setIsPlaying(false);
+              pauseTimeRef.current = 0;
+              setProgress(0);
+              setCurrentTime(0);
+          }
+      };
+  
+      setIsPlaying(true);
+      requestAnimationFrame(updateProgress);
+    };
+  
+    const stopAudioInternal = (savePosition: boolean = true) => {
+       if (sourceRef.current) {
+          try { sourceRef.current.stop(); } catch(e) {}
+          try { sourceRef.current.disconnect(); } catch(e) {}
+          sourceRef.current = null;
+       }
+       if (savePosition && audioCtxRef.current) {
+           pauseTimeRef.current = audioCtxRef.current.currentTime - startTimeRef.current;
+       }
+       if(isMounted.current) setIsPlaying(false);
+       cancelAnimationFrame(animationFrameRef.current);
+    };
+
+    const stopAudio = () => stopAudioInternal(true);
+  
+    const updateProgress = () => {
+       if (!audioCtxRef.current || !isPlaying || !duration) return;
+       if (!isMounted.current) return;
+
+       const elapsed = audioCtxRef.current.currentTime - startTimeRef.current;
+       const speed = voiceConfig.speed || 1.0;
+       const realElapsed = elapsed * speed;
+       const current = Math.min(realElapsed, duration || 1);
+       
+       setCurrentTime(current);
+       setProgress((current / (duration || 1)) * 100);
+  
+       if (isPlaying) {
+           animationFrameRef.current = requestAnimationFrame(updateProgress);
+       }
+    };
+  
+    const togglePlay = () => {
+       if (isPlaying) stopAudio();
+       else playAudio();
+    };
+  
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseFloat(e.target.value);
+        const newTime = (val / 100) * duration;
+        if (sourceRef.current) {
+             try { sourceRef.current.stop(); } catch(e) {}
+             sourceRef.current.disconnect();
+             sourceRef.current = null;
+        }
+        pauseTimeRef.current = newTime;
+        setProgress(val);
+        setCurrentTime(newTime);
+        if (isPlaying) playAudio();
+    };
+
+    const skip = (seconds: number) => {
+        let newTime = currentTime + seconds;
+        if (newTime < 0) newTime = 0;
+        if (newTime > duration) newTime = duration;
+        if (sourceRef.current) {
+             try { sourceRef.current.stop(); } catch(e) {}
+             sourceRef.current.disconnect();
+             sourceRef.current = null;
+        }
+        pauseTimeRef.current = newTime;
+        setCurrentTime(newTime);
+        setProgress((newTime / duration) * 100);
+        if (isPlaying) playAudio();
+    };
+
+    const handleReplay = () => {
+        if (sourceRef.current) {
+             try { sourceRef.current.stop(); } catch(e) {}
+             sourceRef.current.disconnect();
+             sourceRef.current = null;
+        }
+        pauseTimeRef.current = 0;
+        setCurrentTime(0);
+        setProgress(0);
+        playAudio();
+    };
+  
+    if (error) return <div className="bg-red-900/20 border border-red-500/30 p-2 rounded-lg text-xs text-red-400 flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Audio Corrupted</div>;
+  
+    const formatTime = (seconds: number) => {
+        if (!seconds || isNaN(seconds)) return "00:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    return (
+      <div className="bg-[#0b0e14]/90 backdrop-blur-md border border-amber-500/20 rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden w-full max-w-md shadow-lg my-2">
+        <div className="flex-1 w-full flex flex-col gap-1">
+            <div className="relative h-6 w-full flex items-center group/seek">
+               <div className="absolute inset-0 flex items-center gap-[2px] opacity-30 pointer-events-none">
+                   {[...Array(40)].map((_, i) => (
+                      <div key={i} className="flex-1 bg-amber-500 rounded-sm transition-all duration-75" 
+                           style={{ height: isPlaying ? `${Math.random() * 80 + 20}%` : '4px', opacity: i / 40 > progress / 100 ? 0.3 : 1 }}>
+                      </div>
+                   ))}
+               </div>
+               <input type="range" min="0" max="100" step="0.1" value={progress || 0} onChange={handleSeek} className="w-full absolute inset-0 opacity-0 cursor-pointer z-20 h-full" />
+               <div className="absolute bottom-0 left-0 h-[2px] bg-amber-500 transition-all" style={{ width: `${progress}%` }}></div>
+               <div className="absolute top-1/2 -translate-y-1/2 w-2 h-4 bg-white rounded-full shadow pointer-events-none transition-all" style={{ left: `calc(${progress}% - 4px)` }}></div>
+            </div>
+            <div className="flex justify-between text-[10px] font-mono text-gray-400 px-1">
+               <span className="flex items-center gap-1">{isPlaying && <Activity className="w-3 h-3 text-amber-500 animate-pulse" />}{formatTime(currentTime)}</span>
+               <span>{formatTime(duration)}</span>
+            </div>
+        </div>
+        <div className="flex items-center justify-between border-t border-white/5 pt-2">
+            <div className="flex items-center gap-3">
+               <button onClick={handleReplay} className="text-gray-400 hover:text-amber-500 transition-colors p-1"><RotateCcw className="w-4 h-4" /></button>
+               <button onClick={() => skip(-5)} className="text-gray-400 hover:text-white transition-colors p-1"><Rewind className="w-4 h-4" /></button>
+               <button onClick={togglePlay} disabled={loading} className={`w-8 h-8 flex items-center justify-center rounded-full shrink-0 transition-all ${isPlaying ? 'bg-amber-500 text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+               </button>
+               <button onClick={() => skip(5)} className="text-gray-400 hover:text-white transition-colors p-1"><FastForward className="w-4 h-4" /></button>
+            </div>
+            <div className="flex items-center gap-3">
+               <button onClick={() => setIsMuted(!isMuted)} className={`transition-colors ${isMuted ? 'text-red-400' : 'text-gray-400 hover:text-amber-400'}`}>{isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}</button>
+               <button onClick={() => {const a = document.createElement('a'); a.href = audioUrl; a.download = 'voice.wav'; a.click();}} className="text-gray-400 hover:text-white"><Download className="w-4 h-4" /></button>
+            </div>
+        </div>
+      </div>
+    );
+});
+
+export default AudioPlayer;
