@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Edit2, Shield, User, MapPin, LogOut, CheckCircle2, ShieldCheck, Mail, Cloud, Info } from 'lucide-react';
+import { Camera, Edit2, Shield, User, MapPin, LogOut, CheckCircle2, ShieldCheck, Mail, Cloud, Info, LogIn } from 'lucide-react';
 import { UserProfile } from '../types';
-import { signOut, syncUserProfile } from '../services/supabaseService';
+import { signOut, syncUserProfile, signInWithGoogle } from '../services/supabaseService';
 
 interface UserInfoProps {
   profile: UserProfile;
@@ -12,6 +12,7 @@ interface UserInfoProps {
 const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempProfile, setTempProfile] = useState(profile);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
   
   const headerInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -37,6 +38,12 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
           };
           reader.readAsDataURL(file);
       }
+  };
+
+  const handleCloudLogin = async () => {
+      setIsLoginLoading(true);
+      await signInWithGoogle();
+      setIsLoginLoading(false);
   };
 
   return (
@@ -108,7 +115,7 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
                     {profile.isAuth && <ShieldCheck className="w-6 h-6 text-amber-500" />}
                   </h1>
               )}
-              <div className="bg-amber-500 text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg">
+              <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg ${profile.isAuth ? 'bg-amber-500 text-black' : 'bg-gray-600 text-gray-300'}`}>
                 {profile.isAuth ? 'Verified Akasha' : 'Guest Traveler'}
               </div>
             </div>
@@ -135,6 +142,30 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
+            {!profile.isAuth && (
+               <div className="genshin-panel p-8 rounded-[2rem] border border-amber-500/30 bg-amber-500/5 animate-in fade-in slide-in-from-top-4">
+                  <div className="flex items-start gap-5">
+                      <div className="p-4 rounded-2xl bg-amber-500/10">
+                          <Cloud className="w-8 h-8 text-amber-500" />
+                      </div>
+                      <div className="flex-1">
+                          <h4 className="text-lg font-bold text-amber-400 uppercase tracking-widest mb-2 font-serif">Cloud Resonance Unlinked</h4>
+                          <p className="text-sm text-gray-400 leading-relaxed italic mb-6">
+                            "Traveler, identitasmu saat ini hanya tersimpan secara lokal. Hubungkan ke Akasha Cloud untuk mengaktifkan sinkronisasi riwayat chat, persona kustom, dan VFS antar perangkat secara otomatis."
+                          </p>
+                          <button 
+                            onClick={handleCloudLogin}
+                            disabled={isLoginLoading}
+                            className="genshin-button px-8 py-3 rounded-xl flex items-center gap-3 text-black font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(211,188,142,0.4)]"
+                          >
+                             {isLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+                             <span>Connect Google Account</span>
+                          </button>
+                      </div>
+                  </div>
+               </div>
+            )}
+
             <div className="genshin-panel p-8 rounded-[2rem] border border-white/10 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-bl-[4rem] pointer-events-none"></div>
               <h3 className="text-lg font-bold genshin-gold mb-6 uppercase tracking-widest flex items-center gap-2">
@@ -218,5 +249,10 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
     </div>
   );
 };
+
+// Simple Loader icon since it was used in code but not imported
+const Loader2 = ({ className }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+);
 
 export default UserInfo;

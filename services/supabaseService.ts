@@ -1,5 +1,4 @@
 
-
 import { createClient, SupabaseClient, RealtimeChannel, User } from '@supabase/supabase-js';
 import { UserProfile, Persona, Message, ForumPost, ForumComment, SystemLog, GlobalStats, DriveItem, Donator, SupabaseConfig } from '../types';
 import { encryptData, decryptData, SecureStorage } from './securityService';
@@ -72,18 +71,15 @@ export const getSessionId = () => currentUserId;
 
 /**
  * Mendapatkan konfigurasi Supabase dengan proteksi kredensial.
- * Prioritas: ENV > Local Override > System Defaults
  */
 export const getSupabaseConfig = (): SupabaseConfig | null => {
     const creds = getSystemCredentials();
     const local = SecureStorage.getItem('supabase_config');
     
-    // Check if system credentials (which now check process.env) are valid
     if (creds.url && creds.url.startsWith('http') && !creds.url.includes('your-project')) {
         return { url: creds.url, key: creds.key, enabled: true };
     }
     
-    // Fallback to manual local storage override if any
     if (local && local.url && local.url.startsWith('http')) {
         return local;
     }
@@ -168,10 +164,20 @@ export const listenToAuthChanges = (callback: (user: User | null) => void) => {
 };
 
 export const signInWithGoogle = async () => {
+    if (!supabaseInstance) {
+        initSupabase();
+    }
     if (!supabaseInstance) return { error: { message: "Akasha Cloud not configured." } };
+    
     return await supabaseInstance.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin }
+        options: { 
+            redirectTo: window.location.origin,
+            queryParams: {
+                access_type: 'offline',
+                prompt: 'select_account',
+            }
+        }
     });
 };
 
@@ -179,6 +185,8 @@ export const signOut = async () => {
     if (!supabaseInstance) return;
     await supabaseInstance.auth.signOut();
     currentUserId = 'guest';
+    localStorage.removeItem('has_seen_auth_v2');
+    window.location.reload();
 };
 
 export const mapUserToProfile = (user: User): UserProfile => {
@@ -353,7 +361,6 @@ export const fetchDriveItems = async (parentId: string | null): Promise<DriveIte
         const { data } = await supabaseInstance.from('drive_items').select('*').eq('parent_id', parentId).eq('user_id', currentUserId);
         if (data) return data;
     }
-    const local = await idbGet(STORE_DRIVE, parentId || 'root'); // Basic local check
     return []; 
 };
 
