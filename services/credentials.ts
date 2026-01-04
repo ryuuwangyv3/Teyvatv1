@@ -30,14 +30,15 @@ const S3_B = obf("voma v-itinf|o");
 
 /**
  * Returns the credentials safely at runtime after de-obfuscation.
+ * Priority: process.env (ENV) > obf (Encrypted Defaults)
  */
 export const getSystemCredentials = () => {
     return { 
-        url: obf(_S_U), 
-        key: obf(_S_K), 
-        openai: obf(_O_K), 
+        url: (process as any).env?.SUPABASE_URL || obf(_S_U), 
+        key: (process as any).env?.SUPABASE_KEY || (process as any).env?.SUPABASE_ANON_KEY || obf(_S_K), 
+        openai: (process as any).env?.OPENAI_API_KEY || obf(_O_K), 
         huggingface: obf(_H_T),
-        openrouter: obf(_OR_K),
+        openrouter: (process as any).env?.OPENROUTER_API_KEY || obf(_OR_K),
         pollinations: obf(_P_K),
         s3: {
             endpoint: obf(S3_E),

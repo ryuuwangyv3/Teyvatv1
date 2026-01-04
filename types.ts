@@ -1,4 +1,5 @@
 
+
 export enum MenuType {
   LIVE_CALL = 'live_call',
   TERMINAL = 'terminal',
@@ -64,6 +65,7 @@ export interface Message {
 }
 
 export interface UserProfile {
+  id?: string;
   username: string;
   bio: string;
   avatar: string;

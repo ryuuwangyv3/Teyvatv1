@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { 
   PhoneCall, Terminal as TerminalIcon, Users, User, Settings as SettingsIcon, 
@@ -18,8 +19,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminConsole from './components/AdminConsole'; 
 import { 
   initSupabase, fetchUserProfile, syncUserProfile, 
-  syncUserSettings, fetchUserSettings,
-  getCurrentSession, signInWithGoogle, listenToAuthChanges, checkDbConnection, mapUserToProfile
+  syncUserSettings, fetchUserSettings, subscribeToTable,
+  getCurrentSession, signInWithGoogle, listenToAuthChanges, checkDbConnection, mapUserToProfile, getSessionId
 } from './services/supabaseService';
 import { enableRuntimeProtection } from './services/securityService';
 import { getSystemCredentials } from './services/credentials';
@@ -53,7 +54,7 @@ const getHashFromMenu = (menu: MenuType): string => {
 
 const App: React.FC = () => {
   const [activeMenu, setActiveMenu] = useState<MenuType>(() => getMenuFromHash());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window === 'undefined' ? window.innerWidth >= 1024 : false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [globalErrorLog, setGlobalErrorLog] = useState<string | null>(null);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
@@ -67,6 +68,7 @@ const App: React.FC = () => {
 
   // State
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => getSessionId());
   const [customPersonas, setCustomPersonas] = useState<Persona[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([]);
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({ 
@@ -102,7 +104,7 @@ const App: React.FC = () => {
   const initializeSystem = async () => {
       setLoadingStep("Accessing Irminsul VFS...");
       try {
-          // Attempt automatic cloud connection
+          // 1. Attempt automatic cloud connection (Checks process.env and credentials)
           const connected = initSupabase();
           setIsSupabaseConnected(connected);
 
@@ -115,7 +117,13 @@ const App: React.FC = () => {
               } else if (ping >= 0) {
                   const session = await getCurrentSession();
                   if (session?.user) {
-                      const cloudProfile = await fetchUserProfile();
+                      setCurrentUserId(session.user.id);
+                      // Fetch cloud data as primary source
+                      const [cloudProfile, cloudSettings] = await Promise.all([
+                          fetchUserProfile(),
+                          fetchUserSettings()
+                      ]);
+
                       if (cloudProfile) setUserProfile(cloudProfile);
                       else {
                           const googleProfile = mapUserToProfile(session.user);
@@ -123,7 +131,6 @@ const App: React.FC = () => {
                           syncUserProfile(googleProfile);
                       }
 
-                      const cloudSettings = await fetchUserSettings();
                       if (cloudSettings) {
                           if (cloudSettings.apiKeys) setApiKeys(cloudSettings.apiKeys);
                           if (cloudSettings.voiceConfig) setVoiceConfig(cloudSettings.voiceConfig);
@@ -136,8 +143,8 @@ const App: React.FC = () => {
               }
           }
 
-          // Local recovery if cloud fails or for guest
-          if (!isSupabaseConnected) {
+          // 2. Local recovery/sync for guest or failed cloud
+          if (!isSupabaseConnected || !currentUserId) {
              const vfsProfile = await fetchUserProfile();
              if (vfsProfile) setUserProfile(vfsProfile);
           }
@@ -150,15 +157,17 @@ const App: React.FC = () => {
           }
 
       } catch (err) {
-          console.error("VFS Init failed", err);
+          console.error("Akasha VFS Init failed:", err);
       } finally {
           setIsDataLoaded(true);
       }
   };
 
+  // Real-time Auth & Profile Listener
   useEffect(() => {
       const { subscription } = listenToAuthChanges(async (user) => {
           if (user) {
+              setCurrentUserId(user.id);
               const cloudProfile = await fetchUserProfile();
               if (cloudProfile) {
                   setUserProfile(cloudProfile);
@@ -169,13 +178,44 @@ const App: React.FC = () => {
               }
               setShowAuthModal(false);
           } else {
+              setCurrentUserId(null);
               setUserProfile(prev => ({ ...prev, isAuth: false, email: undefined }));
           }
       });
       return () => { subscription?.unsubscribe(); };
   }, []);
 
-  // Sync settings real-time
+  // REAL-TIME CLOUD SYNC LISTENERS
+  useEffect(() => {
+      if (!isSupabaseConnected || !userProfile.isAuth) return;
+
+      const profileChannel = subscribeToTable('user_profiles', (payload) => {
+          if (payload.eventType === 'UPDATE' && payload.new.user_id === currentUserId) {
+              const p = payload.new;
+              setUserProfile(prev => ({
+                  ...prev,
+                  username: p.username, bio: p.bio, avatar: p.avatar,
+                  headerBackground: p.header_background, email: p.email
+              }));
+          }
+      });
+
+      const settingsChannel = subscribeToTable('user_settings', (payload) => {
+          if (payload.eventType === 'UPDATE' && payload.new.user_id === currentUserId) {
+              const s = payload.new.data;
+              if (s.voiceConfig) setVoiceConfig(s.voiceConfig);
+              if (s.currentLanguage) setCurrentLanguage(s.currentLanguage);
+              if (s.selectedModel) setSelectedModel(s.selectedModel);
+          }
+      });
+
+      return () => {
+          profileChannel?.unsubscribe();
+          settingsChannel?.unsubscribe();
+      };
+  }, [isSupabaseConnected, userProfile.isAuth, currentUserId]);
+
+  // Sync settings real-time (Local -> Cloud)
   useEffect(() => {
     if (!isDataLoaded) return;
     syncUserSettings({ voiceConfig, apiKeys, currentLanguage, selectedModel });

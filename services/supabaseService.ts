@@ -1,4 +1,5 @@
 
+
 import { createClient, SupabaseClient, RealtimeChannel, User } from '@supabase/supabase-js';
 import { UserProfile, Persona, Message, ForumPost, ForumComment, SystemLog, GlobalStats, DriveItem, Donator, SupabaseConfig } from '../types';
 import { encryptData, decryptData, SecureStorage } from './securityService';
@@ -66,19 +67,25 @@ const idbDelete = async (storeName: string, id: string): Promise<void> => {
 let supabaseInstance: SupabaseClient | null = null;
 let currentUserId = 'guest';
 
+// Helper to get current module-level userId
+export const getSessionId = () => currentUserId;
+
 /**
  * Mendapatkan konfigurasi Supabase dengan proteksi kredensial.
+ * Prioritas: ENV > Local Override > System Defaults
  */
 export const getSupabaseConfig = (): SupabaseConfig | null => {
     const creds = getSystemCredentials();
     const local = SecureStorage.getItem('supabase_config');
     
-    if (local && local.url && local.url.startsWith('http') && !local.url.includes('your-project')) {
-        return local;
-    }
-    
+    // Check if system credentials (which now check process.env) are valid
     if (creds.url && creds.url.startsWith('http') && !creds.url.includes('your-project')) {
         return { url: creds.url, key: creds.key, enabled: true };
+    }
+    
+    // Fallback to manual local storage override if any
+    if (local && local.url && local.url.startsWith('http')) {
+        return local;
     }
     
     return null;
@@ -111,6 +118,7 @@ export const initSupabase = (): boolean => {
         
         return true;
     } catch (e) {
+        console.error("Supabase connection fault:", e);
         supabaseInstance = null;
         return false;
     }
@@ -127,7 +135,7 @@ export const checkDbConnection = async (): Promise<number> => {
     try {
         const { error } = await supabaseInstance.from('user_profiles').select('user_id').limit(1);
         if (error) {
-            if (error.code === '42P01') return -2; // Tabel belum dibuat
+            if (error.code === '42P01' || error.message.includes('not found')) return -2; 
             return -3;
         }
         return Date.now() - start;
@@ -175,6 +183,7 @@ export const signOut = async () => {
 
 export const mapUserToProfile = (user: User): UserProfile => {
     return {
+        id: user.id,
         username: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler',
         email: user.email,
         avatar: user.user_metadata?.avatar_url || INITIAL_USER_PROFILE.avatar,
@@ -184,16 +193,17 @@ export const mapUserToProfile = (user: User): UserProfile => {
     };
 };
 
-// --- REAL-TIME SYNC ---
+// --- REAL-TIME SYNC ENGINE ---
 export const syncUserProfile = async (profile: UserProfile) => {
     await VfsManager.saveItem('profile.json', profile);
     if (supabaseInstance && currentUserId !== 'guest') {
-        await supabaseInstance.from('user_profiles').upsert({
+        const { error } = await supabaseInstance.from('user_profiles').upsert({
             user_id: currentUserId,
             username: profile.username, bio: profile.bio,
             avatar: profile.avatar, header_background: profile.headerBackground,
             email: profile.email
         });
+        if (error) console.error("Profile sync failed:", error);
     }
 };
 
@@ -202,10 +212,13 @@ export const fetchUserProfile = async (): Promise<UserProfile | null> => {
         try {
             const { data } = await supabaseInstance.from('user_profiles').select('*').eq('user_id', currentUserId).single();
             if (data) {
-                return { 
+                const p: UserProfile = { 
+                    id: data.user_id,
                     username: data.username, bio: data.bio, avatar: data.avatar, 
                     headerBackground: data.header_background, email: data.email, isAuth: true 
                 };
+                await VfsManager.saveItem('profile.json', p);
+                return p;
             }
         } catch (e) {}
     }
@@ -222,7 +235,7 @@ export const syncChatHistory = async (personaId: string, messages: Message[]) =>
             persona_id: personaId, 
             messages: encrypted, 
             updated_at: new Date().toISOString() 
-        });
+        }).catch(err => console.error("History sync error:", err));
     }
 };
 
@@ -238,7 +251,6 @@ export const fetchChatHistory = async (personaId: string): Promise<Message[] | n
     return null;
 };
 
-// Fix: Added missing clearChatHistory implementation to purge memories locally and on cloud
 export const clearChatHistory = async (personaId: string) => {
     await VfsManager.deleteItem(`history_${personaId}.json`);
     if (supabaseInstance && currentUserId !== 'guest') {
@@ -253,7 +265,7 @@ export const syncUserSettings = async (settings: any) => {
             user_id: currentUserId,
             data: settings,
             updated_at: new Date().toISOString()
-        });
+        }).catch(err => console.error("Settings sync error:", err));
     }
 };
 
@@ -261,7 +273,10 @@ export const fetchUserSettings = async (): Promise<any | null> => {
     if (supabaseInstance && currentUserId !== 'guest') {
         try {
             const { data } = await supabaseInstance.from('user_settings').select('data').eq('user_id', currentUserId).single();
-            if (data?.data) return data.data;
+            if (data?.data) {
+                await VfsManager.saveItem('settings.json', data.data);
+                return data.data;
+            }
         } catch (e) {}
     }
     return await VfsManager.loadItem('settings.json');
@@ -284,15 +299,19 @@ export const logSystemEvent = async (message: string, type: 'info' | 'warn' | 'e
 
 export const fetchSystemLogs = async (): Promise<SystemLog[]> => {
     if (!supabaseInstance) return [];
-    const { data } = await supabaseInstance.from('system_logs').select('*').order('created_at', { ascending: false }).limit(50);
-    return data || [];
+    try {
+        const { data } = await supabaseInstance.from('system_logs').select('*').order('created_at', { ascending: false }).limit(50);
+        return data || [];
+    } catch (e) { return []; }
 };
 
 export const fetchGlobalStats = async (): Promise<GlobalStats> => {
     if (!supabaseInstance) return { total_users: 0, total_posts: 0, active_personas: 12 };
-    const { count: users } = await supabaseInstance.from('user_profiles').select('*', { count: 'exact', head: true });
-    const { count: posts } = await supabaseInstance.from('forum_posts').select('*', { count: 'exact', head: true });
-    return { total_users: users || 0, total_posts: posts || 0, active_personas: 12 };
+    try {
+        const { count: users } = await supabaseInstance.from('user_profiles').select('*', { count: 'exact', head: true });
+        const { count: posts } = await supabaseInstance.from('forum_posts').select('*', { count: 'exact', head: true });
+        return { total_users: users || 0, total_posts: posts || 0, active_personas: 12 };
+    } catch (e) { return { total_users: 0, total_posts: 0, active_personas: 12 }; }
 };
 
 // --- VFS MANAGER ---
@@ -319,7 +338,6 @@ export const VfsManager = {
         }
         return content ? decryptData(content) : null;
     },
-    // Fix: Added deleteItem to VfsManager to support clearing local cache/history
     deleteItem: async (fileName: string) => {
         const fileId = `sys_file_${fileName}`;
         await idbDelete(STORE_DRIVE, fileId);
@@ -329,13 +347,14 @@ export const VfsManager = {
     }
 };
 
-// ... existing drive methods ...
+// --- DRIVE STORAGE METHODS ---
 export const fetchDriveItems = async (parentId: string | null): Promise<DriveItem[]> => {
     if (supabaseInstance && currentUserId !== 'guest') {
         const { data } = await supabaseInstance.from('drive_items').select('*').eq('parent_id', parentId).eq('user_id', currentUserId);
         if (data) return data;
     }
-    return [];
+    const local = await idbGet(STORE_DRIVE, parentId || 'root'); // Basic local check
+    return []; 
 };
 
 export const fetchDriveItemContent = async (itemId: string): Promise<string | null> => {
@@ -347,6 +366,7 @@ export const fetchDriveItemContent = async (itemId: string): Promise<string | nu
 };
 
 export const saveDriveItem = async (item: DriveItem) => {
+    await idbPut(STORE_DRIVE, item);
     if (supabaseInstance && currentUserId !== 'guest') {
         await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
     }
@@ -380,16 +400,11 @@ export const uploadToSupabaseStorage = async (file: File | Blob, fileName: strin
 };
 
 // --- FORUM & SOCIAL METHODS ---
-// Fix: Added missing forum related exports for posts, comments, and voting
-
 export const fetchForumPosts = async (type: string = 'latest'): Promise<ForumPost[]> => {
     if (!supabaseInstance) return [];
     let query = supabaseInstance.from('forum_posts').select('*');
-    if (type === 'trending') {
-        query = query.order('likes', { ascending: false });
-    } else {
-        query = query.order('created_at', { ascending: false });
-    }
+    if (type === 'trending') query = query.order('likes', { ascending: false });
+    else query = query.order('created_at', { ascending: false });
     const { data } = await query;
     return data || [];
 };
