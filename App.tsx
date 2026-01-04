@@ -18,9 +18,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminConsole from './components/AdminConsole'; 
 import { 
   initSupabase, fetchUserProfile, syncUserProfile, 
-  syncCustomPersonas, deleteCustomPersona,
-  syncUserSettings, VfsManager,
-  getCurrentSession, signInWithGoogle, checkSchemaHealth, listenToAuthChanges, checkDbConnection
+  syncUserSettings, fetchUserSettings,
+  getCurrentSession, signInWithGoogle, listenToAuthChanges, checkDbConnection, mapUserToProfile
 } from './services/supabaseService';
 import { enableRuntimeProtection } from './services/securityService';
 import { getSystemCredentials } from './services/credentials';
@@ -71,25 +70,21 @@ const App: React.FC = () => {
   const [customPersonas, setCustomPersonas] = useState<Persona[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([]);
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({ 
-      speed: 1.0, pitch: 1.0, reverb: 0, gain: 1.0, eqLow: 0, eqMid: 0, eqHigh: 0, noise: 0, voiceId: 'Kore', autoPlay: true
+      speed: 1.0, pitch: 1.0, reverb: 0, gain: 1.0, voiceId: 'Kore', autoPlay: true
   });
   const [currentLanguage, setCurrentLanguage] = useState<Language>(LANGUAGES[0]);
   const [selectedModel, setSelectedModel] = useState<string>(AI_MODELS[0].id);
   const [currentPersona, setCurrentPersona] = useState<Persona>(DEFAULT_PERSONAS[0]);
 
   useEffect(() => {
-    const handleHashChange = () => {
-      setActiveMenu(getMenuFromHash());
-    };
+    const handleHashChange = () => setActiveMenu(getMenuFromHash());
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   useEffect(() => {
     const targetHash = getHashFromMenu(activeMenu);
-    if (window.location.hash !== targetHash) {
-      window.location.hash = targetHash;
-    }
+    if (window.location.hash !== targetHash) window.location.hash = targetHash;
   }, [activeMenu]);
 
   useEffect(() => {
@@ -103,25 +98,76 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-      const formattedTitle = activeMenu.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-      document.title = `${formattedTitle} | Akasha System`;
-  }, [activeMenu]);
+  // AUTO CONNECTION ENGINE
+  const initializeSystem = async () => {
+      setLoadingStep("Accessing Irminsul VFS...");
+      try {
+          // Attempt automatic cloud connection
+          const connected = initSupabase();
+          setIsSupabaseConnected(connected);
+
+          if (connected) {
+              setLoadingStep("Syncing Celestial Identity...");
+              const ping = await checkDbConnection();
+              
+              if (ping === -2) {
+                  setShowDbSetupModal(true);
+              } else if (ping >= 0) {
+                  const session = await getCurrentSession();
+                  if (session?.user) {
+                      const cloudProfile = await fetchUserProfile();
+                      if (cloudProfile) setUserProfile(cloudProfile);
+                      else {
+                          const googleProfile = mapUserToProfile(session.user);
+                          setUserProfile(googleProfile);
+                          syncUserProfile(googleProfile);
+                      }
+
+                      const cloudSettings = await fetchUserSettings();
+                      if (cloudSettings) {
+                          if (cloudSettings.apiKeys) setApiKeys(cloudSettings.apiKeys);
+                          if (cloudSettings.voiceConfig) setVoiceConfig(cloudSettings.voiceConfig);
+                          if (cloudSettings.currentLanguage) setCurrentLanguage(cloudSettings.currentLanguage);
+                          if (cloudSettings.selectedModel) setSelectedModel(cloudSettings.selectedModel);
+                      }
+                  } else if (!localStorage.getItem('has_seen_auth_v2')) {
+                      setShowAuthModal(true);
+                  }
+              }
+          }
+
+          // Local recovery if cloud fails or for guest
+          if (!isSupabaseConnected) {
+             const vfsProfile = await fetchUserProfile();
+             if (vfsProfile) setUserProfile(vfsProfile);
+          }
+
+          const savedPersonaId = localStorage.getItem('active_persona_id'); 
+          if (savedPersonaId) {
+              const all = [...DEFAULT_PERSONAS];
+              const found = all.find(p => p.id === savedPersonaId);
+              if (found) setCurrentPersona(found);
+          }
+
+      } catch (err) {
+          console.error("VFS Init failed", err);
+      } finally {
+          setIsDataLoaded(true);
+      }
+  };
 
   useEffect(() => {
-      const { subscription } = listenToAuthChanges((user) => {
+      const { subscription } = listenToAuthChanges(async (user) => {
           if (user) {
-              const newProfile: UserProfile = {
-                  username: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler',
-                  email: user.email,
-                  avatar: user.user_metadata?.avatar_url || INITIAL_USER_PROFILE.avatar,
-                  bio: "Connected via Akasha Celestial Network.",
-                  headerBackground: INITIAL_USER_PROFILE.headerBackground,
-                  isAuth: true
-              };
-              setUserProfile(prev => ({ ...prev, ...newProfile }));
+              const cloudProfile = await fetchUserProfile();
+              if (cloudProfile) {
+                  setUserProfile(cloudProfile);
+              } else {
+                  const googleProfile = mapUserToProfile(user);
+                  setUserProfile(googleProfile);
+                  syncUserProfile(googleProfile);
+              }
               setShowAuthModal(false);
-              syncUserProfile(newProfile);
           } else {
               setUserProfile(prev => ({ ...prev, isAuth: false, email: undefined }));
           }
@@ -129,70 +175,12 @@ const App: React.FC = () => {
       return () => { subscription?.unsubscribe(); };
   }, []);
 
-  const initializeSystem = async () => {
-      setLoadingStep("Accessing Irminsul VFS...");
-      try {
-          const vfsProfile = await fetchUserProfile();
-          const vfsPersonas = await VfsManager.loadItem('custom_personas.json');
-          const vfsSettings = await VfsManager.loadItem('settings.json');
-          const savedPersonaId = localStorage.getItem('active_persona_id'); 
-          const savedModelId = localStorage.getItem('terminal_local_model_override');
-
-          if (vfsProfile) setUserProfile(vfsProfile);
-          if (vfsPersonas) setCustomPersonas(vfsPersonas);
-          
-          let loadedKeys: ApiKeyData[] = [];
-          if (vfsSettings) {
-              if (vfsSettings.apiKeys) loadedKeys = vfsSettings.apiKeys;
-              if (vfsSettings.voiceConfig) setVoiceConfig({ ...voiceConfig, ...vfsSettings.voiceConfig });
-              if (vfsSettings.currentLanguage) setCurrentLanguage(vfsSettings.currentLanguage);
-              if (vfsSettings.selectedModel) setSelectedModel(vfsSettings.selectedModel);
-          }
-
-          if (savedModelId) setSelectedModel(savedModelId);
-
-          const sysCreds = getSystemCredentials();
-          if (sysCreds.openai && !loadedKeys.some(k => k.key === sysCreds.openai)) {
-              loadedKeys.push({ key: sysCreds.openai, provider: 'openai', isValid: true, lastChecked: Date.now(), label: 'System Key' });
-          }
-          setApiKeys(loadedKeys);
-          setServiceKeys(loadedKeys); // Sync service keys pool
-
-          if (savedPersonaId) {
-              const all = [...(vfsPersonas || []), ...DEFAULT_PERSONAS];
-              const found = all.find(p => p.id === savedPersonaId);
-              if (found) setCurrentPersona(found);
-          }
-
-          setLoadingStep("Syncing Celestial Identity...");
-          const connected = initSupabase();
-          setIsSupabaseConnected(connected);
-          
-          if (connected) {
-              const ping = await checkDbConnection();
-              if (ping === -2) {
-                  setShowDbSetupModal(true);
-              } else if (ping >= 0) {
-                  const session = await getCurrentSession();
-                  if (!session?.user && !localStorage.getItem('has_seen_auth_v2')) {
-                      setShowAuthModal(true);
-                  }
-              }
-          }
-      } catch (err) {
-          console.error("VFS Init failed, continuing with defaults.", err);
-      } finally {
-          setIsDataLoaded(true);
-      }
-  };
-
+  // Sync settings real-time
   useEffect(() => {
     if (!isDataLoaded) return;
-    syncUserProfile(userProfile);
-    syncCustomPersonas(customPersonas);
     syncUserSettings({ voiceConfig, apiKeys, currentLanguage, selectedModel });
-    setServiceKeys(apiKeys); // Ensure service keys are updated whenever apiKeys changes
-  }, [userProfile, customPersonas, voiceConfig, apiKeys, currentLanguage, selectedModel, isDataLoaded]);
+    setServiceKeys(apiKeys);
+  }, [voiceConfig, apiKeys, currentLanguage, selectedModel, isDataLoaded]);
 
   const handlePersonaChange = (persona: Persona) => {
     setCurrentPersona(persona);
@@ -201,21 +189,16 @@ const App: React.FC = () => {
     if (window.innerWidth < 1024) setIsSidebarOpen(false); 
   };
 
-  const handleCustomAdd = (persona: Persona) => {
-    setCustomPersonas(prev => [...prev.filter(p => p.id !== persona.id), persona]);
-    handlePersonaChange(persona);
-  };
-
   const activeContent = useMemo(() => {
       if (!isDataLoaded) return null;
       switch (activeMenu) {
           case MenuType.DASHBOARD: return <Dashboard />;
           case MenuType.STORAGE: return <Drive />;
           case MenuType.TERMINAL: return <Terminal key={currentPersona.id} currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
-          case MenuType.PERSONAS: return <PersonaSelector onSelect={handlePersonaChange} activePersonaId={currentPersona.id} onCustomAdd={handleCustomAdd} onDeleteCustom={deleteCustomPersona} customPersonas={customPersonas} />;
+          case MenuType.PERSONAS: return <PersonaSelector onSelect={handlePersonaChange} activePersonaId={currentPersona.id} onCustomAdd={(p) => setCustomPersonas(v => [...v, p])} onDeleteCustom={() => {}} customPersonas={customPersonas} />;
           case MenuType.VISION_GEN: return <VisionGen onError={setGlobalErrorLog} />;
           case MenuType.VIDEO_GEN: return <VideoGen />;
-          case MenuType.VOICE_SETTINGS: return <Settings voiceConfig={voiceConfig} setVoiceConfig={setVoiceConfig} apiKeys={apiKeys} setApiKeys={setApiKeys} onSwitchToAdmin={() => setActiveMenu(MenuType.ADMIN_CONSOLE)} />;
+          case MenuType.VOICE_SETTINGS: return <Settings voiceConfig={voiceConfig} setVoiceConfig={setVoiceConfig} apiKeys={apiKeys} setApiKeys={setApiKeys} />;
           case MenuType.USER_INFO: return <UserInfo profile={userProfile} setProfile={setUserProfile} />;
           case MenuType.LANGUAGE: return <LanguageSettings currentLanguage={currentLanguage} setLanguage={setCurrentLanguage} />;
           case MenuType.FORUM: return <Forum />;
@@ -327,7 +310,7 @@ const App: React.FC = () => {
                                 <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] p-2 border-b border-white/5 mb-2">Select Wisdom Core</div>
                                 <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
                                     {AI_MODELS.map(model => (
-                                        <button key={model.id} onClick={() => { setSelectedModel(model.id); localStorage.setItem('terminal_local_model_override', model.id); setShowModelSelector(false); }} className={`w-full text-left px-4 py-3 rounded-xl text-xs flex items-center justify-between transition-all ${selectedModel === model.id ? 'bg-[#d3bc8e]/20 text-[#d3bc8e] font-black' : 'hover:bg-white/5 text-gray-400'}`}>
+                                        <button key={model.id} onClick={() => { setSelectedModel(model.id); setShowModelSelector(false); }} className={`w-full text-left px-4 py-3 rounded-xl text-xs flex items-center justify-between transition-all ${selectedModel === model.id ? 'bg-[#d3bc8e]/20 text-[#d3bc8e] font-black' : 'hover:bg-white/5 text-gray-400'}`}>
                                             <div className="flex flex-col">
                                                 <span>{model.label}</span>
                                                 <span className="text-[8px] opacity-60 font-mono">{model.provider.toUpperCase()}</span>

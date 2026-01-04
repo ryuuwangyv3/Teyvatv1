@@ -118,13 +118,33 @@ DROP POLICY IF EXISTS "Private Drive Access" ON public.drive_items;
 CREATE POLICY "Private Drive Access" ON public.drive_items 
 FOR ALL USING (auth.uid()::text = user_id) WITH CHECK (auth.uid()::text = user_id);
 
--- 8. REALTIME CONFIGURATION
+-- 8. FORUM COMMENTS
+CREATE TABLE IF NOT EXISTS public.forum_comments (
+    id UUID DEFAULT GEN_RANDOM_UUID() PRIMARY KEY,
+    post_id UUID REFERENCES public.forum_posts(id) ON DELETE CASCADE,
+    author TEXT,
+    avatar TEXT,
+    content TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.forum_comments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Read Comments" ON public.forum_comments;
+CREATE POLICY "Public Read Comments" ON public.forum_comments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Auth Post Comments" ON public.forum_comments;
+CREATE POLICY "Auth Post Comments" ON public.forum_comments FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Universal Update Comments" ON public.forum_comments;
+CREATE POLICY "Universal Update Comments" ON public.forum_comments FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Universal Delete Comments" ON public.forum_comments;
+CREATE POLICY "Universal Delete Comments" ON public.forum_comments FOR DELETE USING (true);
+
+-- 9. REALTIME CONFIGURATION
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
   CREATE PUBLICATION supabase_realtime FOR TABLE 
     public.forum_posts, 
     public.system_logs, 
-    public.drive_items;
+    public.drive_items,
+    public.forum_comments;
 COMMIT;
 `;
 
