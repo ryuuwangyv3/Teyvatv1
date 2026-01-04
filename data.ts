@@ -7,11 +7,6 @@ import { Persona } from './types';
 export const AI_MODELS = [
     { id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", provider: "google", desc: "Latest speed-optimized model" },
     { id: "gemini-3-pro-preview", label: "Gemini 3.0 Pro", provider: "google", desc: "Complex reasoning & coding" },
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google", desc: "speed-optimized model" },
-    { id: "gemini-2.5-flash-exp", label: "Gemini 2.5 Flash EXP", provider: "google", desc: "speed-optimized model" },
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google", desc: "speed-optimized model" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", provider: "google", desc: "Complex reasoning & coding" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 pro", provider: "google", desc: "speed-optimized model" },
     { id: "gpt-4o", label: "GPT-4o (Direct)", provider: "openai", desc: "Most advanced multimodal model" },
     { id: "gpt-4o-mini", label: "GPT-4o Mini", provider: "openai", desc: "Cost-efficient & fast" },
     
@@ -512,7 +507,7 @@ export const PERSONAS: Persona[] = [
     {
         id: "paimon",
         name: "Paimon",
-        avatar: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTY4lOfOKRtagE1pagOBs78bldP3PElXjxhbQ&s",
+        avatar: "https://act.hoyolab.com/app/community-game-records-sea/images/paimon.409392e4.png",
         description: "The best travel companion! Loves food, treasures, and YOU.",
         systemInstruction: `
 [CORE PROTOCOL]
