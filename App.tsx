@@ -1,12 +1,11 @@
 
-
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { 
   PhoneCall, Terminal as TerminalIcon, Users, User, Settings as SettingsIcon, 
   Image as ImageIcon, Video, Globe, LayoutDashboard, Info, MessageSquare, 
   Menu, X, History, ShieldCheck, HardDrive, Loader2, Cloud, Lock, Sparkles, Database, LogOut, CheckCircle2, ChevronDown, Box, CloudLightning
 } from 'lucide-react';
-import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData } from './types';
+import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData, GitHubConfig } from './types';
 import { DEFAULT_PERSONAS, INITIAL_USER_PROFILE } from './constants';
 import { LANGUAGES, AI_MODELS } from './data';
 import LazyImage from './components/LazyImage';
@@ -25,6 +24,7 @@ import {
 import { enableRuntimeProtection } from './services/securityService';
 import { getSystemCredentials } from './services/credentials';
 import { setServiceKeys } from './services/geminiService';
+import { syncGithubRepo } from './services/githubService';
 
 // --- EAGER IMPORTS ---
 import Terminal from './components/Terminal';
@@ -54,7 +54,8 @@ const getHashFromMenu = (menu: MenuType): string => {
 
 const App: React.FC = () => {
   const [activeMenu, setActiveMenu] = useState<MenuType>(() => getMenuFromHash());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window === 'undefined' ? window.innerWidth >= 1024 : false);
+  // Fix: Corrected window check logic to prevent accessing window.innerWidth when window is undefined during SSR/initialization.
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [globalErrorLog, setGlobalErrorLog] = useState<string | null>(null);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
@@ -124,8 +125,15 @@ const App: React.FC = () => {
                           fetchUserSettings()
                       ]);
 
-                      if (cloudProfile) setUserProfile(cloudProfile);
-                      else {
+                      if (cloudProfile) {
+                          setUserProfile(cloudProfile);
+                          
+                          // TRIGGER GITHUB SYNC IF CONFIGURED
+                          if (cloudProfile.githubConfig?.autoSync) {
+                              setLoadingStep("Resonating with GitHub...");
+                              syncGithubRepo(cloudProfile.githubConfig);
+                          }
+                      } else {
                           const googleProfile = mapUserToProfile(session.user);
                           setUserProfile(googleProfile);
                           syncUserProfile(googleProfile);
@@ -195,7 +203,8 @@ const App: React.FC = () => {
               setUserProfile(prev => ({
                   ...prev,
                   username: p.username, bio: p.bio, avatar: p.avatar,
-                  headerBackground: p.header_background, email: p.email
+                  headerBackground: p.header_background, email: p.email,
+                  githubConfig: p.github_config // Assuming you added this to table or use metadata
               }));
           }
       });

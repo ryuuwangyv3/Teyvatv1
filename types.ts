@@ -1,5 +1,4 @@
 
-
 export enum MenuType {
   LIVE_CALL = 'live_call',
   TERMINAL = 'terminal',
@@ -64,6 +63,14 @@ export interface Message {
   };
 }
 
+export interface GitHubConfig {
+  owner: string;
+  repo: string;
+  branch: string;
+  token?: string;
+  autoSync: boolean;
+}
+
 export interface UserProfile {
   id?: string;
   username: string;
@@ -72,6 +79,7 @@ export interface UserProfile {
   headerBackground: string;
   email?: string;
   isAuth?: boolean;
+  githubConfig?: GitHubConfig;
 }
 
 export interface VoiceConfig {
@@ -101,6 +109,7 @@ export interface DriveItem {
     created_at: number;
     updated_at: number;
     starred?: boolean;
+    github_sha?: string; // Track versioning for auto-sync
 }
 
 export interface VirtualFile {

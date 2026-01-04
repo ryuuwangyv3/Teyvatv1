@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, Activity, RefreshCw, Server, CheckCircle, XCircle, Cloud, HardDrive, Wifi, WifiOff } from 'lucide-react';
-import { ApiKeyData, UserProfile } from '../types';
+import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, Activity, RefreshCw, Server, CheckCircle, XCircle, Cloud, HardDrive, Wifi, WifiOff, Github, Globe, Zap, Settings, ArrowRight } from 'lucide-react';
+import { ApiKeyData, UserProfile, GitHubConfig } from '../types';
 import { validateApiKey } from '../services/geminiService';
-import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig, initSupabase } from '../services/supabaseService';
+import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig, initSupabase, syncUserProfile } from '../services/supabaseService';
 import { SecureStorage } from '../services/securityService';
+import { syncGithubRepo } from '../services/githubService';
 
 interface AdminConsoleProps {
     apiKeys: ApiKeyData[];
@@ -23,6 +24,14 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
     const [dbKey, setDbKey] = useState('');
     const [dbStatus, setDbStatus] = useState<'unknown' | 'connected' | 'error' | 'checking' | 'tables_missing'>('unknown');
     const [latency, setLatency] = useState<number | null>(null);
+
+    // GitHub Config States
+    const [ghOwner, setGhOwner] = useState(userProfile.githubConfig?.owner || '');
+    const [ghRepo, setGhRepo] = useState(userProfile.githubConfig?.repo || '');
+    const [ghBranch, setGhBranch] = useState(userProfile.githubConfig?.branch || 'main');
+    const [ghToken, setGhToken] = useState(userProfile.githubConfig?.token || '');
+    const [ghAutoSync, setGhAutoSync] = useState(userProfile.githubConfig?.autoSync || false);
+    const [isGhSyncing, setIsGhSyncing] = useState(false);
 
     useEffect(() => {
         const config = getSupabaseConfig();
@@ -59,6 +68,38 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
             alert("Koordinat Akasha Cloud diperbarui.");
         } else {
             alert("Gagal menghubungkan terminal ke koordinat baru.");
+        }
+    };
+
+    const handleSaveGithub = async () => {
+        const newConfig: GitHubConfig = {
+            owner: ghOwner,
+            repo: ghRepo,
+            branch: ghBranch,
+            token: ghToken,
+            autoSync: ghAutoSync
+        };
+        
+        const updatedProfile = { ...userProfile, githubConfig: newConfig };
+        await syncUserProfile(updatedProfile);
+        alert("GitHub Bridge Configuration Saved.");
+    };
+
+    const handleManualGhSync = async () => {
+        setIsGhSyncing(true);
+        const config: GitHubConfig = {
+            owner: ghOwner,
+            repo: ghRepo,
+            branch: ghBranch,
+            token: ghToken,
+            autoSync: ghAutoSync
+        };
+        const result = await syncGithubRepo(config);
+        setIsGhSyncing(false);
+        if (result.success) {
+            alert(`Resonance Successful. Synced ${result.synced} elements. Errors: ${result.errors}`);
+        } else {
+            alert("Resonance Failed. Check your repository coordinates.");
         }
     };
 
@@ -123,7 +164,7 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                             <ShieldAlert className="w-10 h-10 animate-pulse" />
                             Akasha Root Terminal
                         </h2>
-                        <p className="text-gray-500 text-xs mt-2 uppercase tracking-[0.3em]">Restricted Access • Core Configuration V8.2</p>
+                        <p className="text-gray-500 text-xs mt-2 uppercase tracking-[0.3em]">Restricted Access • Core Configuration V8.5</p>
                     </div>
                     <div className="flex items-center gap-4 bg-black/40 px-6 py-3 rounded-2xl border border-white/5">
                         <div className="flex flex-col items-end">
@@ -189,6 +230,52 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                                 <button onClick={checkDb} disabled={dbStatus === 'checking'} className="flex-1 py-3 bg-white/5 border border-white/5 rounded-xl text-[10px] text-gray-400 font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3">
                                     <RefreshCw className={`w-3.5 h-3.5 ${dbStatus === 'checking' ? 'animate-spin' : ''}`} /> 
                                     {dbStatus === 'checking' ? 'Scanning Ley Lines...' : 'Diagnostic Scan'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* GitHub Bridge Config */}
+                    <div className="genshin-panel p-8 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gray-500/5 rounded-bl-[4rem] group-hover:bg-gray-500/10 transition-colors"></div>
+                        
+                        <div className="flex justify-between items-center mb-8 relative z-10">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                                <Github className="w-6 h-6 text-gray-400" />
+                                Celestial Bridge
+                            </h3>
+                            <button onClick={() => setGhAutoSync(!ghAutoSync)} className={`px-3 py-1 rounded-full border text-[9px] font-black uppercase transition-all ${ghAutoSync ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-white/5 border-white/10 text-gray-500'}`}>
+                                Auto-Sync: {ghAutoSync ? 'ON' : 'OFF'}
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 relative z-10">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Owner / User</label>
+                                    <input type="text" value={ghOwner} onChange={(e) => setGhOwner(e.target.value)} placeholder="e.g. AkashaDev" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Repository Name</label>
+                                    <input type="text" value={ghRepo} onChange={(e) => setGhRepo(e.target.value)} placeholder="e.g. teyvat-assets" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all" />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Personal Access Token (Optional)</label>
+                                <input type="password" value={ghToken} onChange={(e) => setGhToken(e.target.value)} placeholder="ghp_..." className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all font-mono" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Target Branch</label>
+                                <input type="text" value={ghBranch} onChange={(e) => setGhBranch(e.target.value)} placeholder="main" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all" />
+                            </div>
+
+                            <div className="pt-2 flex gap-2">
+                                <button onClick={handleSaveGithub} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all">
+                                    Save Coordinates
+                                </button>
+                                <button onClick={handleManualGhSync} disabled={isGhSyncing || !ghOwner || !ghRepo} className="flex-[2] bg-amber-500 hover:bg-white text-black py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all">
+                                    {isGhSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                    Resonate Now
                                 </button>
                             </div>
                         </div>
