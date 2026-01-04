@@ -24,7 +24,7 @@ import {
 import { enableRuntimeProtection } from './services/securityService';
 import { getSystemCredentials } from './services/credentials';
 import { setServiceKeys } from './services/geminiService';
-import { syncGithubRepo } from './services/githubService';
+import { syncGithubRepo, DEFAULT_GITHUB_CONFIG } from './services/githubService';
 
 // --- EAGER IMPORTS ---
 import Terminal from './components/Terminal';
@@ -54,7 +54,6 @@ const getHashFromMenu = (menu: MenuType): string => {
 
 const App: React.FC = () => {
   const [activeMenu, setActiveMenu] = useState<MenuType>(() => getMenuFromHash());
-  // Fix: Corrected window check logic to prevent accessing window.innerWidth when window is undefined during SSR/initialization.
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [globalErrorLog, setGlobalErrorLog] = useState<string | null>(null);
@@ -98,8 +97,20 @@ const App: React.FC = () => {
        else setIsSidebarOpen(true);
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    
+    // Periodic GitHub Sync (every 10 minutes)
+    const syncInterval = setInterval(() => {
+        const ghConfig = userProfile.githubConfig || DEFAULT_GITHUB_CONFIG;
+        if (ghConfig.autoSync) {
+            syncGithubRepo(ghConfig);
+        }
+    }, 600000);
+
+    return () => {
+        window.removeEventListener('resize', handleResize);
+        clearInterval(syncInterval);
+    };
+  }, [userProfile.githubConfig]);
 
   // AUTO CONNECTION ENGINE
   const initializeSystem = async () => {
@@ -128,15 +139,18 @@ const App: React.FC = () => {
                       if (cloudProfile) {
                           setUserProfile(cloudProfile);
                           
-                          // TRIGGER GITHUB SYNC IF CONFIGURED
-                          if (cloudProfile.githubConfig?.autoSync) {
-                              setLoadingStep("Resonating with GitHub...");
-                              syncGithubRepo(cloudProfile.githubConfig);
+                          // TRIGGER GITHUB SYNC
+                          const ghConfig = cloudProfile.githubConfig || DEFAULT_GITHUB_CONFIG;
+                          if (ghConfig.autoSync) {
+                              setLoadingStep(`Resonating with GitHub (${ghConfig.repo})...`);
+                              syncGithubRepo(ghConfig);
                           }
                       } else {
                           const googleProfile = mapUserToProfile(session.user);
                           setUserProfile(googleProfile);
                           syncUserProfile(googleProfile);
+                          // Sync default repo for new users
+                          syncGithubRepo(DEFAULT_GITHUB_CONFIG);
                       }
 
                       if (cloudSettings) {
@@ -145,10 +159,20 @@ const App: React.FC = () => {
                           if (cloudSettings.currentLanguage) setCurrentLanguage(cloudSettings.currentLanguage);
                           if (cloudSettings.selectedModel) setSelectedModel(cloudSettings.selectedModel);
                       }
-                  } else if (!localStorage.getItem('has_seen_auth_v2')) {
-                      setShowAuthModal(true);
+                  } else {
+                      // Guest user still gets default repo sync
+                      setLoadingStep("Resonating with Public Fragments...");
+                      syncGithubRepo(DEFAULT_GITHUB_CONFIG);
+                      
+                      if (!localStorage.getItem('has_seen_auth_v2')) {
+                          setShowAuthModal(true);
+                      }
                   }
               }
+          } else {
+              // No Supabase, sync local VFS with hardcoded GitHub
+              setLoadingStep("Resonating with Local Fragments...");
+              syncGithubRepo(DEFAULT_GITHUB_CONFIG);
           }
 
           // 2. Local recovery/sync for guest or failed cloud
@@ -204,7 +228,7 @@ const App: React.FC = () => {
                   ...prev,
                   username: p.username, bio: p.bio, avatar: p.avatar,
                   headerBackground: p.header_background, email: p.email,
-                  githubConfig: p.github_config // Assuming you added this to table or use metadata
+                  githubConfig: p.github_config 
               }));
           }
       });

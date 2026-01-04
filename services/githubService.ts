@@ -16,6 +16,14 @@ interface GitHubTreeItem {
     url: string;
 }
 
+// Default Repository Coordinates provided by Traveler
+export const DEFAULT_GITHUB_CONFIG: GitHubConfig = {
+    owner: "ryuuwangyv3",
+    repo: "Teyvatv1",
+    branch: "main",
+    autoSync: true
+};
+
 const getMimeType = (fileName: string): string => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     const map: Record<string, string> = {
@@ -46,43 +54,47 @@ const getFileType = (fileName: string): FileType => {
 };
 
 export const syncGithubRepo = async (config: GitHubConfig): Promise<{ success: boolean; synced: number; errors: number }> => {
-    if (!config.owner || !config.repo) return { success: false, synced: 0, errors: 0 };
+    const owner = config.owner || DEFAULT_GITHUB_CONFIG.owner;
+    const repo = config.repo || DEFAULT_GITHUB_CONFIG.repo;
+    const branch = config.branch || DEFAULT_GITHUB_CONFIG.branch;
+
+    if (!owner || !repo) return { success: false, synced: 0, errors: 0 };
 
     const headers: Record<string, string> = {
         'Accept': 'application/vnd.github.v3+json'
     };
-    if (config.token) headers['Authorization'] = `token ${config.token}`;
+    
+    // Check for token in config or env
+    const token = config.token || (process as any).env?.GITHUB_TOKEN;
+    if (token) headers['Authorization'] = `token ${token}`;
 
     try {
-        await logSystemEvent(`Initiating sync with GitHub: ${config.owner}/${config.repo}`, 'info');
+        await logSystemEvent(`Resonating with GitHub: ${owner}/${repo} [${branch}]`, 'info');
 
         // 1. Fetch recursive tree
-        const treeUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/git/trees/${config.branch || 'main'}?recursive=1`;
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
         const treeResponse = await fetch(treeUrl, { headers });
         
-        if (!treeResponse.ok) throw new Error(`GitHub API Error: ${treeResponse.statusText}`);
+        if (!treeResponse.ok) {
+            if (treeResponse.status === 403) throw new Error("GitHub Rate Limit exceeded. Please provide a token in Admin Console.");
+            throw new Error(`GitHub API Error: ${treeResponse.statusText}`);
+        }
         
         const treeData = await treeResponse.json();
         const tree: GitHubTreeItem[] = treeData.tree;
 
-        // 2. Map of existing VFS items to detect changes via SHA
-        const currentVfsItems = await fetchDriveItems(null); 
-        const vfsMap = new Map<string, DriveItem>();
-        // Note: For deep sync we'd need to fetch all folders recursively, but for simplicity 
-        // we'll handle creation of missing structures.
-
         let syncedCount = 0;
         let errorCount = 0;
-
-        // Process Tree (Folders first, then Files)
-        const folders = tree.filter(i => i.type === 'tree');
-        const blobs = tree.filter(i => i.type === 'blob');
 
         // Mapping folder paths to VFS IDs
         const folderPathToId = new Map<string, string | null>();
         folderPathToId.set('', null);
 
-        // A. Ensure Folders Exist
+        // A. Filter and Process Tree
+        const folders = tree.filter(i => i.type === 'tree');
+        const blobs = tree.filter(i => i.type === 'blob');
+
+        // B. Ensure Folders Exist in VFS
         for (const f of folders) {
             const pathParts = f.path.split('/');
             const name = pathParts.pop() || '';
@@ -110,7 +122,7 @@ export const syncGithubRepo = async (config: GitHubConfig): Promise<{ success: b
             }
         }
 
-        // B. Sync Blobs (Files)
+        // C. Sync Blobs (Files) - Only if SHA differs
         for (const b of blobs) {
             const pathParts = b.path.split('/');
             const name = pathParts.pop() || '';
@@ -120,12 +132,12 @@ export const syncGithubRepo = async (config: GitHubConfig): Promise<{ success: b
             const existingItems = await fetchDriveItems(parentId);
             const found = existingItems.find(item => item.name === name && item.type !== 'folder');
 
-            // Skip if SHA is same
+            // Skip if exists and has same SHA (no changes)
             if (found && found.github_sha === b.sha) continue;
 
             try {
                 // Fetch blob content
-                const blobUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/git/blobs/${b.sha}`;
+                const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${b.sha}`;
                 const blobResponse = await fetch(blobUrl, { headers });
                 const blobData = await blobResponse.json();
                 
@@ -134,13 +146,9 @@ export const syncGithubRepo = async (config: GitHubConfig): Promise<{ success: b
                 const mime = getMimeType(name);
 
                 if (blobData.encoding === 'base64') {
-                    if (['code', 'text'].includes(type)) {
-                        content = decodeURIComponent(escape(atob(blobData.content)));
-                        // Wrap back to base64 for unified VFS storage
-                        content = `data:${mime};base64,${btoa(unescape(encodeURIComponent(content)))}`;
-                    } else {
-                        content = `data:${mime};base64,${blobData.content}`;
-                    }
+                    // For text/code, we store as base64 data URL for compatibility with existing VFS logic
+                    // This allows immediate rendering in previews.
+                    content = `data:${mime};base64,${blobData.content.replace(/\s/g, '')}`;
                 }
 
                 await saveDriveItem({
@@ -164,13 +172,13 @@ export const syncGithubRepo = async (config: GitHubConfig): Promise<{ success: b
         }
 
         if (syncedCount > 0) {
-            await logSystemEvent(`GitHub Sync Complete. Synced ${syncedCount} items.`, 'success');
+            await logSystemEvent(`Irminsul Sync: Received ${syncedCount} fragments from GitHub.`, 'success');
         }
 
         return { success: true, synced: syncedCount, errors: errorCount };
 
     } catch (err: any) {
-        await logSystemEvent(`GitHub Sync Failed: ${err.message}`, 'error');
+        await logSystemEvent(`GitHub Resonance Disturbance: ${err.message}`, 'error');
         return { success: false, synced: 0, errors: 0 };
     }
 };
