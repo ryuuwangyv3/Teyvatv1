@@ -76,6 +76,7 @@ export const getSupabaseConfig = (): SupabaseConfig | null => {
     const creds = getSystemCredentials();
     const local = SecureStorage.getItem('supabase_config');
     
+    // Periksa apakah URL kredensial internal valid (bukan placeholder)
     if (creds.url && creds.url.startsWith('http') && !creds.url.includes('your-project')) {
         return { url: creds.url, key: creds.key, enabled: true };
     }
@@ -129,8 +130,10 @@ export const checkDbConnection = async (): Promise<number> => {
 
     const start = Date.now();
     try {
+        // Cek tabel user_profiles sebagai indikator kesehatan schema
         const { error } = await supabaseInstance.from('user_profiles').select('user_id').limit(1);
         if (error) {
+            // Error code 42P01 berarti tabel tidak ada (Schema missing)
             if (error.code === '42P01' || error.message.includes('not found')) return -2; 
             return -3;
         }
