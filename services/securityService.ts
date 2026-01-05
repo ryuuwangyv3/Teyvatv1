@@ -6,10 +6,10 @@ const getDynamicSalt = () => {
     if (typeof window === 'undefined') return "AKASHA_FALLBACK_SALT";
     const host = window.location.hostname;
     const screen = `${window.screen.width}x${window.screen.height}`;
-    return `AKASHA_V11_SIG_${host}_${screen}`;
+    return `AKASHA_V12_SIG_${host}_${screen}`;
 };
 
-const STORAGE_PREFIX = "akasha_vault_v11_";
+const STORAGE_PREFIX = "akasha_vault_v12_";
 
 // Updated SHA-256 Hash for password: "Akasha2025"
 const ADMIN_CREDENTIAL_HASH = "49911e3b3c37554958129e924d58852358897120a40230230752538186259021";
@@ -100,19 +100,19 @@ export const SecureStorage = {
  */
 export const sanitizeInput = (input: string): string => {
     if (!input) return "";
-    // Menghapus pola berbahaya yang sering digunakan dalam SQL Injection dan XSS
+    // Aggressively remove common SQL injection keywords and script tags
     return input
         .replace(/[<>'"\/\\;]/g, "")
         .replace(/\b(DROP|DELETE|SELECT|UPDATE|INSERT|TRUNCATE|ALTER|CREATE|TABLE|DATABASE|FROM|WHERE|OR|AND|UNION|EXEC|SCRIPT)\b/gi, "");
 };
 
 /**
- * SHIELD PROTOCOL V11: Anti-Debug, Anti-Inspect, Anti-Copy, Anti-DDOS logic
+ * SHIELD PROTOCOL V12: Anti-Debug, Anti-Inspect, Anti-Copy, Anti-DDOS/Scanning
  */
 export const enableRuntimeProtection = () => {
     if (typeof document === 'undefined') return;
 
-    // 1. DISABLE CONTEXT MENU (Blokir Klik Kanan)
+    // 1. DISABLE CONTEXT MENU
     document.addEventListener('contextmenu', (e) => {
         const target = e.target as HTMLElement;
         if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
@@ -121,12 +121,12 @@ export const enableRuntimeProtection = () => {
         }
     });
 
-    // 2. KEYBOARD SHIELD (Blokir F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+    // 2. KEYBOARD SHIELD (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
     document.addEventListener('keydown', (e) => {
         const isForbidden = 
             e.key === 'F12' || 
             (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || 
-            (e.ctrlKey && (e.key === 'u' || e.key === 's' || e.key === 'p' || e.key === 'h'));
+            (e.ctrlKey && (e.key === 'u' || e.key === 's' || e.key === 'p' || e.key === 'h' || e.key === 'k'));
         
         if (isForbidden) {
             e.preventDefault();
@@ -134,7 +134,7 @@ export const enableRuntimeProtection = () => {
         }
     });
 
-    // 3. SELECTION BLOCK (Blokir Seleksi Teks Global)
+    // 3. SELECTION & DRAG BLOCK
     document.addEventListener('selectstart', (e) => {
         const target = e.target as HTMLElement;
         if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
@@ -142,13 +142,13 @@ export const enableRuntimeProtection = () => {
         }
     });
 
-    // 4. DRAG BLOCK
     document.addEventListener('dragstart', (e) => {
         e.preventDefault();
     });
 
-    // 5. DEBUGGER TRAP (Mencegah penggunaan debugger tools)
+    // 4. DEBUGGER TRAP (Detects DevTools)
     setInterval(() => {
+        const startTime = performance.now();
         (function() {
             try {
                 (function a(i) {
@@ -161,7 +161,11 @@ export const enableRuntimeProtection = () => {
                 }(0));
             } catch (e) {}
         })();
-    }, 5000);
+        const endTime = performance.now();
+        if (endTime - startTime > 100) {
+             // Logic for detecting lag caused by debugger can be added here
+        }
+    }, 4000);
 
-    console.log("%cAKASHA OMNI-SHIELD V11.0: STEALTH MODE ACTIVE", "color: #00ff00; font-size: 14px; font-weight: bold;");
+    console.log("%cAKASHA OMNI-SHIELD V12.0 ACTIVE", "color: #00ff00; font-size: 16px; font-weight: bold; text-shadow: 0 0 10px #00ff00;");
 };

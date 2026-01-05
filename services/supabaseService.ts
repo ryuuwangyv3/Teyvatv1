@@ -1,11 +1,23 @@
 
 import { createClient, SupabaseClient, RealtimeChannel, User } from '@supabase/supabase-js';
-import { UserProfile, Persona, Message, ForumPost, ForumComment, SystemLog, GlobalStats, DriveItem, Donator, SupabaseConfig } from '../types';
+import {
+  UserProfile, Persona, Message, ForumPost, ForumComment,
+  SystemLog, GlobalStats, DriveItem, Donator, SupabaseConfig
+} from '../types';
 import { encryptData, decryptData, SecureStorage } from './securityService';
 import { getSystemCredentials } from './credentials';
 import { INITIAL_USER_PROFILE } from '../constants';
 
-// --- INDEXED DB HELPERS (LOCAL VFS & CACHE) ---
+/* ============================================================================
+   ENV & RUNTIME GUARDS
+============================================================================ */
+const isBrowser = typeof window !== 'undefined';
+const safeUUID = () =>
+  (crypto as any)?.randomUUID?.() || `${Date.now()}_${Math.random()}`;
+
+/* ============================================================================
+   INDEXED DB (BROWSER ONLY)
+============================================================================ */
 const DB_NAME = "Akasha_VFS_DB";
 const STORE_DRIVE = "drive_items";
 const DB_VERSION = 1;
@@ -13,174 +25,91 @@ const DB_VERSION = 1;
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 const openDB = (): Promise<IDBDatabase> => {
-    if (dbPromise) return dbPromise;
-    
-    dbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = (event) => {
-            const db = (event.target as IDBOpenDBRequest).result;
-            if (!db.objectStoreNames.contains(STORE_DRIVE)) {
-                db.createObjectStore(STORE_DRIVE, { keyPath: 'id' });
-            }
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-    return dbPromise;
+  if (!isBrowser) throw new Error("IndexedDB unavailable (SSR)");
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = e => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_DRIVE)) {
+        db.createObjectStore(STORE_DRIVE, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+
+  return dbPromise;
 };
 
-const idbGet = async (storeName: string, id: string): Promise<any | null> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readonly');
-        const store = tx.objectStore(storeName);
-        const request = store.get(id);
-        request.onsuccess = () => resolve(request.result || null);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-const idbPut = async (storeName: string, item: any): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-        const request = store.put(item);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-    });
-};
-
-const idbDelete = async (storeName: string, id: string): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-        const request = store.delete(id);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-    });
-};
-
-// --- SUPABASE CLIENT ---
+/* ============================================================================
+   SUPABASE SINGLETON
+============================================================================ */
 let supabaseInstance: SupabaseClient | null = null;
 let currentUserId = 'guest';
 
-// Helper to get current module-level userId
 export const getSessionId = () => currentUserId;
 
-/**
- * Mendapatkan konfigurasi Supabase dengan proteksi kredensial.
- */
 export const getSupabaseConfig = (): SupabaseConfig | null => {
-    const creds = getSystemCredentials();
-    const local = SecureStorage.getItem('supabase_config');
-    
-    // Periksa apakah URL kredensial internal valid (bukan placeholder)
-    if (creds.url && creds.url.startsWith('http') && !creds.url.includes('your-project')) {
-        return { url: creds.url, key: creds.key, enabled: true };
-    }
-    
-    if (local && local.url && local.url.startsWith('http')) {
-        return local;
-    }
-    
-    return null;
+  const creds = getSystemCredentials();
+  const local = SecureStorage.getItem('supabase_config');
+
+  if (creds.url?.startsWith('http')) {
+    return { url: creds.url, key: creds.key, enabled: true };
+  }
+  if (local?.url?.startsWith('http')) return local;
+  return null;
 };
 
 export const updateSupabaseCredentials = (url: string, key: string) => {
     SecureStorage.setItem('supabase_config', { url, key, enabled: true });
+    supabaseInstance = null; // Force re-init
     return initSupabase();
 };
 
 export const initSupabase = (): boolean => {
-    const config = getSupabaseConfig();
-    
-    if (!config) {
-        supabaseInstance = null;
-        return false;
-    }
+  if (supabaseInstance) return true;
 
-    try {
-        supabaseInstance = createClient(config.url, config.key, {
-            auth: {
-                persistSession: true,
-                autoRefreshToken: true,
-            }
-        });
-        
-        supabaseInstance.auth.getSession().then(({ data }) => {
-            if (data.session?.user) currentUserId = data.session.user.id;
-        });
-        
-        return true;
-    } catch (e) {
-        console.error("Supabase connection fault:", e);
-        supabaseInstance = null;
-        return false;
-    }
-};
+  const config = getSupabaseConfig();
+  if (!config) return false;
 
-export const checkDbConnection = async (): Promise<number> => {
-    const config = getSupabaseConfig();
-    if (!config) return -1;
-    
-    if (!supabaseInstance) initSupabase();
-    if (!supabaseInstance) return -1;
-
-    const start = Date.now();
-    try {
-        // Cek tabel user_profiles sebagai indikator kesehatan schema
-        const { error } = await supabaseInstance.from('user_profiles').select('user_id').limit(1);
-        if (error) {
-            // Error code 42P01 berarti tabel tidak ada (Schema missing)
-            if (error.code === '42P01' || error.message.includes('not found')) return -2; 
-            return -3;
-        }
-        return Date.now() - start;
-    } catch (e) {
-        return -3;
-    }
-};
-
-export const getCurrentSession = async () => {
-    if (!supabaseInstance) return null;
-    try {
-        const { data } = await supabaseInstance.auth.getSession();
-        if (data.session?.user) currentUserId = data.session.user.id;
-        return data.session;
-    } catch (e) { return null; }
-};
-
-export const listenToAuthChanges = (callback: (user: User | null) => void) => {
-    if (!supabaseInstance) return { subscription: { unsubscribe: () => {} } };
-    const { data } = supabaseInstance.auth.onAuthStateChange((event, session) => {
-        if (session?.user) {
-            currentUserId = session.user.id;
-            callback(session.user);
-        } else {
-            currentUserId = 'guest';
-            callback(null);
-        }
+  try {
+    supabaseInstance = createClient(config.url, config.key, {
+      auth: { persistSession: true, autoRefreshToken: true }
     });
-    return data;
+
+    supabaseInstance.auth.getSession().then(({ data }) => {
+      if (data.session?.user) currentUserId = data.session.user.id;
+    });
+    return true;
+  } catch (e) {
+    console.error("Supabase init failed", e);
+    return false;
+  }
+};
+
+/* ============================================================================
+   AUTH
+============================================================================ */
+export const listenToAuthChanges = (cb: (u: User | null) => void) => {
+  if (!supabaseInstance) initSupabase();
+  if (!supabaseInstance) return { subscription: { unsubscribe: () => {} } };
+
+  const { data } = supabaseInstance.auth.onAuthStateChange((_e, s) => {
+    currentUserId = s?.user?.id || 'guest';
+    cb(s?.user || null);
+  });
+
+  return data;
 };
 
 export const signInWithGoogle = async () => {
-    if (!supabaseInstance) {
-        initSupabase();
-    }
-    if (!supabaseInstance) return { error: { message: "Akasha Cloud not configured." } };
-    
+    if (!supabaseInstance) initSupabase();
+    if (!supabaseInstance) return { error: { message: "Cloud resonance unconfigured." } };
     return await supabaseInstance.auth.signInWithOAuth({
         provider: 'google',
-        options: { 
-            redirectTo: window.location.origin,
-            queryParams: {
-                access_type: 'offline',
-                prompt: 'select_account',
-            }
-        }
+        options: { redirectTo: window.location.origin }
     });
 };
 
@@ -192,33 +121,27 @@ export const signOut = async () => {
     window.location.reload();
 };
 
-export const mapUserToProfile = (user: User): UserProfile => {
-    return {
-        id: user.id,
-        username: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler',
-        email: user.email,
-        avatar: user.user_metadata?.avatar_url || INITIAL_USER_PROFILE.avatar,
-        bio: "Connected via Akasha Celestial Network.",
-        headerBackground: INITIAL_USER_PROFILE.headerBackground,
-        isAuth: true
-    };
+export const getCurrentSession = async () => {
+    if (!supabaseInstance) initSupabase();
+    if (!supabaseInstance) return null;
+    const { data } = await supabaseInstance.auth.getSession();
+    return data.session;
 };
 
-// --- REAL-TIME SYNC ENGINE ---
+/* ============================================================================
+   REAL-TIME SYNC ENGINE
+============================================================================ */
 export const syncUserProfile = async (profile: UserProfile) => {
     await VfsManager.saveItem('profile.json', profile);
     if (supabaseInstance && currentUserId !== 'guest') {
         try {
-            const { error } = await supabaseInstance.from('user_profiles').upsert({
+            await supabaseInstance.from('user_profiles').upsert({
                 user_id: currentUserId,
                 username: profile.username, bio: profile.bio,
                 avatar: profile.avatar, header_background: profile.headerBackground,
                 email: profile.email
             });
-            if (error) console.error("Profile sync failed:", error);
-        } catch (e) {
-            console.error("Profile sync exception:", e);
-        }
+        } catch (e) {}
     }
 };
 
@@ -228,8 +151,7 @@ export const fetchUserProfile = async (): Promise<UserProfile | null> => {
             const { data } = await supabaseInstance.from('user_profiles').select('*').eq('user_id', currentUserId).single();
             if (data) {
                 const p: UserProfile = { 
-                    id: data.user_id,
-                    username: data.username, bio: data.bio, avatar: data.avatar, 
+                    id: data.user_id, username: data.username, bio: data.bio, avatar: data.avatar, 
                     headerBackground: data.header_background, email: data.email, isAuth: true 
                 };
                 await VfsManager.saveItem('profile.json', p);
@@ -240,22 +162,42 @@ export const fetchUserProfile = async (): Promise<UserProfile | null> => {
     return await VfsManager.loadItem('profile.json');
 };
 
+export const syncUserSettings = async (settings: any) => {
+    await VfsManager.saveItem('settings.json', settings);
+    if (supabaseInstance && currentUserId !== 'guest') {
+        try {
+            await supabaseInstance.from('user_settings').upsert({
+                user_id: currentUserId,
+                data: settings,
+                updated_at: new Date().toISOString()
+            });
+        } catch (err) {}
+    }
+};
+
+export const fetchUserSettings = async (): Promise<any | null> => {
+    if (supabaseInstance && currentUserId !== 'guest') {
+        try {
+            const { data } = await supabaseInstance.from('user_settings').select('data').eq('user_id', currentUserId).single();
+            if (data?.data) return data.data;
+        } catch (e) {}
+    }
+    return await VfsManager.loadItem('settings.json');
+};
+
 export const syncChatHistory = async (personaId: string, messages: Message[]) => {
     const limited = messages.slice(-50);
     await VfsManager.saveItem(`history_${personaId}.json`, limited);
     if (supabaseInstance && currentUserId !== 'guest') {
         try {
             const encrypted = encryptData(limited);
-            const { error } = await supabaseInstance.from('chat_histories').upsert({ 
+            await supabaseInstance.from('chat_histories').upsert({ 
                 user_id: currentUserId, 
                 persona_id: personaId, 
                 messages: encrypted, 
                 updated_at: new Date().toISOString() 
             });
-            if (error) console.error("History sync error:", error);
-        } catch (err) {
-            console.error("History sync exception:", err);
-        }
+        } catch (err) {}
     }
 };
 
@@ -280,152 +222,147 @@ export const clearChatHistory = async (personaId: string) => {
     }
 };
 
-export const syncUserSettings = async (settings: any) => {
-    await VfsManager.saveItem('settings.json', settings);
+/* ============================================================================
+   VFS MANAGER (ENCRYPTED)
+============================================================================ */
+export const VfsManager = {
+  async saveItem(fileName: string, data: any) {
+    if (!isBrowser) return false;
+    const encrypted = encryptData(data);
+    const item: DriveItem = {
+      id: `sys_${fileName}`,
+      parent_id: 'sys_root',
+      name: fileName,
+      type: 'code',
+      size: encrypted.length,
+      content: encrypted,
+      created_at: Date.now(),
+      updated_at: Date.now()
+    };
+    await (await openDB())
+      .transaction(STORE_DRIVE, 'readwrite')
+      .objectStore(STORE_DRIVE)
+      .put(item);
+
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const { error } = await supabaseInstance.from('user_settings').upsert({
-                user_id: currentUserId,
-                data: settings,
-                updated_at: new Date().toISOString()
-            });
-            if (error) console.error("Settings sync error:", error);
-        } catch (err) {
-            console.error("Settings sync exception:", err);
-        }
+      await supabaseInstance.from('drive_items')
+        .upsert({ ...item, user_id: currentUserId });
     }
+    return true;
+  },
+
+  async loadItem(fileName: string) {
+    if (!isBrowser) return null;
+    const db = await openDB();
+    const item = await new Promise<any>(r => {
+      const tx = db.transaction(STORE_DRIVE, 'readonly');
+      const store = tx.objectStore(STORE_DRIVE);
+      const req = store.get(`sys_${fileName}`);
+      req.onsuccess = () => r(req.result);
+      req.onerror = () => r(null);
+    });
+    return item?.content ? decryptData(item.content) : null;
+  },
+  
+  async deleteItem(fileName: string) {
+    if (!isBrowser) return;
+    const fileId = `sys_${fileName}`;
+    const db = await openDB();
+    await db.transaction(STORE_DRIVE, 'readwrite').objectStore(STORE_DRIVE).delete(fileId);
+    if (supabaseInstance && currentUserId !== 'guest') {
+        await supabaseInstance.from('drive_items').delete().eq('id', fileId).eq('user_id', currentUserId);
+    }
+  }
 };
 
-export const fetchUserSettings = async (): Promise<any | null> => {
-    if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const { data } = await supabaseInstance.from('user_settings').select('data').eq('user_id', currentUserId).single();
-            if (data?.data) {
-                await VfsManager.saveItem('settings.json', data.data);
-                return data.data;
-            }
-        } catch (e) {}
-    }
-    return await VfsManager.loadItem('settings.json');
+/* ============================================================================
+   MISC CLOUD METHODS
+============================================================================ */
+export const uploadToSupabaseStorage = async (file: File | Blob, fileName: string): Promise<string | null> => {
+  if (!supabaseInstance || currentUserId === 'guest') return null;
+  const path = `${currentUserId}/${safeUUID()}_${fileName}`;
+  const { error } = await supabaseInstance.storage.from('drive').upload(path, file);
+  if (error) return null;
+  return supabaseInstance.storage.from('drive').getPublicUrl(path).data.publicUrl;
+};
+
+export const checkDbConnection = async (): Promise<number> => {
+    if (!supabaseInstance) initSupabase();
+    if (!supabaseInstance) return -1;
+    const start = Date.now();
+    try {
+        const { error } = await supabaseInstance.from('user_profiles').select('user_id').limit(1);
+        if (error) {
+            if (error.code === '42P01') return -2; // Table not found
+            return -3;
+        }
+        return Date.now() - start;
+    } catch (e) { return -3; }
+};
+
+export const checkSchemaHealth = async () => {
+    return await checkDbConnection() === -2 ? 404 : 200;
+};
+
+export const logSystemEvent = async (message: string, type: 'info' | 'warn' | 'error' | 'success') => {
+    if (supabaseInstance) await supabaseInstance.from('system_logs').insert({ message, type });
 };
 
 export const subscribeToTable = (tableName: string, callback: (payload: any) => void): RealtimeChannel | null => {
     if (!supabaseInstance) return null;
-    return supabaseInstance
-        .channel(`public:${tableName}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, callback)
-        .subscribe();
-};
-
-// --- LOGGING & STATS ---
-export const logSystemEvent = async (message: string, type: 'info' | 'warn' | 'error' | 'success') => {
-    if (supabaseInstance) {
-        try {
-            await supabaseInstance.from('system_logs').insert({ message, type });
-        } catch (e) {
-            // Silently fail for logs to prevent infinite loops
-        }
-    }
+    return supabaseInstance.channel(`public:${tableName}`).on('postgres_changes', { event: '*', schema: 'public', table: tableName }, callback).subscribe();
 };
 
 export const fetchSystemLogs = async (): Promise<SystemLog[]> => {
     if (!supabaseInstance) return [];
-    try {
-        const { data } = await supabaseInstance.from('system_logs').select('*').order('created_at', { ascending: false }).limit(50);
-        return data || [];
-    } catch (e) { return []; }
+    const { data } = await supabaseInstance.from('system_logs').order('created_at', { ascending: false }).limit(50);
+    return data || [];
 };
 
 export const fetchGlobalStats = async (): Promise<GlobalStats> => {
     if (!supabaseInstance) return { total_users: 0, total_posts: 0, active_personas: 12 };
-    try {
-        const { count: users } = await supabaseInstance.from('user_profiles').select('*', { count: 'exact', head: true });
-        const { count: posts } = await supabaseInstance.from('forum_posts').select('*', { count: 'exact', head: true });
-        return { total_users: users || 0, total_posts: posts || 0, active_personas: 12 };
-    } catch (e) { return { total_users: 0, total_posts: 0, active_personas: 12 }; }
+    const { count: u } = await supabaseInstance.from('user_profiles').select('*', { count: 'exact', head: true });
+    const { count: p } = await supabaseInstance.from('forum_posts').select('*', { count: 'exact', head: true });
+    return { total_users: u || 0, total_posts: p || 0, active_personas: 12 };
 };
 
-// --- VFS MANAGER ---
-export const VfsManager = {
-    saveItem: async (fileName: string, data: any) => {
-        const fileId = `sys_file_${fileName}`;
-        const encrypted = encryptData(data);
-        const item: DriveItem = { id: fileId, parent_id: 'sys_root', name: fileName, type: 'code', size: encrypted.length, content: encrypted, created_at: Date.now(), updated_at: Date.now() };
-        await idbPut(STORE_DRIVE, item);
-        if (supabaseInstance && currentUserId !== 'guest') {
-            try {
-                await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
-            } catch (e) {}
-        }
-        return true;
-    },
-    loadItem: async (fileName: string): Promise<any | null> => {
-        const fileId = `sys_file_${fileName}`;
-        const target = await idbGet(STORE_DRIVE, fileId);
-        let content = target?.content;
-        if (!content && supabaseInstance && currentUserId !== 'guest') {
-            try {
-                const { data } = await supabaseInstance.from('drive_items').select('content').eq('id', fileId).eq('user_id', currentUserId).single();
-                if (data) content = data.content;
-            } catch (e) {}
-        }
-        return content ? decryptData(content) : null;
-    },
-    deleteItem: async (fileName: string) => {
-        const fileId = `sys_file_${fileName}`;
-        await idbDelete(STORE_DRIVE, fileId);
-        if (supabaseInstance && currentUserId !== 'guest') {
-            try {
-                await supabaseInstance.from('drive_items').delete().eq('id', fileId).eq('user_id', currentUserId);
-            } catch (e) {}
-        }
-    }
+export const fetchTopDonators = async (): Promise<Donator[]> => {
+    if (!supabaseInstance) return [];
+    const { data } = await supabaseInstance.from('donations').select('*').order('created_at', { ascending: false }).limit(10);
+    return data || [];
 };
 
-// --- DRIVE STORAGE METHODS ---
 export const fetchDriveItems = async (parentId: string | null): Promise<DriveItem[]> => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const { data } = await supabaseInstance.from('drive_items').select('*').eq('parent_id', parentId).eq('user_id', currentUserId);
-            if (data) return data;
-        } catch (e) {}
+        const { data } = await supabaseInstance.from('drive_items').select('*').eq('parent_id', parentId).eq('user_id', currentUserId);
+        return data || [];
     }
-    return []; 
+    return [];
 };
 
 export const fetchDriveItemContent = async (itemId: string): Promise<string | null> => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const { data } = await supabaseInstance.from('drive_items').select('content').eq('id', itemId).single();
-            return data?.content || null;
-        } catch (e) {}
+        const { data } = await supabaseInstance.from('drive_items').select('content').eq('id', itemId).single();
+        return data?.content || null;
     }
     return null;
 };
 
 export const saveDriveItem = async (item: DriveItem) => {
-    await idbPut(STORE_DRIVE, item);
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
-        } catch (e) {}
+        await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
     }
-    return true;
 };
 
 export const updateDriveItem = async (id: string, updates: any) => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            await supabaseInstance.from('drive_items').update({ ...updates, updated_at: Date.now() }).eq('id', id);
-        } catch (e) {}
+        await supabaseInstance.from('drive_items').update({ ...updates, updated_at: Date.now() }).eq('id', id);
     }
 };
 
 export const deleteDriveItem = async (id: string) => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            await supabaseInstance.from('drive_items').delete().eq('id', id);
-        } catch (e) {}
+        await supabaseInstance.from('drive_items').delete().eq('id', id);
     }
 };
 
@@ -434,110 +371,69 @@ export const findDriveItemByName = async (parentId: string | null, name: string)
     return items.find(i => i.name === name);
 };
 
-export const uploadToSupabaseStorage = async (file: File | Blob, fileName: string): Promise<string | null> => {
-    if (!supabaseInstance || currentUserId === 'guest') return null;
-    try {
-        const filePath = `${currentUserId}/${crypto.randomUUID()}_${fileName}`;
-        const { error } = await supabaseInstance.storage.from('drive').upload(filePath, file);
-        if (error) return null;
-        const { data: urlData } = supabaseInstance.storage.from('drive').getPublicUrl(filePath);
-        return urlData.publicUrl;
-    } catch (e) {
-        return null;
-    }
-};
+export const mapUserToProfile = (user: User): UserProfile => ({
+    id: user.id,
+    username: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler',
+    email: user.email,
+    avatar: user.user_metadata?.avatar_url || INITIAL_USER_PROFILE.avatar,
+    bio: "Synchronized with Akasha Cloud Resonance.",
+    headerBackground: INITIAL_USER_PROFILE.headerBackground,
+    isAuth: true
+});
 
-// --- FORUM & SOCIAL METHODS ---
 export const fetchForumPosts = async (type: string = 'latest'): Promise<ForumPost[]> => {
     if (!supabaseInstance) return [];
-    try {
-        let query = supabaseInstance.from('forum_posts').select('*');
-        if (type === 'trending') query = query.order('likes', { ascending: false });
-        else query = query.order('created_at', { ascending: false });
-        const { data } = await query;
-        return data || [];
-    } catch (e) { return []; }
+    let q = supabaseInstance.from('forum_posts').select('*');
+    if (type === 'trending') q = q.order('likes', { ascending: false });
+    else q = q.order('created_at', { ascending: false });
+    const { data } = await q;
+    return data || [];
 };
 
 export const createForumPost = async (post: Partial<ForumPost>): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    try {
-        const { error } = await supabaseInstance.from('forum_posts').insert({
-            ...post,
-            author_id: currentUserId === 'guest' ? null : currentUserId
-        });
-        return !error;
-    } catch (e) { return false; }
+    const { error } = await supabaseInstance.from('forum_posts').insert({ ...post, author_id: currentUserId === 'guest' ? null : currentUserId });
+    return !error;
 };
 
 export const updateForumPost = async (id: string, updates: Partial<ForumPost>): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    try {
-        const { error } = await supabaseInstance.from('forum_posts').update(updates).eq('id', id);
-        return !error;
-    } catch (e) { return false; }
+    const { error } = await supabaseInstance.from('forum_posts').update(updates).eq('id', id);
+    return !error;
 };
 
 export const deleteForumPost = async (id: string): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    try {
-        const { error } = await supabaseInstance.from('forum_posts').delete().eq('id', id);
-        return !error;
-    } catch (e) { return false; }
+    const { error } = await supabaseInstance.from('forum_posts').delete().eq('id', id);
+    return !error;
 };
 
 export const updatePostCounters = async (id: string, counters: { likes: number, dislikes: number }): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    try {
-        const { error } = await supabaseInstance.from('forum_posts').update(counters).eq('id', id);
-        return !error;
-    } catch (e) { return false; }
+    const { error } = await supabaseInstance.from('forum_posts').update(counters).eq('id', id);
+    return !error;
 };
 
 export const fetchComments = async (postId: string): Promise<ForumComment[]> => {
     if (!supabaseInstance) return [];
-    try {
-        const { data } = await supabaseInstance.from('forum_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
-        return data || [];
-    } catch (e) { return []; }
+    const { data } = await supabaseInstance.from('forum_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
+    return data || [];
 };
 
 export const postComment = async (comment: Partial<ForumComment>): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    try {
-        const { error } = await supabaseInstance.from('forum_comments').insert(comment);
-        return !error;
-    } catch (e) { return false; }
+    const { error } = await supabaseInstance.from('forum_comments').insert(comment);
+    return !error;
 };
 
 export const updateForumComment = async (id: string, content: string): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    try {
-        const { error } = await supabaseInstance.from('forum_comments').update({ content }).eq('id', id);
-        return !error;
-    } catch (e) { return false; }
+    const { error } = await supabaseInstance.from('forum_comments').update({ content }).eq('id', id);
+    return !error;
 };
 
 export const deleteForumComment = async (id: string): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    try {
-        const { error } = await supabaseInstance.from('forum_comments').delete().eq('id', id);
-        return !error;
-    } catch (e) { return false; }
-};
-
-export const fetchTopDonators = async (): Promise<Donator[]> => {
-    if (!supabaseInstance) return [];
-    try {
-        const { data } = await supabaseInstance.from('donations').select('*').order('created_at', { ascending: false }).limit(10);
-        return data || [];
-    } catch (e) { return []; }
-};
-
-export const checkSchemaHealth = async () => {
-    if (!supabaseInstance) return 500;
-    try {
-        const { error } = await supabaseInstance.from('user_profiles').select('user_id').limit(1);
-        return error ? 404 : 200;
-    } catch { return 500; }
+    const { error } = await supabaseInstance.from('forum_comments').delete().eq('id', id);
+    return !error;
 };

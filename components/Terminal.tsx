@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Send, Mic, MicOff, Paperclip, Terminal as TerminalIcon, X, ArrowUp, ArrowDown, Loader2, StopCircle, Box, CloudLightning, Eraser, ChevronDown, Zap, Download
+  Send, Mic, MicOff, Paperclip, Terminal as TerminalIcon, X, ArrowUp, ArrowDown, Loader2, StopCircle, Box, CloudLightning, Eraser, ChevronDown, Zap, Download, Trash2
 } from 'lucide-react';
 import { Persona, UserProfile, Message, Attachment, Language, VoiceConfig } from '../types';
 import { chatWithAI, generateTTS, generateImage, translateText, ImageAttachment } from '../services/geminiService';
@@ -52,6 +52,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
   const [isTranslating, setIsTranslating] = useState<string | null>(null);
   const [generatingTTSId, setGeneratingTTSId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -148,6 +149,17 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
       }
   };
 
+  const handleClear = async () => {
+      try {
+          await clearChatHistory(currentPersona.id);
+          setMessages([]);
+          HISTORY_MEM_CACHE[currentPersona.id] = [];
+          setShowClearConfirm(false);
+      } catch (e) {
+          onError("Failed to clear Ley Lines.");
+      }
+  };
+
   const processAIResponse = async (currentHistory: Message[], userImages: ImageAttachment[] = []) => {
       setIsTyping(true);
       setTypingStatus('Resonating with Akasha...');
@@ -164,7 +176,6 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         const historyForAI = currentHistory.slice(0, -1).slice(-15).map(m => ({ role: m.role, parts: [{ text: m.text }] }));
         const instruction = `${currentPersona.systemInstruction}\nUser: ${userProfile.username}\nLang: ${currentLanguage.instruction}`;
         
-        // Pass multimodal inputs to chatWithAI using selectedModel from props
         rawResponse = await chatWithAI(selectedModel, historyForAI, finalPrompt, instruction, "", userImages);
         
         if (!isMounted.current) return;
@@ -173,7 +184,6 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         
         if (imgMatch) {
             setTypingStatus('Visualizing manifestation...');
-            // Choose standard image model for terminal responses
             const generatedImg = await generateImage(imgMatch[1], currentPersona.visualSummary, undefined, currentPersona.avatar, 'gemini-2.5-flash-image');
             if (generatedImg) imgUrl = generatedImg;
         }
@@ -203,13 +213,12 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
   const handleSend = async () => {
     if (!inputValue.trim() && files.length === 0) return;
     
-    setIsTyping(true); // Pre-emptive typing to show system is busy
+    setIsTyping(true);
     setTypingStatus('Mapping neural vectors...');
 
     let attachments: Attachment[] = [];
     let imageAttachments: ImageAttachment[] = [];
 
-    // Process Files to Base64 for the AI and URLs for the UI
     if (files.length > 0) {
         const filePromises = files.map(async (file) => {
             const base64Data = await fileToBase64(file);
@@ -234,7 +243,6 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
     setFiles([]);
     setReplyTo(null);
     
-    // Call AI processing with the captured multimodal data
     processAIResponse(newHistory, imageAttachments);
   };
 
@@ -253,7 +261,6 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
                     a.click();
                   }} 
                   className="flex items-center gap-2 px-8 py-3 bg-[#d3bc8e] text-black rounded-full font-black uppercase tracking-widest shadow-[0_0_20px_rgba(211,188,142,0.4)] hover:scale-105 transition-all active:scale-95"
-                  title="Download Manifestation"
                 >
                   <Download className="w-5 h-5" />
                   <span className="hidden sm:inline">Download Artifact</span>
@@ -269,10 +276,37 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
            </div>
         </div>
       )}
+
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-in zoom-in duration-300">
+            <div className="genshin-panel max-w-sm w-full p-8 border border-red-500/30 text-center">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
+                    <Eraser className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-xl font-bold genshin-gold uppercase tracking-widest mb-4">Clear Resonance?</h3>
+                <p className="text-xs text-gray-400 mb-8 leading-relaxed italic">
+                    "Traveler, are you sure you want to wipe the current neural history with {currentPersona.name}? This action cannot be undone by Irminsul."
+                </p>
+                <div className="flex gap-4">
+                    <button onClick={() => setShowClearConfirm(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 font-bold hover:bg-white/5 transition-all">Cancel</button>
+                    <button onClick={handleClear} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold shadow-lg shadow-red-900/40 hover:bg-red-600 transition-all">Clear Memory</button>
+                </div>
+            </div>
+        </div>
+      )}
       
       <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar scroll-smooth relative message-container">
         {loadingHistory && <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 animate-spin text-[#d3bc8e]" /></div>}
         
+        {!loadingHistory && messages.length > 0 && (
+            <div className="max-w-4xl mx-auto flex justify-end mb-8 sticky top-0 z-20">
+                <button onClick={() => setShowClearConfirm(true)} className="flex items-center gap-2 px-4 py-2 bg-[#131823]/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 hover:border-red-500/30 transition-all shadow-xl group">
+                    <Eraser className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+                    <span className="hidden sm:inline">Clear Archive</span>
+                </button>
+            </div>
+        )}
+
         {messages.length === 0 && !loadingHistory && (
             <div className="h-full flex flex-col items-center justify-center opacity-20 pointer-events-none">
                 <TerminalIcon className="w-20 h-20 mb-4" />
@@ -343,7 +377,6 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
             </div>
             
             <div className="mt-4 flex justify-center h-8">
-                {/* AI Model selector removed from here, now in top header */}
             </div>
         </div>
       </div>

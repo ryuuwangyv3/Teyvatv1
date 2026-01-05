@@ -59,7 +59,7 @@ const DEEP_SEARCH_INSTRUCTION = `
 2. MULTIMODAL CORRELATION: Bedah anatomi dan palet warna (HEX) jika ada referensi gambar.
 3. VISUAL ANCHORING: Kunci fitur wajah (facial structure), gaya rambut, dan warna mata agar 100% konsisten.
 4. WEB RESONANCE: Gunakan Google Search tool untuk data real-time, berita, harga saham, atau sains terbaru.
-5. MEDIA RETRIEVAL: Jika Traveler meminta foto seseorang (Public Figure), karakter (Genshin/Anime), atau video/audio, Anda WAJIB mencari Direct URL (tautan gambar langsung) atau tautan YouTube dan menyertakannya di dalam pesan agar sistem UI kami dapat merendernya secara otomatis sebagai media mewah.
+5. MEDIA RETRIEVAL: Jika Traveler meminta foto seseorang (Public Figure), karakter (Genshin/Anime), atau video/audio, Anda WAJIB mencari Direct URL (tautan gambar langsung) atau tautan YouTube dan menyertakannya di dalam pesan agar sistem UI kami dapat merendernya otomatis.
 `;
 
 let activeUserKeys: ApiKeyData[] = [];
@@ -68,22 +68,30 @@ export const setServiceKeys = (keys: ApiKeyData[]) => {
     activeUserKeys = keys;
 };
 
+/**
+ * 🔑 Get API Key with .env priority as requested
+ */
 const getApiKeyForProvider = (provider: string): string => {
     const p = provider.toLowerCase();
     const creds = getSystemCredentials();
     
-    // Check Vault First
+    // 1. Prioritaskan apikey dari .env sesuai instruksi Note
+    let envKey = '';
+    switch(p) {
+        case 'google': envKey = creds.google || (process as any).env?.API_KEY || (process as any).env?.GEMINI_API_KEY || ''; break;
+        case 'openai': envKey = creds.openai  || (process as any).env?.OPENAI_API_KEY || ''; break;
+        case 'openrouter': envKey = creds.openrouter || (process as any).env?.OPENROUTER_API_KEY || ''; break;
+        case 'pollinations': envKey = creds.pollinations || (process as any).env?.POLLINATIONS_API_KEY || ''; break;
+        case 'huggingface': envKey = creds.huggingface || (process as any).env?.HUGGINGFACE_API_KEY || ''; break;
+    }
+
+    if (envKey) return envKey;
+
+    // 2. Check Vault (Admin Console) if .env is missing
     const vaultKey = activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key;
     if (vaultKey) return vaultKey;
 
-    switch(p) {
-        case 'google': return creds.google || (process as any).env?.API_KEY || ''; 
-        case 'openai': return creds.openai;
-        case 'openrouter': return creds.openrouter;
-        case 'pollinations': return creds.pollinations;
-        case 'huggingface': return creds.huggingface;
-        default: return '';
-    }
+    return '';
 };
 
 const requestLogs: number[] = [];
@@ -140,27 +148,48 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
 
   if (provider === 'pollinations' || provider === 'openrouter' || provider === 'openai') {
       const apiKey = getApiKeyForProvider(provider);
-      const endpoint = provider === 'pollinations' ? "https://gen.pollinations.ai/v1/chat/completions" : 
+      const endpoint = provider === 'pollinations' ? "https://text.pollinations.ai/v1/chat/completions" : 
                        provider === 'openrouter' ? "https://openrouter.ai/api/v1/chat/completions" : 
                        "https://api.openai.com/v1/chat/completions";
+      
       const messages = [{ role: "system", content: finalInstruction }];
       history.forEach(item => {
           const role = item.role === 'model' || item.role === 'assistant' ? 'assistant' : 'user';
           let text = Array.isArray(item.parts) ? item.parts.map((p: any) => p.text || "").join("\n") : (item.text || "");
           if (text) messages.push({ role, content: text } as any);
       });
+      
       const multimodalContent: any[] = [{ type: "text", text: safeMessage }];
       images.forEach(img => multimodalContent.push({ type: "image_url", image_url: { url: `data:${img.inlineData.mimeType};base64,${img.inlineData.data}` } }));
+      
+      // FIX: Explicitly set role to "user" and handle body
       messages.push({ role: "user", content: images.length > 0 ? multimodalContent : safeMessage } as any);
+      
       try {
           const response = await fetch(endpoint, { 
               method: "POST", 
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` }, 
+              headers: { 
+                  "Content-Type": "application/json", 
+                  "Authorization": `Bearer ${apiKey}`,
+                  ...(provider === 'openrouter' ? { "HTTP-Referer": SITE_URL, "X-Title": SITE_NAME } : {})
+              }, 
               body: JSON.stringify({ model: modelName, messages, temperature: 1.0 }) 
           });
+
+          if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+          }
+
           const data = await response.json();
-          return data.choices?.[0]?.message?.content || "Neural error.";
-      } catch (e) { return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images); }
+          const content = data.choices?.[0]?.message?.content;
+          
+          if (!content) throw new Error("Empty choices in neural response.");
+          return content;
+      } catch (e) { 
+          console.warn(`Provider ${provider} failed, falling back to Google:`, e);
+          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images); 
+      }
   } else {
       const ai = getAI(); 
       const currentParts: any[] = [...images, { text: safeMessage }];
@@ -194,6 +223,9 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
   }
 };
 
+/**
+ * 🎨 Generate Image with Smart Auto-Switch Fallback
+ */
 export const generateImage = async (prompt: string, personaVisuals: string = "", base64Inputs?: string | string[], referenceImageUrl?: string, model: string = 'gemini-2.5-flash-image'): Promise<string | null> => {
   checkRateLimit();
   const context = getDynamicVisualContext(prompt);
@@ -215,36 +247,48 @@ export const generateImage = async (prompt: string, personaVisuals: string = "",
   Quality: ${QUALITY_TAGS}
   `;
 
+  const performPollinationsGen = async (p: string) => {
+      const encodedPrompt = encodeURIComponent(p);
+      return `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&nologo=true&private=true&enhance=true&width=1024&height=1024&seed=${Math.floor(Math.random() * 1000000)}`;
+  };
+
+  // Logika Auto-Switch: Coba Google Gemini dulu jika modelnya Gemini
+  if (model.includes('gemini') || model === 'Google') {
+      try {
+          const ai = getAI();
+          const parts: any[] = [];
+          if (base64Inputs) {
+              const inputs = Array.isArray(base64Inputs) ? base64Inputs : [base64Inputs];
+              inputs.forEach(base64 => {
+                  const [header, data] = base64.split(',');
+                  parts.push({ inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data } });
+              });
+          }
+          parts.push({ text: anchoredPrompt });
+          const response = await ai.models.generateContent({ 
+              model: model.includes('gemini') ? model : 'gemini-2.5-flash-image', 
+              contents: { parts }, 
+              config: { imageConfig: { aspectRatio: "1:1" }, safetySettings: SAFETY_SETTINGS as any } 
+          });
+          if (response.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+              if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+            }
+          }
+          throw new Error("No image data in Gemini response");
+      } catch (e) {
+          console.warn("Google Image Gen failed, initiating Auto-Switch to Pollinations...");
+          return await performPollinationsGen(anchoredPrompt);
+      }
+  }
+
   const modelConfig = IMAGE_GEN_MODELS.find(m => m.id === model);
   const provider = (modelConfig?.provider.toLowerCase() || 'google');
 
   if (provider === 'pollinations') {
-      const encodedPrompt = encodeURIComponent(anchoredPrompt);
-      return `https://image.pollinations.ai/prompt/${encodedPrompt}?model=${model}&nologo=true&private=true&enhance=true&width=1024&height=1024&seed=${Math.floor(Math.random() * 1000000)}`;
+      return await performPollinationsGen(anchoredPrompt);
   }
 
-  const ai = getAI();
-  try {
-    const parts: any[] = [];
-    if (base64Inputs) {
-        const inputs = Array.isArray(base64Inputs) ? base64Inputs : [base64Inputs];
-        inputs.forEach(base64 => {
-            const [header, data] = base64.split(',');
-            parts.push({ inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data } });
-        });
-    }
-    parts.push({ text: anchoredPrompt });
-    const response = await ai.models.generateContent({ 
-        model: model.includes('gemini') ? model : 'gemini-2.5-flash-image', 
-        contents: { parts }, 
-        config: { imageConfig: { aspectRatio: "1:1" }, safetySettings: SAFETY_SETTINGS as any } 
-    });
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-  } catch (e: any) { throw e; }
   return null;
 };
 
