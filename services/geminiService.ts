@@ -11,6 +11,10 @@ const SITE_NAME = "AkashaAI V7.8";
 const VALIDATION_MODEL = 'gemini-3-flash-preview'; 
 const FALLBACK_GOOGLE_MODEL = 'gemini-3-flash-preview';
 
+// --- SERVICE ACCOUNT INTEGRATION ---
+const credentials = getSystemCredentials();
+export const SERVICE_ACCOUNT_CONFIG = credentials.serviceAccount;
+
 // --- CHRONOS-VISUAL SYNC ENGINE ---
 const getDynamicVisualContext = (userPrompt: string) => {
     const hour = new Date().getHours();
