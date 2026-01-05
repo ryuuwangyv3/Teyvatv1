@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, RefreshCw, Wifi, WifiOff, Cloud, Code, X, Copy, Check, Terminal } from 'lucide-react';
 import { ApiKeyData, UserProfile } from '../types';
 import { validateApiKey } from '../services/geminiService';
-import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig, syncUserSettings } from '../services/supabaseService';
+import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig } from '../services/supabaseService';
 
 const SQL_SCRIPT = `-- AKASHA TERMINAL CORE SCHEMA V8.0
 -- ENABLE EXTENSIONS
@@ -211,9 +210,7 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
         const success = updateSupabaseCredentials(dbUrl, dbKey);
         if (success) {
             await checkDb();
-            // Otomatis simpan ke database
-            syncUserSettings({ apiKeys, db_url: dbUrl, db_key: dbKey });
-            alert("Resonance established and saved to database.");
+            alert("Resonance coordinates updated. Connection established.");
         } else {
             alert("Signal frequency mismatch.");
         }
@@ -232,10 +229,9 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                     lastChecked: Date.now(), 
                     label: `Node ${apiKeys.length + 1}` 
                 }];
+                // Rely on the parent component's useEffect to handle the database sync
                 setApiKeys(updatedKeys);
                 setNewKey('');
-                // Simpan otomatis ke database cloud
-                syncUserSettings({ apiKeys: updatedKeys });
             } else { alert("Neural verification failed."); }
         } catch (e) { alert("Core disturbance detected."); } finally { setIsAddingKey(false); }
     };
@@ -346,7 +342,6 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                                         <button onClick={() => { 
                                             const updated = apiKeys.filter((_, idx) => idx !== i);
                                             setApiKeys(updated);
-                                            syncUserSettings({ apiKeys: updated });
                                         }} className="text-gray-600 hover:text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 ))

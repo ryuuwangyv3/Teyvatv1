@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Activity, Cpu, Database, Zap, Clock, MessageSquare, ArrowRight, ShieldCheck, Wifi, RefreshCcw, AlertTriangle, Users, TrendingUp, Globe, Heart, Settings } from 'lucide-react';
 import { fetchGlobalStats, fetchSystemLogs, checkDbConnection, logSystemEvent, subscribeToTable, fetchForumPosts } from '../services/supabaseService';
@@ -48,19 +47,27 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     refreshData();
     
+    // 1. Logs Real-time
     const logChannel = subscribeToTable('system_logs', (payload) => {
         if (payload.eventType === 'INSERT') {
              setLogs(prev => [payload.new as SystemLog, ...prev].slice(0, 50));
         }
     });
 
+    // 2. Forum Content Real-time
     const forumChannel = subscribeToTable('forum_posts', () => {
+        refreshData();
+    });
+
+    // 3. User Statistics Real-time
+    const profileChannel = subscribeToTable('user_profiles', () => {
         refreshData();
     });
 
     return () => {
         logChannel?.unsubscribe();
         forumChannel?.unsubscribe();
+        profileChannel?.unsubscribe();
     };
   }, []);
 
@@ -215,13 +222,15 @@ const Dashboard: React.FC = () => {
                                 <div className={`w-1.5 h-1.5 rounded-full mt-1 shrink-0 ${
                                     log.type === 'error' ? 'bg-red-500 shadow-[0_0_5px_red]' : 
                                     log.type === 'warn' ? 'bg-amber-500' : 
-                                    log.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+                                    log.type === 'success' ? 'bg-green-500' : 
+                                    log.type === 'info' ? 'bg-blue-500' : 'bg-gray-500'
                                 }`}></div>
                                 <div className="flex flex-col">
                                     <span className={`text-[11px] leading-relaxed ${
                                         log.type === 'error' ? 'text-red-400' : 
                                         log.type === 'warn' ? 'text-amber-200' : 
-                                        log.type === 'success' ? 'text-green-300' : 'text-gray-300'
+                                        log.type === 'success' ? 'text-green-300' : 
+                                        log.type === 'info' ? 'text-blue-300' : 'text-gray-300'
                                     }`}>
                                         {log.message}
                                     </span>
