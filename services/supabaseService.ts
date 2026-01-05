@@ -208,13 +208,17 @@ export const mapUserToProfile = (user: User): UserProfile => {
 export const syncUserProfile = async (profile: UserProfile) => {
     await VfsManager.saveItem('profile.json', profile);
     if (supabaseInstance && currentUserId !== 'guest') {
-        const { error } = await supabaseInstance.from('user_profiles').upsert({
-            user_id: currentUserId,
-            username: profile.username, bio: profile.bio,
-            avatar: profile.avatar, header_background: profile.headerBackground,
-            email: profile.email
-        });
-        if (error) console.error("Profile sync failed:", error);
+        try {
+            const { error } = await supabaseInstance.from('user_profiles').upsert({
+                user_id: currentUserId,
+                username: profile.username, bio: profile.bio,
+                avatar: profile.avatar, header_background: profile.headerBackground,
+                email: profile.email
+            });
+            if (error) console.error("Profile sync failed:", error);
+        } catch (e) {
+            console.error("Profile sync exception:", e);
+        }
     }
 };
 
@@ -240,13 +244,18 @@ export const syncChatHistory = async (personaId: string, messages: Message[]) =>
     const limited = messages.slice(-50);
     await VfsManager.saveItem(`history_${personaId}.json`, limited);
     if (supabaseInstance && currentUserId !== 'guest') {
-        const encrypted = encryptData(limited);
-        await supabaseInstance.from('chat_histories').upsert({ 
-            user_id: currentUserId, 
-            persona_id: personaId, 
-            messages: encrypted, 
-            updated_at: new Date().toISOString() 
-        }).catch(err => console.error("History sync error:", err));
+        try {
+            const encrypted = encryptData(limited);
+            const { error } = await supabaseInstance.from('chat_histories').upsert({ 
+                user_id: currentUserId, 
+                persona_id: personaId, 
+                messages: encrypted, 
+                updated_at: new Date().toISOString() 
+            });
+            if (error) console.error("History sync error:", error);
+        } catch (err) {
+            console.error("History sync exception:", err);
+        }
     }
 };
 
@@ -265,18 +274,25 @@ export const fetchChatHistory = async (personaId: string): Promise<Message[] | n
 export const clearChatHistory = async (personaId: string) => {
     await VfsManager.deleteItem(`history_${personaId}.json`);
     if (supabaseInstance && currentUserId !== 'guest') {
-        await supabaseInstance.from('chat_histories').delete().eq('user_id', currentUserId).eq('persona_id', personaId);
+        try {
+            await supabaseInstance.from('chat_histories').delete().eq('user_id', currentUserId).eq('persona_id', personaId);
+        } catch (e) {}
     }
 };
 
 export const syncUserSettings = async (settings: any) => {
     await VfsManager.saveItem('settings.json', settings);
     if (supabaseInstance && currentUserId !== 'guest') {
-        await supabaseInstance.from('user_settings').upsert({
-            user_id: currentUserId,
-            data: settings,
-            updated_at: new Date().toISOString()
-        }).catch(err => console.error("Settings sync error:", err));
+        try {
+            const { error } = await supabaseInstance.from('user_settings').upsert({
+                user_id: currentUserId,
+                data: settings,
+                updated_at: new Date().toISOString()
+            });
+            if (error) console.error("Settings sync error:", error);
+        } catch (err) {
+            console.error("Settings sync exception:", err);
+        }
     }
 };
 
@@ -304,7 +320,11 @@ export const subscribeToTable = (tableName: string, callback: (payload: any) => 
 // --- LOGGING & STATS ---
 export const logSystemEvent = async (message: string, type: 'info' | 'warn' | 'error' | 'success') => {
     if (supabaseInstance) {
-        await supabaseInstance.from('system_logs').insert({ message, type }).catch(() => {});
+        try {
+            await supabaseInstance.from('system_logs').insert({ message, type });
+        } catch (e) {
+            // Silently fail for logs to prevent infinite loops
+        }
     }
 };
 
@@ -333,7 +353,9 @@ export const VfsManager = {
         const item: DriveItem = { id: fileId, parent_id: 'sys_root', name: fileName, type: 'code', size: encrypted.length, content: encrypted, created_at: Date.now(), updated_at: Date.now() };
         await idbPut(STORE_DRIVE, item);
         if (supabaseInstance && currentUserId !== 'guest') {
-            await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId }).catch(() => {});
+            try {
+                await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
+            } catch (e) {}
         }
         return true;
     },
@@ -353,7 +375,9 @@ export const VfsManager = {
         const fileId = `sys_file_${fileName}`;
         await idbDelete(STORE_DRIVE, fileId);
         if (supabaseInstance && currentUserId !== 'guest') {
-            await supabaseInstance.from('drive_items').delete().eq('id', fileId).eq('user_id', currentUserId).catch(() => {});
+            try {
+                await supabaseInstance.from('drive_items').delete().eq('id', fileId).eq('user_id', currentUserId);
+            } catch (e) {}
         }
     }
 };
@@ -361,16 +385,20 @@ export const VfsManager = {
 // --- DRIVE STORAGE METHODS ---
 export const fetchDriveItems = async (parentId: string | null): Promise<DriveItem[]> => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        const { data } = await supabaseInstance.from('drive_items').select('*').eq('parent_id', parentId).eq('user_id', currentUserId);
-        if (data) return data;
+        try {
+            const { data } = await supabaseInstance.from('drive_items').select('*').eq('parent_id', parentId).eq('user_id', currentUserId);
+            if (data) return data;
+        } catch (e) {}
     }
     return []; 
 };
 
 export const fetchDriveItemContent = async (itemId: string): Promise<string | null> => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        const { data } = await supabaseInstance.from('drive_items').select('content').eq('id', itemId).single();
-        return data?.content || null;
+        try {
+            const { data } = await supabaseInstance.from('drive_items').select('content').eq('id', itemId).single();
+            return data?.content || null;
+        } catch (e) {}
     }
     return null;
 };
@@ -378,20 +406,26 @@ export const fetchDriveItemContent = async (itemId: string): Promise<string | nu
 export const saveDriveItem = async (item: DriveItem) => {
     await idbPut(STORE_DRIVE, item);
     if (supabaseInstance && currentUserId !== 'guest') {
-        await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
+        try {
+            await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
+        } catch (e) {}
     }
     return true;
 };
 
 export const updateDriveItem = async (id: string, updates: any) => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        await supabaseInstance.from('drive_items').update({ ...updates, updated_at: Date.now() }).eq('id', id);
+        try {
+            await supabaseInstance.from('drive_items').update({ ...updates, updated_at: Date.now() }).eq('id', id);
+        } catch (e) {}
     }
 };
 
 export const deleteDriveItem = async (id: string) => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        await supabaseInstance.from('drive_items').delete().eq('id', id);
+        try {
+            await supabaseInstance.from('drive_items').delete().eq('id', id);
+        } catch (e) {}
     }
 };
 
@@ -402,78 +436,102 @@ export const findDriveItemByName = async (parentId: string | null, name: string)
 
 export const uploadToSupabaseStorage = async (file: File | Blob, fileName: string): Promise<string | null> => {
     if (!supabaseInstance || currentUserId === 'guest') return null;
-    const filePath = `${currentUserId}/${crypto.randomUUID()}_${fileName}`;
-    const { error } = await supabaseInstance.storage.from('drive').upload(filePath, file);
-    if (error) return null;
-    const { data: urlData } = supabaseInstance.storage.from('drive').getPublicUrl(filePath);
-    return urlData.publicUrl;
+    try {
+        const filePath = `${currentUserId}/${crypto.randomUUID()}_${fileName}`;
+        const { error } = await supabaseInstance.storage.from('drive').upload(filePath, file);
+        if (error) return null;
+        const { data: urlData } = supabaseInstance.storage.from('drive').getPublicUrl(filePath);
+        return urlData.publicUrl;
+    } catch (e) {
+        return null;
+    }
 };
 
 // --- FORUM & SOCIAL METHODS ---
 export const fetchForumPosts = async (type: string = 'latest'): Promise<ForumPost[]> => {
     if (!supabaseInstance) return [];
-    let query = supabaseInstance.from('forum_posts').select('*');
-    if (type === 'trending') query = query.order('likes', { ascending: false });
-    else query = query.order('created_at', { ascending: false });
-    const { data } = await query;
-    return data || [];
+    try {
+        let query = supabaseInstance.from('forum_posts').select('*');
+        if (type === 'trending') query = query.order('likes', { ascending: false });
+        else query = query.order('created_at', { ascending: false });
+        const { data } = await query;
+        return data || [];
+    } catch (e) { return []; }
 };
 
 export const createForumPost = async (post: Partial<ForumPost>): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    const { error } = await supabaseInstance.from('forum_posts').insert({
-        ...post,
-        author_id: currentUserId === 'guest' ? null : currentUserId
-    });
-    return !error;
+    try {
+        const { error } = await supabaseInstance.from('forum_posts').insert({
+            ...post,
+            author_id: currentUserId === 'guest' ? null : currentUserId
+        });
+        return !error;
+    } catch (e) { return false; }
 };
 
 export const updateForumPost = async (id: string, updates: Partial<ForumPost>): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    const { error } = await supabaseInstance.from('forum_posts').update(updates).eq('id', id);
-    return !error;
+    try {
+        const { error } = await supabaseInstance.from('forum_posts').update(updates).eq('id', id);
+        return !error;
+    } catch (e) { return false; }
 };
 
 export const deleteForumPost = async (id: string): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    const { error } = await supabaseInstance.from('forum_posts').delete().eq('id', id);
-    return !error;
+    try {
+        const { error } = await supabaseInstance.from('forum_posts').delete().eq('id', id);
+        return !error;
+    } catch (e) { return false; }
 };
 
 export const updatePostCounters = async (id: string, counters: { likes: number, dislikes: number }): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    const { error } = await supabaseInstance.from('forum_posts').update(counters).eq('id', id);
-    return !error;
+    try {
+        const { error } = await supabaseInstance.from('forum_posts').update(counters).eq('id', id);
+        return !error;
+    } catch (e) { return false; }
 };
 
 export const fetchComments = async (postId: string): Promise<ForumComment[]> => {
     if (!supabaseInstance) return [];
-    const { data } = await supabaseInstance.from('forum_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
-    return data || [];
+    try {
+        const { data } = await supabaseInstance.from('forum_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
+        return data || [];
+    } catch (e) { return []; }
 };
 
 export const postComment = async (comment: Partial<ForumComment>): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    const { error } = await supabaseInstance.from('forum_comments').insert(comment);
-    return !error;
+    try {
+        const { error } = await supabaseInstance.from('forum_comments').insert(comment);
+        return !error;
+    } catch (e) { return false; }
 };
 
 export const updateForumComment = async (id: string, content: string): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    const { error } = await supabaseInstance.from('forum_comments').update({ content }).eq('id', id);
-    return !error;
+    try {
+        const { error } = await supabaseInstance.from('forum_comments').update({ content }).eq('id', id);
+        return !error;
+    } catch (e) { return false; }
 };
 
 export const deleteForumComment = async (id: string): Promise<boolean> => {
     if (!supabaseInstance) return false;
-    const { error } = await supabaseInstance.from('forum_comments').delete().eq('id', id);
-    return !error;
+    try {
+        const { error } = await supabaseInstance.from('forum_comments').delete().eq('id', id);
+        return !error;
+    } catch (e) { return false; }
 };
 
 export const fetchTopDonators = async (): Promise<Donator[]> => {
     if (!supabaseInstance) return [];
-    const { data } = await supabaseInstance.from('donations').select('*').order('created_at', { ascending: false }).limit(10);
-    return data || [];
+    try {
+        const { data } = await supabaseInstance.from('donations').select('*').order('created_at', { ascending: false }).limit(10);
+        return data || [];
+    } catch (e) { return []; }
 };
 
 export const checkSchemaHealth = async () => {

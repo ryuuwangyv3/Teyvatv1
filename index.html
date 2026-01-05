@@ -43,8 +43,30 @@
             overscroll-behavior-y: none;
             text-rendering: optimizeLegibility;
             -webkit-font-smoothing: antialiased;
+            /* Anti-Scanning/Tampering Global Rules */
+            user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+        }
+
+        /* Allow selection only in specific interactive areas for UX */
+        .select-text, input, textarea, [contenteditable="true"] {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            -ms-user-select: text !important;
         }
         
+        img {
+            pointer-events: none;
+            -webkit-user-drag: none;
+        }
+
+        /* Reset for lightbox/preview where images might be useful to drag/save if explicitly allowed */
+        .allow-drag img {
+            pointer-events: auto !important;
+            -webkit-user-drag: auto !important;
+        }
+
         h1, h2, h3, .genshin-font {
             font-family: 'Marcellus', serif;
             letter-spacing: 0.05em;

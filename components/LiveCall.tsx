@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Persona, VoiceConfig } from '../types';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
+import { getSystemCredentials } from '../services/credentials';
 
 interface LiveCallProps {
   currentPersona: Persona;
@@ -20,14 +21,12 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   const [status, setStatus] = useState<'idle' | 'connecting' | 'active' | 'error'>('idle');
   const [isMuted, setIsMuted] = useState(false);
   
-  // Audio Refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<any>(null);
 
-  // --- AUDIO UTILS (INTERNAL TO LIVE CALL) ---
   const decode = (base64: string) => {
     const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
@@ -76,8 +75,11 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   }, []);
 
   const startCall = async () => {
-    if (!process.env.API_KEY) {
-        alert("Akasha Core missing API Key.");
+    const creds = getSystemCredentials();
+    const apiKey = creds.google || (process as any).env.API_KEY;
+
+    if (!apiKey) {
+        alert("Akasha Core missing API Key. Please configure in Admin Console or credentials.ts.");
         return;
     }
 
@@ -85,7 +87,7 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
     setIsCalling(true);
     
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
@@ -161,7 +163,6 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
 
   if (!isOpen && !isCalling) return null;
 
-  // --- PERSISTENT FLOATING VIEW ---
   if (isMinimized || !isOpen) {
     return (
       <div className="fixed bottom-6 right-6 z-[200] animate-in slide-in-from-right-10 duration-500">
@@ -190,7 +191,6 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
     );
   }
 
-  // --- FULL SCREEN VIEW ---
   return (
     <div className="fixed inset-0 z-[150] bg-[#0b0e14] flex flex-col items-center justify-center p-6 overflow-hidden animate-in fade-in duration-500">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(211,188,142,0.05)_0%,_transparent_70%)] pointer-events-none"></div>
@@ -204,7 +204,6 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
         </button>
       </div>
 
-      {/* Visualizer Constellation */}
       <div className="relative w-80 h-80 flex items-center justify-center mb-12">
         <div className={`absolute inset-0 rounded-full border border-amber-500/20 animate-[spin_40s_linear_infinite] ${status === 'active' ? 'opacity-100' : 'opacity-20'}`}>
            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-amber-500 rounded-full shadow-[0_0_10px_#f59e0b]"></div>

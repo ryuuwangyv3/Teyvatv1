@@ -16,14 +16,12 @@ const getDynamicVisualContext = (userPrompt: string) => {
     const hour = new Date().getHours();
     const promptLower = userPrompt.toLowerCase();
     
-    // Default State: Productive / Official
     let state = "PRODUCTIVE"; 
     let outfitType = "Official Signature Attire, detailed accessories";
     let lighting = "Clear Natural Daylight, sharp focus";
     let atmosphere = "Vibrant and High-Energy";
     let environment = "Professional setting, workplace or outdoors";
 
-    // 1. DAWN/EARLY MORNING (05:00 - 09:00)
     if (hour >= 5 && hour < 9) {
         state = "MORNING_START";
         outfitType = "Fresh Official Outfit, neat hair";
@@ -31,7 +29,6 @@ const getDynamicVisualContext = (userPrompt: string) => {
         atmosphere = "Peaceful and Focused";
         environment = "Quiet garden or breakfast area";
     }
-    // 2. CHILL/EVENING (17:00 - 21:00)
     else if (hour >= 17 && hour < 21 || promptLower.includes('santai') || promptLower.includes('jalan') || promptLower.includes('cafe')) {
         state = "CHILL_SOCIAL";
         outfitType = "Modern Stylish Casual Streetwear, comfortable but chic";
@@ -39,7 +36,6 @@ const getDynamicVisualContext = (userPrompt: string) => {
         atmosphere = "Relaxed and Social";
         environment = "Trendy cafe, city park at dusk, or cozy balcony";
     }
-    // 3. RESTING/NIGHT (21:00 - 04:00)
     else if (hour >= 21 || hour < 5 || promptLower.includes('tidur') || promptLower.includes('istirahat') || promptLower.includes('kamar')) {
         state = "REST_MODE";
         outfitType = "Comfy Silk Pajamas or Oversized Sleepwear, slightly messy hair (messy bun), natural look";
@@ -48,7 +44,6 @@ const getDynamicVisualContext = (userPrompt: string) => {
         environment = "Cozy luxury bedroom, soft pillows and blankets";
     }
 
-    // Override if user explicitly asks for something else
     if (promptLower.includes('perang') || promptLower.includes('battle') || promptLower.includes('serius')) {
         outfitType = "Intricate Combat Armor, glowing elemental effects";
         atmosphere = "Epic and Intense";
@@ -58,7 +53,6 @@ const getDynamicVisualContext = (userPrompt: string) => {
     return { state, outfitType, lighting, atmosphere, environment };
 };
 
-// --- INFINITE RESONANCE: DEEP SEARCH & ANALYSIS PROTOCOLS ---
 const DEEP_SEARCH_INSTRUCTION = `
 [PROTOCOL: INFINITE RESONANCE DEEP SEARCH & ANALYSIS]
 1. CROSS-PLATFORM IDENTIFICATION: Selidiki referensi karakter asli (Official Wiki/Fan-lore).
@@ -68,7 +62,6 @@ const DEEP_SEARCH_INSTRUCTION = `
 5. MEDIA RETRIEVAL: Jika Traveler meminta foto seseorang (Public Figure), karakter (Genshin/Anime), atau video/audio, Anda WAJIB mencari Direct URL (tautan gambar langsung) atau tautan YouTube dan menyertakannya di dalam pesan agar sistem UI kami dapat merendernya secara otomatis sebagai media mewah.
 `;
 
-// --- SERVICE KEY MANAGEMENT ---
 let activeUserKeys: ApiKeyData[] = [];
 
 export const setServiceKeys = (keys: ApiKeyData[]) => {
@@ -77,14 +70,14 @@ export const setServiceKeys = (keys: ApiKeyData[]) => {
 
 const getApiKeyForProvider = (provider: string): string => {
     const p = provider.toLowerCase();
-    if (p === 'google' && process.env.API_KEY && !process.env.API_KEY.includes('YOUR_API_KEY')) {
-        return process.env.API_KEY;
-    }
+    const creds = getSystemCredentials();
+    
+    // Check Vault First
     const vaultKey = activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key;
     if (vaultKey) return vaultKey;
-    const creds = getSystemCredentials();
+
     switch(p) {
-        case 'google': return process.env.API_KEY || ''; 
+        case 'google': return creds.google || (process as any).env?.API_KEY || ''; 
         case 'openai': return creds.openai;
         case 'openrouter': return creds.openrouter;
         case 'pollinations': return creds.pollinations;
@@ -121,10 +114,6 @@ const SAFETY_SETTINGS = [
   { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
 ];
 
-/**
- * Validates an API key for a given provider.
- * For Google Gemini, it performs a simple 'ping' request to check validity.
- */
 export const validateApiKey = async (key: string, provider: string): Promise<boolean> => {
     const p = provider.toLowerCase();
     if (p === 'google') {
@@ -139,7 +128,6 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
             return false;
         }
     }
-    // For other providers, perform a basic length check as a placeholder
     return key.length > 5;
 };
 
@@ -188,7 +176,6 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
             }
           });
           
-          // Memeriksa metadata grounding jika ada hasil pencarian
           const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
           let textOutput = response.text || "Neural feedback empty.";
           
@@ -211,7 +198,6 @@ export const generateImage = async (prompt: string, personaVisuals: string = "",
   checkRateLimit();
   const context = getDynamicVisualContext(prompt);
   
-  // SECURE IDENTITY ANCHORING
   const anchoredPrompt = `
   [IDENTITY ANCHOR PROTOCOL]
   REFERENCE: ${personaVisuals}

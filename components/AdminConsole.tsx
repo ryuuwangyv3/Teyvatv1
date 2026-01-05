@@ -1,11 +1,107 @@
 
 import React, { useState, useEffect } from 'react';
-import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, Activity, RefreshCw, Server, CheckCircle, XCircle, Cloud, HardDrive, Wifi, WifiOff, Github, Globe, Zap, Settings, ArrowRight } from 'lucide-react';
+import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, Activity, RefreshCw, Server, CheckCircle, XCircle, Cloud, HardDrive, Wifi, WifiOff, Github, Globe, Zap, Settings, ArrowRight, Code, X, Copy, Check, Terminal } from 'lucide-react';
 import { ApiKeyData, UserProfile, GitHubConfig } from '../types';
 import { validateApiKey } from '../services/geminiService';
 import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig, initSupabase, syncUserProfile } from '../services/supabaseService';
 import { SecureStorage } from '../services/securityService';
 import { syncGithubRepo } from '../services/githubService';
+
+const SQL_SCRIPT = `-- AKASHA TERMINAL CORE SCHEMA V10.0
+-- SETUP EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 1. USER PROFILES
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  user_id TEXT PRIMARY KEY,
+  username TEXT,
+  bio TEXT,
+  avatar TEXT,
+  header_background TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Private Profile Access" ON public.user_profiles FOR ALL USING (auth.uid()::text = user_id);
+
+-- 2. USER SETTINGS
+CREATE TABLE IF NOT EXISTS public.user_settings (
+  user_id TEXT PRIMARY KEY,
+  data JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Private Settings Access" ON public.user_settings FOR ALL USING (auth.uid()::text = user_id);
+
+-- 3. CHAT HISTORY
+CREATE TABLE IF NOT EXISTS public.chat_histories (
+  user_id TEXT,
+  persona_id TEXT,
+  messages TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, persona_id)
+);
+ALTER TABLE public.chat_histories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Private History Access" ON public.chat_histories FOR ALL USING (auth.uid()::text = user_id);
+
+-- 4. FORUM POSTS
+CREATE TABLE IF NOT EXISTS public.forum_posts (
+    id UUID DEFAULT GEN_RANDOM_UUID() PRIMARY KEY,
+    author_id TEXT DEFAULT (auth.uid())::text,
+    author TEXT,
+    avatar TEXT,
+    title TEXT,
+    content TEXT,
+    tag TEXT,
+    media_url TEXT,
+    likes INT DEFAULT 0,
+    dislikes INT DEFAULT 0,
+    rating INT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.forum_posts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Read Forum" ON public.forum_posts FOR SELECT USING (true);
+CREATE POLICY "Auth Post Forum" ON public.forum_posts FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- 5. DRIVE STORAGE (VFS)
+CREATE TABLE IF NOT EXISTS public.drive_items (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    parent_id TEXT,
+    name TEXT,
+    type TEXT,
+    size BIGINT,
+    content TEXT,
+    mime_type TEXT,
+    created_at BIGINT,
+    updated_at BIGINT
+);
+ALTER TABLE public.drive_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Private Drive Access" ON public.drive_items FOR ALL USING (auth.uid()::text = user_id);
+
+-- 6. DONATIONS (HALL OF FAME)
+CREATE TABLE IF NOT EXISTS public.donations (
+    id UUID DEFAULT GEN_RANDOM_UUID() PRIMARY KEY,
+    name TEXT,
+    amount TEXT,
+    message TEXT,
+    avatar TEXT,
+    platform TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.donations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Read Donations" ON public.donations FOR SELECT USING (true);
+
+-- 7. SYSTEM LOGS
+CREATE TABLE IF NOT EXISTS public.system_logs (
+    id UUID DEFAULT GEN_RANDOM_UUID() PRIMARY KEY,
+    message TEXT,
+    type TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.system_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public Read Logs" ON public.system_logs FOR SELECT USING (true);
+`;
 
 interface AdminConsoleProps {
     apiKeys: ApiKeyData[];
@@ -24,14 +120,8 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
     const [dbKey, setDbKey] = useState('');
     const [dbStatus, setDbStatus] = useState<'unknown' | 'connected' | 'error' | 'checking' | 'tables_missing'>('unknown');
     const [latency, setLatency] = useState<number | null>(null);
-
-    // GitHub Config States
-    const [ghOwner, setGhOwner] = useState(userProfile.githubConfig?.owner || '');
-    const [ghRepo, setGhRepo] = useState(userProfile.githubConfig?.repo || '');
-    const [ghBranch, setGhBranch] = useState(userProfile.githubConfig?.branch || 'main');
-    const [ghToken, setGhToken] = useState(userProfile.githubConfig?.token || '');
-    const [ghAutoSync, setGhAutoSync] = useState(userProfile.githubConfig?.autoSync || false);
-    const [isGhSyncing, setIsGhSyncing] = useState(false);
+    const [showSqlModal, setShowSqlModal] = useState(false);
+    const [copiedSql, setCopiedSql] = useState(false);
 
     useEffect(() => {
         const config = getSupabaseConfig();
@@ -59,290 +149,163 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
 
     const handleUpdateDb = async () => {
         if (!dbUrl || !dbKey) {
-            alert("Sinyal Ley Line tidak valid. Pastikan URL dan Key terisi.");
+            alert("Celestial coordinates invalid.");
             return;
         }
         const success = updateSupabaseCredentials(dbUrl, dbKey);
         if (success) {
             await checkDb();
-            alert("Koordinat Akasha Cloud diperbarui.");
+            alert("Resonance parameters synchronized.");
         } else {
-            alert("Gagal menghubungkan terminal ke koordinat baru.");
-        }
-    };
-
-    const handleSaveGithub = async () => {
-        const newConfig: GitHubConfig = {
-            owner: ghOwner,
-            repo: ghRepo,
-            branch: ghBranch,
-            token: ghToken,
-            autoSync: ghAutoSync
-        };
-        
-        const updatedProfile = { ...userProfile, githubConfig: newConfig };
-        await syncUserProfile(updatedProfile);
-        alert("GitHub Bridge Configuration Saved.");
-    };
-
-    const handleManualGhSync = async () => {
-        setIsGhSyncing(true);
-        const config: GitHubConfig = {
-            owner: ghOwner,
-            repo: ghRepo,
-            branch: ghBranch,
-            token: ghToken,
-            autoSync: ghAutoSync
-        };
-        const result = await syncGithubRepo(config);
-        setIsGhSyncing(false);
-        if (result.success) {
-            alert(`Resonance Successful. Synced ${result.synced} elements. Errors: ${result.errors}`);
-        } else {
-            alert("Resonance Failed. Check your repository coordinates.");
+            alert("Signal fault detected.");
         }
     };
 
     const handleAddKey = async () => {
         if (!newKey.trim()) return;
         setIsAddingKey(true);
-        
         try {
-            let isValid = await validateApiKey(newKey.trim(), keyProvider);
-            
-            if (!isValid && keyProvider !== 'pollinations') {
-                if (window.confirm("Key ini tampak tidak valid atau expired. Tetap simpan?")) {
-                    isValid = true;
-                } else {
-                    setIsAddingKey(false);
-                    return;
-                }
-            } else if (keyProvider === 'pollinations') {
-                isValid = true; // Pollinations doesn't always need validation
-            }
-
+            const isValid = await validateApiKey(newKey.trim(), keyProvider);
             if (isValid) {
-                const keyData: ApiKeyData = {
-                    key: newKey.trim(),
-                    provider: keyProvider, 
-                    isValid: true,
-                    lastChecked: Date.now(),
-                    label: `Akasha Core ${apiKeys.length + 1}`
-                };
-                setApiKeys([...apiKeys, keyData]);
+                setApiKeys([...apiKeys, { key: newKey.trim(), provider: keyProvider, isValid: true, lastChecked: Date.now(), label: `Node ${apiKeys.length + 1}` }]);
                 setNewKey('');
+            } else {
+                alert("Neural key validation failed.");
             }
-        } catch (e) {
-            alert("Error saat validasi key. Coba lagi.");
-        } finally {
-            setIsAddingKey(false);
-        }
+        } catch (e) { alert("Core verification anomaly."); } finally { setIsAddingKey(false); }
     };
 
-    const handleDeleteKey = (index: number) => {
-        const newKeys = [...apiKeys];
-        newKeys.splice(index, 1);
-        setApiKeys(newKeys);
-    };
-
-    const handleClearConfig = () => {
-        if (window.confirm("Putuskan koneksi Cloud? Sistem akan kembali ke mode penyimpanan lokal.")) {
-            SecureStorage.removeItem('supabase_config');
-            setDbUrl('');
-            setDbKey('');
-            initSupabase();
-            checkDb();
-        }
+    const handleCopySql = () => {
+        navigator.clipboard.writeText(SQL_SCRIPT);
+        setCopiedSql(true);
+        setTimeout(() => setCopiedSql(false), 2000);
     };
 
     return (
-        <div className="h-full p-6 lg:p-12 overflow-y-auto custom-scrollbar">
-            <div className="max-w-5xl mx-auto space-y-10">
-                <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                        <h2 className="text-4xl font-bold text-red-500 uppercase tracking-widest flex items-center gap-4 font-serif">
-                            <ShieldAlert className="w-10 h-10 animate-pulse" />
-                            Akasha Root Terminal
-                        </h2>
-                        <p className="text-gray-500 text-xs mt-2 uppercase tracking-[0.3em]">Restricted Access • Core Configuration V8.5</p>
-                    </div>
-                    <div className="flex items-center gap-4 bg-black/40 px-6 py-3 rounded-2xl border border-white/5">
-                        <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-gray-500 font-bold uppercase">Sync Mode</span>
-                            <span className={`text-xs font-black uppercase ${dbStatus === 'connected' ? 'text-green-400' : 'text-amber-500'}`}>
-                                {dbStatus === 'connected' ? 'Celestial Cloud' : 'Local Archive'}
-                            </span>
+        <div className="h-full p-6 lg:p-12 overflow-y-auto custom-scrollbar relative">
+            {/* SCHEMA MODAL */}
+            {showSqlModal && (
+                <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in zoom-in-95">
+                    <div className="w-full max-w-4xl bg-[#0b0e14] border-2 border-amber-500/50 rounded-3xl overflow-hidden shadow-[0_0_120px_rgba(245,158,11,0.2)] flex flex-col max-h-[85vh]">
+                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-amber-900/20 to-transparent">
+                            <div className="flex items-center gap-3">
+                                <Database className="w-6 h-6 text-amber-500" />
+                                <h3 className="text-xl font-bold genshin-gold uppercase tracking-widest font-serif">Celestial Schema V10</h3>
+                            </div>
+                            <button onClick={() => setShowSqlModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-all text-gray-500 hover:text-white"><X /></button>
                         </div>
-                        {dbStatus === 'connected' ? <Cloud className="text-green-500 w-6 h-6" /> : <HardDrive className="text-amber-500 w-6 h-6" />}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-black/40">
+                             <pre className="text-[10px] md:text-xs font-mono text-cyan-400 leading-relaxed select-text whitespace-pre-wrap">{SQL_SCRIPT}</pre>
+                        </div>
+                        <div className="p-6 bg-black border-t border-white/5 flex gap-4">
+                            <button onClick={handleCopySql} className={`flex-1 py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${copiedSql ? 'bg-green-600 text-white shadow-[0_0_20px_rgba(22,163,74,0.4)]' : 'bg-amber-500 text-black hover:bg-white'}`}>
+                                {copiedSql ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                {copiedSql ? 'Ritual Captured' : 'Copy SQL Initialization'}
+                            </button>
+                            <button onClick={() => setShowSqlModal(false)} className="px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-gray-400 font-bold text-xs uppercase tracking-widest hover:bg-red-500/10 hover:text-red-400 transition-all">Dismiss</button>
+                        </div>
                     </div>
+                </div>
+            )}
+
+            <div className="max-w-6xl mx-auto space-y-12">
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+                    <div className="space-y-2">
+                        <h2 className="text-4xl font-bold text-red-500 uppercase tracking-[0.2em] flex items-center gap-4 font-serif">
+                            <ShieldAlert className="w-10 h-10 animate-pulse" />
+                            Omni-Root Access
+                        </h2>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-[0.4em] font-black flex items-center gap-2">
+                           <Terminal className="w-3 h-3" /> Secure Node V10.0 • Protocol: Restricted
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => setShowSqlModal(true)} 
+                        className="flex items-center gap-3 bg-amber-500/10 hover:bg-amber-500 hover:text-black text-amber-500 px-8 py-4 rounded-2xl border border-amber-500/30 transition-all group font-black text-[11px] uppercase tracking-widest shadow-2xl hover:shadow-amber-500/20 active:scale-95"
+                    >
+                        <Code className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                        <span>Celestial Schema</span>
+                    </button>
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Supabase Config */}
-                    <div className="genshin-panel p-8 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-bl-[4rem] group-hover:bg-blue-500/10 transition-colors"></div>
-                        
-                        <div className="flex justify-between items-center mb-8 relative z-10">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                                <Database className="w-6 h-6 text-blue-400" />
-                                Irminsul Resonance
-                            </h3>
+                    {/* Supabase Neural Link */}
+                    <div className="genshin-panel p-8 rounded-[3rem] border border-white/10 flex flex-col shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 rounded-bl-[5rem] group-hover:bg-blue-500/10 transition-colors"></div>
+                        <div className="flex justify-between items-center mb-10 relative z-10">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-3"><Cloud className="w-6 h-6 text-blue-400" /> Irminsul Link</h3>
                             <div className="flex items-center gap-3">
                                 {dbStatus === 'connected' ? (
-                                    <div className="flex items-center gap-2 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/30">
-                                        <Wifi className="w-3 h-3 text-green-500" />
-                                        <span className="text-[10px] font-black text-green-400 uppercase">{latency}ms</span>
-                                    </div>
-                                ) : dbStatus === 'tables_missing' ? (
-                                    <div className="flex items-center gap-2 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30">
-                                        <RefreshCw className="w-3 h-3 text-amber-500" />
-                                        <span className="text-[10px] font-black text-amber-200 uppercase">Schema Missing</span>
+                                    <div className="flex items-center gap-2 bg-green-500/10 px-4 py-1.5 rounded-full border border-green-500/30">
+                                        <Wifi className="w-3.5 h-3.5 text-green-500" /><span className="text-[10px] font-black text-green-400 uppercase tracking-widest">{latency}ms Stability</span>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/30">
-                                        <WifiOff className="w-3 h-3 text-red-500" />
-                                        <span className="text-[10px] font-black text-red-400 uppercase">Disconnected</span>
+                                    <div className="flex items-center gap-2 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/30 animate-pulse">
+                                        <WifiOff className="w-3.5 h-3.5 text-red-500" /><span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Signal Severed</span>
                                     </div>
                                 )}
                             </div>
                         </div>
-                        
-                        <div className="space-y-5 relative z-10">
+                        <div className="space-y-6 relative z-10">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Database Endpoint</label>
-                                <input type="text" value={dbUrl} onChange={(e) => setDbUrl(e.target.value)} placeholder="https://your-project.supabase.co" className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white outline-none focus:border-blue-500 transition-all font-mono" />
+                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Archive URL</label>
+                                <input type="text" value={dbUrl} onChange={(e) => setDbUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white outline-none focus:border-blue-500 font-mono transition-all" />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Access Key (Anon Public)</label>
-                                <input type="password" value={dbKey} onChange={(e) => setDbKey(e.target.value)} placeholder="eyJh..." className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white outline-none focus:border-blue-500 transition-all font-mono" />
+                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Signature Key (Anon)</label>
+                                <input type="password" value={dbKey} onChange={(e) => setDbKey(e.target.value)} placeholder="sb_..." className="w-full bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white outline-none focus:border-blue-500 font-mono transition-all" />
                             </div>
-                            
-                            <div className="pt-4 flex gap-3">
-                                <button onClick={handleUpdateDb} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all">
-                                    <Save className="w-4 h-4" /> Sync Coordinates
-                                </button>
-                                <button onClick={handleClearConfig} className="px-5 bg-red-900/20 text-red-400 border border-red-900/30 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-lg">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                                <button onClick={checkDb} disabled={dbStatus === 'checking'} className="flex-1 py-3 bg-white/5 border border-white/5 rounded-xl text-[10px] text-gray-400 font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3">
-                                    <RefreshCw className={`w-3.5 h-3.5 ${dbStatus === 'checking' ? 'animate-spin' : ''}`} /> 
-                                    {dbStatus === 'checking' ? 'Scanning Ley Lines...' : 'Diagnostic Scan'}
-                                </button>
+                            <div className="pt-4 flex gap-4">
+                                <button onClick={handleUpdateDb} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-105 hover:shadow-blue-500/20 transition-all"><Save className="w-4 h-4" /> Synchronize Link</button>
+                                <button onClick={checkDb} className="px-6 py-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><RefreshCw className={`w-5 h-5 text-gray-400 ${dbStatus === 'checking' ? 'animate-spin text-blue-400' : ''}`} /></button>
                             </div>
                         </div>
                     </div>
 
-                    {/* GitHub Bridge Config */}
-                    <div className="genshin-panel p-8 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-gray-500/5 rounded-bl-[4rem] group-hover:bg-gray-500/10 transition-colors"></div>
-                        
-                        <div className="flex justify-between items-center mb-8 relative z-10">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                                <Github className="w-6 h-6 text-gray-400" />
-                                Celestial Bridge
-                            </h3>
-                            <button onClick={() => setGhAutoSync(!ghAutoSync)} className={`px-3 py-1 rounded-full border text-[9px] font-black uppercase transition-all ${ghAutoSync ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-white/5 border-white/10 text-gray-500'}`}>
-                                Auto-Sync: {ghAutoSync ? 'ON' : 'OFF'}
-                            </button>
-                        </div>
-
-                        <div className="space-y-4 relative z-10">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Owner / User</label>
-                                    <input type="text" value={ghOwner} onChange={(e) => setGhOwner(e.target.value)} placeholder="e.g. AkashaDev" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Repository Name</label>
-                                    <input type="text" value={ghRepo} onChange={(e) => setGhRepo(e.target.value)} placeholder="e.g. teyvat-assets" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all" />
-                                </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Personal Access Token (Optional)</label>
-                                <input type="password" value={ghToken} onChange={(e) => setGhToken(e.target.value)} placeholder="ghp_..." className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all font-mono" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Target Branch</label>
-                                <input type="text" value={ghBranch} onChange={(e) => setGhBranch(e.target.value)} placeholder="main" className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-gray-400 transition-all" />
-                            </div>
-
-                            <div className="pt-2 flex gap-2">
-                                <button onClick={handleSaveGithub} className="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all">
-                                    Save Coordinates
-                                </button>
-                                <button onClick={handleManualGhSync} disabled={isGhSyncing || !ghOwner || !ghRepo} className="flex-[2] bg-amber-500 hover:bg-white text-black py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all">
-                                    {isGhSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                                    Resonate Now
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* API Key Vault */}
-                    <div className="genshin-panel p-8 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-bl-[4rem] group-hover:bg-amber-500/10 transition-colors"></div>
-                        
-                        <h3 className="text-xl font-bold text-white mb-8 flex items-center gap-3 relative z-10">
-                            <Key className="w-6 h-6 text-amber-500" />
-                            Neural Key Vault
-                        </h3>
-
-                        <div className="flex flex-col gap-4 mb-8 relative z-10">
-                            <div className="flex gap-2">
-                                <input type="text" value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="Enter Neural Key..." className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-sm text-white outline-none font-mono focus:border-amber-500 transition-all"/>
-                                <select value={keyProvider} onChange={(e) => setKeyProvider(e.target.value as any)} className="bg-black/60 border border-white/5 rounded-2xl px-4 text-[10px] font-black uppercase text-gray-400 tracking-widest outline-none">
+                    {/* API Secret Vault */}
+                    <div className="genshin-panel p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/5 rounded-bl-[5rem]"></div>
+                        <h3 className="text-xl font-bold text-white mb-10 flex items-center gap-3 relative z-10"><Key className="w-6 h-6 text-amber-500" /> Key Repository</h3>
+                        <div className="flex flex-col gap-6 mb-10 relative z-10">
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <input type="text" value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="Inject Neural Key..." className="flex-1 bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white outline-none font-mono transition-all focus:border-amber-500"/>
+                                <select value={keyProvider} onChange={(e) => setKeyProvider(e.target.value as any)} className="bg-black/80 border border-white/5 rounded-2xl px-6 py-5 text-[10px] font-black uppercase text-amber-400 cursor-pointer outline-none focus:border-amber-500">
                                     <option value="google">Google</option>
                                     <option value="openai">OpenAI</option>
                                     <option value="openrouter">OpenRouter</option>
                                     <option value="pollinations">Pollinations</option>
                                 </select>
                             </div>
-                            <button onClick={handleAddKey} disabled={isAddingKey || !newKey} className="w-full bg-amber-500 hover:bg-white text-black py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-xl transition-all disabled:opacity-50">
-                                {isAddingKey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                                <span>Manifest Key in Vault</span>
+                            <button onClick={handleAddKey} disabled={isAddingKey || !newKey} className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-white hover:scale-105 transition-all shadow-xl disabled:opacity-50">
+                                {isAddingKey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />} Manifest Secret
                             </button>
                         </div>
-
-                        <div className="space-y-3 max-h-[280px] overflow-y-auto custom-scrollbar pr-2 relative z-10">
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                             {apiKeys.length === 0 ? (
-                                <div className="py-16 text-center opacity-20 flex flex-col items-center">
-                                    <Key className="w-16 h-16 mb-4"/>
-                                    <p className="text-xs uppercase font-black tracking-widest italic">Vault Empty</p>
-                                </div>
+                                <div className="text-center py-10 text-gray-700 italic text-xs uppercase tracking-widest font-bold">Vault Empty</div>
                             ) : (
                                 apiKeys.map((k, i) => (
-                                    <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group/item hover:border-amber-500/30 transition-all">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center">
-                                                <div className={`w-2 h-2 rounded-full ${k.isValid ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 animate-pulse'}`}></div>
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className={`text-[10px] font-black uppercase tracking-widest ${k.isValid ? 'text-green-400' : 'text-red-400'}`}>{k.provider}</span>
-                                                <span className="text-xs text-gray-500 font-mono truncate max-w-[140px] md:max-w-[200px] mt-0.5">{k.key.substring(0, 12)}...</span>
-                                            </div>
+                                    <div key={i} className="flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 group/item hover:border-amber-500/20 transition-all">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black uppercase text-amber-400 tracking-widest mb-1">{k.provider} Node</span>
+                                            <span className="text-xs text-gray-500 font-mono tracking-tighter">{k.key.substring(0, 20)}...</span>
                                         </div>
-                                        <button onClick={() => handleDeleteKey(i)} className="p-3 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all opacity-0 group-item:opacity-100">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <button onClick={() => setApiKeys(apiKeys.filter((_, idx) => idx !== i))} className="text-gray-600 hover:text-red-500 p-3 bg-black/40 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 ))
                             )}
                         </div>
                     </div>
                 </div>
-                
-                <div className="genshin-panel p-8 rounded-[2.5rem] border border-red-500/20 bg-red-900/5">
-                    <div className="flex items-start gap-5">
-                         <div className="p-4 rounded-2xl bg-red-500/10">
-                             <ShieldAlert className="w-6 h-6 text-red-500" />
-                         </div>
-                         <div>
-                             <h4 className="text-red-400 font-black uppercase tracking-widest mb-1">Celestial Warning</h4>
-                             <p className="text-xs text-gray-500 leading-relaxed italic">
-                                "Mengubah konfigurasi di area ini akan mempengaruhi resonansi seluruh terminal. Pastikan Anda memiliki otorisasi penuh sebelum memodifikasi Ley Line Coordinates atau Neural Keys."
+
+                <div className="genshin-panel p-10 rounded-[3rem] border border-red-500/20 bg-red-900/5 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-red-500/40"></div>
+                    <div className="flex items-start gap-8 relative z-10">
+                         <div className="p-5 rounded-[2rem] bg-red-500/10 border border-red-500/20 shadow-2xl"><ShieldAlert className="w-8 h-8 text-red-500" /></div>
+                         <div className="flex-1">
+                             <h4 className="text-red-400 font-black uppercase tracking-[0.3em] mb-3 text-sm">Celestial Lockdown Mode</h4>
+                             <p className="text-xs text-gray-500 leading-relaxed italic max-w-3xl">
+                                "Akasha Omni-Shield V10.0 is operating at peak efficiency. High-frequency encryption protocols are actively safeguarding the celestial data stream. Unauthorized inspection attempts are programmatically mitigated. Resonance verified."
                              </p>
                          </div>
                     </div>

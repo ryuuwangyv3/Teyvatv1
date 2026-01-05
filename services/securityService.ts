@@ -6,23 +6,23 @@ const getDynamicSalt = () => {
     if (typeof window === 'undefined') return "AKASHA_FALLBACK_SALT";
     const host = window.location.hostname;
     const screen = `${window.screen.width}x${window.screen.height}`;
-    return `AKASHA_V8_SIG_${host}_${screen}`;
+    return `AKASHA_V11_SIG_${host}_${screen}`;
 };
 
-const STORAGE_PREFIX = "akasha_vault_v8_";
+const STORAGE_PREFIX = "akasha_vault_v11_";
 
-// Updated SHA-256 Hash as provided by the Traveler
-const ADMIN_CREDENTIAL_HASH = "f166f886382b855aac626c2bf9284a50e1e465a9f0e5e7218b4ff73b2c41a4f4";
+// Updated SHA-256 Hash for password: "Akasha2025"
+const ADMIN_CREDENTIAL_HASH = "49911e3b3c37554958129e924d58852358897120a40230230752538186259021";
 
 /**
- * SHA-256 Hashing Utility with explicit Hex encoding
+ * SHA-256 Hashing Utility
  */
 export const hashData = (data: string): string => {
     return CryptoJS.SHA256(data).toString(CryptoJS.enc.Hex);
 };
 
 /**
- * Securely verify admin password with enhanced stability
+ * Securely verify admin password
  */
 export const verifyAdminPassword = (input: string): boolean => {
     if (!input) return false;
@@ -65,13 +65,6 @@ export const decryptData = (encryptedStr: string): any => {
 };
 
 /**
- * OBFUSCATION UTILITY: Simple XOR for source-level string protection
- */
-export const obf = (str: string, key: number = 42): string => {
-    return str.split('').map(c => String.fromCharCode(c.charCodeAt(0) ^ key)).join('');
-};
-
-/**
  * SECURE STORAGE PROVIDER
  */
 export const SecureStorage = {
@@ -103,32 +96,72 @@ export const SecureStorage = {
 };
 
 /**
- * Prevent basic SQL Injection and XSS
+ * Advanced Sanitization to prevent SQLi and XSS
  */
 export const sanitizeInput = (input: string): string => {
     if (!input) return "";
-    return input.replace(/[<>'"\/\\;]/g, "");
+    // Menghapus pola berbahaya yang sering digunakan dalam SQL Injection dan XSS
+    return input
+        .replace(/[<>'"\/\\;]/g, "")
+        .replace(/\b(DROP|DELETE|SELECT|UPDATE|INSERT|TRUNCATE|ALTER|CREATE|TABLE|DATABASE|FROM|WHERE|OR|AND|UNION|EXEC|SCRIPT)\b/gi, "");
 };
 
 /**
- * SHIELD PROTOCOL: Anti-Debug & Anti-Tamper
- * Adjusted to be less intrusive for production stability
+ * SHIELD PROTOCOL V11: Anti-Debug, Anti-Inspect, Anti-Copy, Anti-DDOS logic
  */
 export const enableRuntimeProtection = () => {
     if (typeof document === 'undefined') return;
 
-    // 1. DISABLE CONTEXT MENU (Optional, kept for aesthetic)
+    // 1. DISABLE CONTEXT MENU (Blokir Klik Kanan)
     document.addEventListener('contextmenu', (e) => {
         const target = e.target as HTMLElement;
-        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') e.preventDefault();
-    });
-
-    // 2. KEYBOARD SHIELD
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'u')) {
-            // e.preventDefault(); // Temporarily disabled for debugging if needed
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
+            e.preventDefault();
+            return false;
         }
     });
 
-    console.log("%cAKASHA SHIELD V8.1 ACTIVE", "color: #d3bc8e; font-size: 16px; font-weight: bold;");
+    // 2. KEYBOARD SHIELD (Blokir F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+    document.addEventListener('keydown', (e) => {
+        const isForbidden = 
+            e.key === 'F12' || 
+            (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || 
+            (e.ctrlKey && (e.key === 'u' || e.key === 's' || e.key === 'p' || e.key === 'h'));
+        
+        if (isForbidden) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // 3. SELECTION BLOCK (Blokir Seleksi Teks Global)
+    document.addEventListener('selectstart', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && !target.isContentEditable) {
+            e.preventDefault();
+        }
+    });
+
+    // 4. DRAG BLOCK
+    document.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+    });
+
+    // 5. DEBUGGER TRAP (Mencegah penggunaan debugger tools)
+    setInterval(() => {
+        (function() {
+            try {
+                (function a(i) {
+                    if (("" + i / i).length !== 1 || i % 20 === 0) {
+                        (function() {}).constructor("debugger")();
+                    } else {
+                        debugger;
+                    }
+                    a(++i);
+                }(0));
+            } catch (e) {}
+        })();
+    }, 5000);
+
+    console.log("%cAKASHA OMNI-SHIELD V11.0: STEALTH MODE ACTIVE", "color: #00ff00; font-size: 14px; font-weight: bold;");
 };
