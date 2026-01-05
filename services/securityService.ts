@@ -1,4 +1,3 @@
-
 import CryptoJS from 'crypto-js';
 
 // --- CONFIGURATION ---
@@ -11,8 +10,8 @@ const getDynamicSalt = () => {
 
 const STORAGE_PREFIX = "akasha_vault_v12_";
 
-// Updated SHA-256 Hash for password: "Akasha2025"
-const ADMIN_CREDENTIAL_HASH = "49911e3b3c37554958129e924d58852358897120a40230230752538186259021";
+// Updated SHA-256 Hash for root access synchronization
+const ADMIN_CREDENTIAL_HASH = "d6b1be7bd9de748116082287da603d812db1d274dd44198716973ca558a1a416";
 
 /**
  * SHA-256 Hashing Utility
