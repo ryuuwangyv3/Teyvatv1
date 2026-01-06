@@ -72,11 +72,18 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                                 </div>
                             );
                         }
-                        // Improved image rendering for all common formats and query strings
-                        if (url.match(/\.(jpeg|jpg|gif|png|webp|svg)($|\?)/i)) {
+                        
+                        // Robust image detection for search grounding results and direct links
+                        const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp)($|\?)/i) || 
+                                          url.includes('images.unsplash.com') || 
+                                          url.includes('image.pollinations.ai') ||
+                                          url.includes('googleusercontent.com');
+
+                        if (isImageUrl) {
                             return (
-                                <div key={j} className="my-3 rounded-xl overflow-hidden border border-white/10 cursor-zoom-in select-none bg-black/20" onClick={() => onLightbox(url)}>
+                                <div key={j} className="my-3 rounded-xl overflow-hidden border border-white/10 cursor-zoom-in select-none bg-black/20 group/omni" onClick={() => onLightbox(url)}>
                                     <LazyImage src={url} alt="Celestial visual" className="w-full h-auto max-h-[400px] object-contain hover:scale-[1.02] transition-transform duration-500" />
+                                    <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded text-[8px] text-white opacity-0 group-hover/omni:opacity-100 transition-opacity uppercase tracking-widest font-black">Visual Link</div>
                                 </div>
                             );
                         }

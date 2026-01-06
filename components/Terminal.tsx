@@ -88,13 +88,15 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
       }
   };
 
+  // Improved Auto-Scroll Trigger
   useEffect(() => {
       if (!loadingHistory) {
         scrollToBottom();
-        const timer = setTimeout(() => scrollToBottom(), 100);
+        // Secondary trigger for dynamic content
+        const timer = setTimeout(() => scrollToBottom(), 150);
         return () => clearTimeout(timer);
       }
-  }, [messages.length, isTyping, scrollToBottom]);
+  }, [messages.length, isTyping, typingStatus, scrollToBottom]);
 
   useEffect(() => {
     const cached = HISTORY_MEM_CACHE[currentPersona.id];
@@ -183,7 +185,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         const imgMatch = rawResponse.match(/\|\|GEN_IMG:\s*(.*?)\s*\|\|/);
         
         if (imgMatch) {
-            setTypingStatus('Manifesting visual artifact (Recursive Check)...');
+            setTypingStatus('Manifesting visual artifact (Recursive Fallback)...');
             // generateImage now handles the 4-provider fallback chain internally
             const generatedImg = await generateImage(imgMatch[1], currentPersona.visualSummary);
             if (generatedImg) {
