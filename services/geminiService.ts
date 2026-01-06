@@ -48,8 +48,8 @@ const getDynamicVisualContext = (userPrompt: string) => {
 const DEEP_SEARCH_INSTRUCTION = `
 [PROTOCOL: INFINITE RESONANCE v10.0]
 1. MEDIA RETRIEVAL: Jika Traveler meminta gambar/foto dari internet, carilah Direct URL yang valid dan sertakan dalam teks.
-2. VISUAL FALLBACK AWARENESS: Sistem akan mencoba 4 provider (Pollinations, Google, OpenAI, OpenRouter) secara berurutan jika manifestasi visual gagal.
-3. CASUAL RESONANCE: Gunakan gaya bicara santai sesuai bahasa yang dipilih Traveler.
+2. VISUAL FALLBACK AWARENESS: Sistem memiliki hierarki fallback visual (Pollinations -> Google -> OpenAI -> OpenRouter).
+3. CASUAL RESONANCE: Gunakan gaya bicara santai sesuai instruksi bahasa.
 `;
 
 let activeUserKeys: ApiKeyData[] = [];
@@ -73,7 +73,7 @@ const requestLogs: number[] = [];
 const checkRateLimit = () => {
     const now = Date.now();
     while (requestLogs.length > 0 && requestLogs[0] < now - 60000) requestLogs.shift();
-    if (requestLogs.length >= 20) throw new Error("Resonance Frequency Limit reached.");
+    if (requestLogs.length >= 25) throw new Error("Resonance Frequency Limit reached.");
     requestLogs.push(now);
 };
 
@@ -131,23 +131,53 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
       } catch (e) { return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images); }
   } else {
       const ai = getAI(); 
-      try {
-          const response = await ai.models.generateContent({
+      // Only use tools for Gemini 3 models
+      const canUseTools = modelName.includes('gemini-3');
+      
+      const executeRequest = async (useTools: boolean) => {
+        return await ai.models.generateContent({
             model: modelName, 
             contents: [...history, { role: 'user', parts: [...images, { text: safeMessage }] }],
-            config: { systemInstruction: finalInstruction, temperature: 1.0, tools: [{ googleSearch: {} }] }
+            config: { 
+                systemInstruction: finalInstruction, 
+                temperature: 1.0, 
+                ...(useTools ? { tools: [{ googleSearch: {} }] } : {}) 
+            }
           });
+      };
+
+      try {
+          let response = await executeRequest(canUseTools);
           let textOutput = response.text || "";
+          
+          // Enhanced grounding link extraction
           const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-          if (grounding) textOutput += "\n\n**Sources:**\n" + grounding.map((c: any) => `- [${c.web?.uri}]`).join("\n");
+          if (grounding && grounding.length > 0) {
+              const links = grounding
+                .map((c: any) => c.web?.uri ? `- [${c.web.title || 'Source'}](${c.web.uri})` : null)
+                .filter(Boolean);
+              if (links.length > 0) {
+                textOutput += "\n\n**Sources Found:**\n" + links.join("\n");
+              }
+          }
           return textOutput;
-      } catch (e: any) { return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images); }
+      } catch (e: any) { 
+          // 🛡️ CRITICAL BUG FIX: If "Invalid Argument" (often tool mismatch), retry without tools
+          if (canUseTools && (e.message?.includes('argument') || e.message?.includes('tool'))) {
+              try {
+                  const fallbackRes = await executeRequest(false);
+                  return fallbackRes.text || "Resonance recovered without external search.";
+              } catch (innerE) {
+                  return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images);
+              }
+          }
+          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images); 
+      }
   }
 };
 
 /**
- * 🎨 Recursive Visual Manifestation (Hierarki Fallback)
- * Urutan: Pollinations -> Google/Vertex -> OpenAI -> OpenRouter
+ * 🎨 Recursive Visual Manifestation
  */
 export const generateImage = async (
     prompt: string, 
@@ -165,7 +195,6 @@ export const generateImage = async (
   
   const finalPrompt = `[STYLE: ${stylePrompt}] [PERSONA: ${personaVisuals}] [CONTEXT: ${context.state}, ${context.outfitType}] Action: ${prompt}. Quality: ${QUALITY_TAGS}. Neg: ${negativePrompt}`;
 
-  // -- PROVIDER 1: POLLINATIONS (Fast, Free) --
   const tryPollinations = async () => {
     const seed = Math.floor(Math.random() * 1000000);
     const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=${ratio.width}&height=${ratio.height}&seed=${seed}&nologo=true`;
@@ -174,7 +203,6 @@ export const generateImage = async (
     return url;
   };
 
-  // -- PROVIDER 2: GOOGLE GEMINI (Requires Key) --
   const tryGoogle = async () => {
     const key = getApiKeyForProvider('google');
     if (!key) throw new Error("No Google Key");
@@ -190,7 +218,6 @@ export const generateImage = async (
     throw new Error("Google Empty");
   };
 
-  // -- PROVIDER 3: OPENAI (DALL-E 3) --
   const tryOpenAI = async () => {
     const key = getApiKeyForProvider('openai');
     if (!key) throw new Error("No OpenAI Key");
@@ -204,42 +231,21 @@ export const generateImage = async (
     throw new Error("OpenAI Failed");
   };
 
-  // -- PROVIDER 4: OPENROUTER (DALL-E Fallback) --
-  const tryOpenRouter = async () => {
-    const key = getApiKeyForProvider('openrouter');
-    if (!key) throw new Error("No OpenRouter Key");
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-        body: JSON.stringify({ 
-            model: "openai/dall-e-3", 
-            messages: [{ role: "user", content: finalPrompt }] 
-        })
-    });
-    const data = await res.json();
-    const url = data.choices?.[0]?.message?.content?.match(/https?:\/\/[^\s]+\.(png|jpg|jpeg|webp)/)?.[0];
-    if (url) return url;
-    throw new Error("OpenRouter Failed");
-  };
-
   const chain = [
     { name: 'Pollinations', fn: tryPollinations },
     { name: 'Google', fn: tryGoogle },
-    { name: 'OpenAI', fn: tryOpenAI },
-    { name: 'OpenRouter', fn: tryOpenRouter }
+    { name: 'OpenAI', fn: tryOpenAI }
   ];
 
   for (const provider of chain) {
     try {
-      console.log(`%cAkasha Manifestation: Engaging ${provider.name}...`, "color: #d3bc8e; font-weight: bold;");
       const result = await provider.fn();
       if (result) return result;
     } catch (e) {
-      console.warn(`Ley Line Disturbance in ${provider.name}, switching provider...`);
+      console.warn(`Fallback: ${provider.name} failed.`);
     }
   }
-
-  return null; // Seluruh provider gagal
+  return null;
 };
 
 export const generateVideo = async (prompt: string, base64Input?: string, model: string = 'veo-3.1-fast-generate-preview'): Promise<string | null> => {
