@@ -183,9 +183,14 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         const imgMatch = rawResponse.match(/\|\|GEN_IMG:\s*(.*?)\s*\|\|/);
         
         if (imgMatch) {
-            setTypingStatus('Visualizing manifestation...');
-            const generatedImg = await generateImage(imgMatch[1], currentPersona.visualSummary, undefined, currentPersona.avatar, 'gemini-2.5-flash-image');
-            if (generatedImg) imgUrl = generatedImg;
+            setTypingStatus('Manifesting visual artifact (Recursive Check)...');
+            // generateImage now handles the 4-provider fallback chain internally
+            const generatedImg = await generateImage(imgMatch[1], currentPersona.visualSummary);
+            if (generatedImg) {
+                imgUrl = generatedImg;
+            } else {
+                throw new Error("Teyvat Visual Core (All Providers) failed to manifest image.");
+            }
         }
 
         if (voiceConfig.autoPlay) {
@@ -201,7 +206,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         setMessages(prev => [...prev, modelMsg]);
       } catch (e: any) {
         if (!isMounted.current) return;
-        onError(e.message);
+        onError(e.message || "Celestial Anomaly detected.");
       } finally {
         if (isMounted.current) {
             setIsTyping(false);
@@ -338,7 +343,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
                <div className="flex items-center gap-4 pl-4 mt-6 animate-pulse">
                   <div className="w-10 h-10 rounded-full border border-[#d3bc8e]/20 bg-black/40 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-[#d3bc8e]" /></div>
                   <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.2em] mb-1">{currentPersona.name} Thinking...</span>
+                      <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.2em] mb-1">{currentPersona.name} Resonating...</span>
                       <span className="text-xs text-gray-500 font-mono">{typingStatus}</span>
                   </div>
                </div>
@@ -365,18 +370,15 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
             
             <div className={`flex items-end gap-3 bg-[#131823] p-3 md:p-4 rounded-3xl border ${replyTo ? 'rounded-t-none' : ''} border-white/10 shadow-2xl group focus-within:border-[#d3bc8e]/50 transition-all`}>
                 <button onClick={() => fileInputRef.current?.click()} className="p-3 text-gray-500 hover:text-[#d3bc8e] transition-colors rounded-full hover:bg-white/5"><Paperclip className="w-6 h-6" /></button>
-                <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => { if(e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} multiple />
+                <input type="file" autoFocus={false} ref={fileInputRef} className="hidden" onChange={(e) => { if(e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} multiple />
                 
                 <button onClick={() => setIsRecording(!isRecording)} className={`p-3 transition-colors rounded-full hover:bg-white/5 ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-500 hover:text-[#d3bc8e]'}`}>{isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}</button>
                 
-                <textarea value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && (window.innerWidth >= 1024)) { e.preventDefault(); handleSend(); } }} placeholder={`Speak with ${currentPersona.name}...`} className="flex-1 bg-transparent py-3 px-2 outline-none resize-none text-white h-12 max-h-48 custom-scrollbar text-[15px] placeholder:text-gray-600 font-medium" rows={1} />
+                <textarea value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && (window.innerWidth >= 1024)) { e.preventDefault(); handleSend(); } }} placeholder={`Resonate with ${currentPersona.name}...`} className="flex-1 bg-transparent py-3 px-2 outline-none resize-none text-white h-12 max-h-48 custom-scrollbar text-[15px] placeholder:text-gray-600 font-medium select-text" rows={1} />
                 
                 <button onClick={handleSend} disabled={(!inputValue.trim() && files.length === 0) || isTyping} className="w-12 h-12 flex items-center justify-center rounded-2xl genshin-button disabled:opacity-50 disabled:grayscale transition-all hover:scale-105 active:scale-95 shadow-xl">
                     {isTyping ? <StopCircle className="w-6 h-6 animate-pulse" /> : <Send className="w-6 h-6" />}
                 </button>
-            </div>
-            
-            <div className="mt-4 flex justify-center h-8">
             </div>
         </div>
       </div>

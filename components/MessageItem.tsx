@@ -72,10 +72,11 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                                 </div>
                             );
                         }
-                        if (url.match(/\.(jpeg|jpg|gif|png|webp)($|\?)/i)) {
+                        // Improved image rendering for all common formats and query strings
+                        if (url.match(/\.(jpeg|jpg|gif|png|webp|svg)($|\?)/i)) {
                             return (
-                                <div key={j} className="my-3 rounded-xl overflow-hidden border border-white/10 cursor-zoom-in select-none" onClick={() => onLightbox(url)}>
-                                    <img src={url} alt="Embedded content" className="w-full h-auto max-h-[300px] object-cover hover:scale-105 transition-transform duration-500" />
+                                <div key={j} className="my-3 rounded-xl overflow-hidden border border-white/10 cursor-zoom-in select-none bg-black/20" onClick={() => onLightbox(url)}>
+                                    <LazyImage src={url} alt="Celestial visual" className="w-full h-auto max-h-[400px] object-contain hover:scale-[1.02] transition-transform duration-500" />
                                 </div>
                             );
                         }

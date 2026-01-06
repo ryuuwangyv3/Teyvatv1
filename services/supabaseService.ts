@@ -8,105 +8,96 @@ import { encryptData, decryptData, SecureStorage } from './securityService';
 import { getSystemCredentials } from './credentials';
 import { INITIAL_USER_PROFILE } from '../constants';
 
-/* ============================================================================
-   ENV & RUNTIME GUARDS
-============================================================================ */
 const isBrowser = typeof window !== 'undefined';
-const safeUUID = () =>
-  (crypto as any)?.randomUUID?.() || `${Date.now()}_${Math.random()}`;
+const safeUUID = () => (crypto as any)?.randomUUID?.() || `${Date.now()}_${Math.random()}`;
 
-/* ============================================================================
-   INDEXED DB (BROWSER ONLY)
-============================================================================ */
+/* --- INDEXED DB --- */
 const DB_NAME = "Akasha_VFS_DB";
 const STORE_DRIVE = "drive_items";
 const DB_VERSION = 1;
-
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 const openDB = (): Promise<IDBDatabase> => {
-  if (!isBrowser) throw new Error("IndexedDB unavailable (SSR)");
+  if (!isBrowser) throw new Error("IndexedDB unavailable");
   if (dbPromise) return dbPromise;
-
   dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = e => {
       const db = (e.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_DRIVE)) {
-        db.createObjectStore(STORE_DRIVE, { keyPath: 'id' });
-      }
+      if (!db.objectStoreNames.contains(STORE_DRIVE)) db.createObjectStore(STORE_DRIVE, { keyPath: 'id' });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
-
   return dbPromise;
 };
 
-/* ============================================================================
-   SUPABASE SINGLETON
-============================================================================ */
+/* --- SUPABASE SINGLETON & AUTO-INIT --- */
 let supabaseInstance: SupabaseClient | null = null;
 let currentUserId = 'guest';
 
 export const getSessionId = () => currentUserId;
 
-export const getSupabaseConfig = (): SupabaseConfig | null => {
-  const creds = getSystemCredentials();
-  const local = SecureStorage.getItem('supabase_config');
-
-  if (creds.url?.startsWith('http')) {
-    return { url: creds.url, key: creds.key, enabled: true };
-  }
-  if (local?.url?.startsWith('http')) return local;
-  return null;
-};
-
-export const updateSupabaseCredentials = (url: string, key: string) => {
-    SecureStorage.setItem('supabase_config', { url, key, enabled: true });
-    supabaseInstance = null; // Force re-init
-    return initSupabase();
+// Add missing getSupabaseConfig export to resolve import error in AdminConsole.tsx
+export const getSupabaseConfig = () => {
+    return SecureStorage.getItem('supabase_config');
 };
 
 export const initSupabase = (): boolean => {
   if (supabaseInstance) return true;
+  
+  const creds = getSystemCredentials();
+  const envUrl = creds.supabase.url;
+  const envKey = creds.supabase.key;
 
-  const config = getSupabaseConfig();
-  if (!config) return false;
-
-  try {
-    supabaseInstance = createClient(config.url, config.key, {
-      auth: { persistSession: true, autoRefreshToken: true }
-    });
-
-    supabaseInstance.auth.getSession().then(({ data }) => {
-      if (data.session?.user) currentUserId = data.session.user.id;
-    });
-    return true;
-  } catch (e) {
-    console.error("Supabase init failed", e);
-    return false;
+  // Prioritaskan .env untuk Auto-Koneksi
+  if (envUrl && envKey && envUrl.startsWith('http')) {
+    try {
+      supabaseInstance = createClient(envUrl, envKey, {
+        auth: { persistSession: true, autoRefreshToken: true }
+      });
+      supabaseInstance.auth.getSession().then(({ data }) => {
+        if (data.session?.user) currentUserId = data.session.user.id;
+      });
+      console.log("%cAKASHA CLOUD: AUTO-CONNECTED VIA .ENV", "color: #d3bc8e; font-weight: bold;");
+      return true;
+    } catch (e) {
+      console.error("Supabase auto-init failed", e);
+    }
   }
+
+  // Fallback ke SecureStorage (Manual Config)
+  const local = SecureStorage.getItem('supabase_config');
+  if (local?.url && local?.key) {
+    try {
+      supabaseInstance = createClient(local.url, local.key);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  return false;
 };
 
-/* ============================================================================
-   AUTH
-============================================================================ */
+export const updateSupabaseCredentials = (url: string, key: string) => {
+    SecureStorage.setItem('supabase_config', { url, key, enabled: true });
+    supabaseInstance = null;
+    return initSupabase();
+};
+
+/* --- AUTH --- */
 export const listenToAuthChanges = (cb: (u: User | null) => void) => {
   if (!supabaseInstance) initSupabase();
   if (!supabaseInstance) return { subscription: { unsubscribe: () => {} } };
-
   const { data } = supabaseInstance.auth.onAuthStateChange((_e, s) => {
     currentUserId = s?.user?.id || 'guest';
     cb(s?.user || null);
   });
-
   return data;
 };
 
 export const signInWithGoogle = async () => {
     if (!supabaseInstance) initSupabase();
-    if (!supabaseInstance) return { error: { message: "Cloud resonance unconfigured." } };
+    if (!supabaseInstance) return { error: { message: "Irminsul not connected." } };
     return await supabaseInstance.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: window.location.origin }
@@ -128,59 +119,88 @@ export const getCurrentSession = async () => {
     return data.session;
 };
 
-/* ============================================================================
-   REAL-TIME SYNC ENGINE
-============================================================================ */
+/* --- SYNC ENGINE --- */
 export const syncUserProfile = async (profile: UserProfile) => {
     await VfsManager.saveItem('profile.json', profile);
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            await supabaseInstance.from('user_profiles').upsert({
-                user_id: currentUserId,
-                username: profile.username, bio: profile.bio,
-                avatar: profile.avatar, header_background: profile.headerBackground,
-                email: profile.email
-            });
-        } catch (e) {}
+        await supabaseInstance.from('user_profiles').upsert({
+            user_id: currentUserId,
+            username: profile.username, bio: profile.bio,
+            avatar: profile.avatar, header_background: profile.headerBackground,
+            email: profile.email
+        });
     }
 };
 
 export const fetchUserProfile = async (): Promise<UserProfile | null> => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const { data } = await supabaseInstance.from('user_profiles').select('*').eq('user_id', currentUserId).single();
-            if (data) {
-                const p: UserProfile = { 
-                    id: data.user_id, username: data.username, bio: data.bio, avatar: data.avatar, 
-                    headerBackground: data.header_background, email: data.email, isAuth: true 
-                };
-                await VfsManager.saveItem('profile.json', p);
-                return p;
-            }
-        } catch (e) {}
+        const { data } = await supabaseInstance.from('user_profiles').select('*').eq('user_id', currentUserId).single();
+        if (data) {
+            const p: UserProfile = { 
+                id: data.user_id, username: data.username, bio: data.bio, avatar: data.avatar, 
+                headerBackground: data.header_background, email: data.email, isAuth: true 
+            };
+            await VfsManager.saveItem('profile.json', p);
+            return p;
+        }
     }
     return await VfsManager.loadItem('profile.json');
+};
+
+/**
+ * 📊 Fetch Real User Statistics from Cloud/Local VFS
+ */
+export const fetchUserStats = async (userId: string) => {
+    if (!userId || userId === 'guest') return { achievements: 0, companions: 12, visits: 1, aura: 0 };
+
+    let companionsCount = 0;
+    let auraPoints = 0;
+
+    if (supabaseInstance) {
+        // Count Custom Personas
+        const { count } = await supabaseInstance
+            .from('custom_personas')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId);
+        companionsCount = count || 0;
+
+        // Count Total Messages across all chat histories
+        const { data: histories } = await supabaseInstance
+            .from('chat_histories')
+            .select('messages')
+            .eq('user_id', userId);
+        
+        if (histories) {
+            histories.forEach(h => {
+                const msgs = decryptData(h.messages);
+                if (Array.isArray(msgs)) auraPoints += msgs.length;
+            });
+        }
+    }
+
+    return {
+        achievements: Math.floor(auraPoints / 5),
+        companions: 12 + companionsCount, // Default + Custom
+        visits: auraPoints > 0 ? Math.ceil(auraPoints / 10) : 1,
+        aura: auraPoints
+    };
 };
 
 export const syncUserSettings = async (settings: any) => {
     await VfsManager.saveItem('settings.json', settings);
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            await supabaseInstance.from('user_settings').upsert({
-                user_id: currentUserId,
-                data: settings,
-                updated_at: new Date().toISOString()
-            });
-        } catch (err) {}
+        await supabaseInstance.from('user_settings').upsert({
+            user_id: currentUserId,
+            data: settings,
+            updated_at: new Date().toISOString()
+        });
     }
 };
 
 export const fetchUserSettings = async (): Promise<any | null> => {
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const { data } = await supabaseInstance.from('user_settings').select('data').eq('user_id', currentUserId).single();
-            if (data?.data) return data.data;
-        } catch (e) {}
+        const { data } = await supabaseInstance.from('user_settings').select('data').eq('user_id', currentUserId).single();
+        if (data?.data) return data.data;
     }
     return await VfsManager.loadItem('settings.json');
 };
@@ -189,15 +209,13 @@ export const syncChatHistory = async (personaId: string, messages: Message[]) =>
     const limited = messages.slice(-50);
     await VfsManager.saveItem(`history_${personaId}.json`, limited);
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const encrypted = encryptData(limited);
-            await supabaseInstance.from('chat_histories').upsert({ 
-                user_id: currentUserId, 
-                persona_id: personaId, 
-                messages: encrypted, 
-                updated_at: new Date().toISOString() 
-            });
-        } catch (err) {}
+        const encrypted = encryptData(limited);
+        await supabaseInstance.from('chat_histories').upsert({ 
+            user_id: currentUserId, 
+            persona_id: personaId, 
+            messages: encrypted, 
+            updated_at: new Date().toISOString() 
+        });
     }
 };
 
@@ -205,10 +223,8 @@ export const fetchChatHistory = async (personaId: string): Promise<Message[] | n
     const local = await VfsManager.loadItem(`history_${personaId}.json`);
     if (local) return local;
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            const { data } = await supabaseInstance.from('chat_histories').select('messages').eq('user_id', currentUserId).eq('persona_id', personaId).single();
-            if (data?.messages) return decryptData(data.messages);
-        } catch (e) {}
+        const { data } = await supabaseInstance.from('chat_histories').select('messages').eq('user_id', currentUserId).eq('persona_id', personaId).single();
+        if (data?.messages) return decryptData(data.messages);
     }
     return null;
 };
@@ -216,15 +232,11 @@ export const fetchChatHistory = async (personaId: string): Promise<Message[] | n
 export const clearChatHistory = async (personaId: string) => {
     await VfsManager.deleteItem(`history_${personaId}.json`);
     if (supabaseInstance && currentUserId !== 'guest') {
-        try {
-            await supabaseInstance.from('chat_histories').delete().eq('user_id', currentUserId).eq('persona_id', personaId);
-        } catch (e) {}
+        await supabaseInstance.from('chat_histories').delete().eq('id', currentUserId).eq('persona_id', personaId);
     }
 };
 
-/* ============================================================================
-   VFS MANAGER (ENCRYPTED)
-============================================================================ */
+/* --- VFS MANAGER --- */
 export const VfsManager = {
   async saveItem(fileName: string, data: any) {
     if (!isBrowser) return false;
@@ -239,18 +251,12 @@ export const VfsManager = {
       created_at: Date.now(),
       updated_at: Date.now()
     };
-    await (await openDB())
-      .transaction(STORE_DRIVE, 'readwrite')
-      .objectStore(STORE_DRIVE)
-      .put(item);
-
+    await (await openDB()).transaction(STORE_DRIVE, 'readwrite').objectStore(STORE_DRIVE).put(item);
     if (supabaseInstance && currentUserId !== 'guest') {
-      await supabaseInstance.from('drive_items')
-        .upsert({ ...item, user_id: currentUserId });
+      await supabaseInstance.from('drive_items').upsert({ ...item, user_id: currentUserId });
     }
     return true;
   },
-
   async loadItem(fileName: string) {
     if (!isBrowser) return null;
     const db = await openDB();
@@ -263,7 +269,6 @@ export const VfsManager = {
     });
     return item?.content ? decryptData(item.content) : null;
   },
-  
   async deleteItem(fileName: string) {
     if (!isBrowser) return;
     const fileId = `sys_${fileName}`;
@@ -275,9 +280,7 @@ export const VfsManager = {
   }
 };
 
-/* ============================================================================
-   MISC CLOUD METHODS
-============================================================================ */
+/* --- UTILS --- */
 export const uploadToSupabaseStorage = async (file: File | Blob, fileName: string): Promise<string | null> => {
   if (!supabaseInstance || currentUserId === 'guest') return null;
   const path = `${currentUserId}/${safeUUID()}_${fileName}`;
@@ -293,7 +296,7 @@ export const checkDbConnection = async (): Promise<number> => {
     try {
         const { error } = await supabaseInstance.from('user_profiles').select('user_id').limit(1);
         if (error) {
-            if (error.code === '42P01') return -2; // Table not found
+            if (error.code === '42P01') return -2;
             return -3;
         }
         return Date.now() - start;

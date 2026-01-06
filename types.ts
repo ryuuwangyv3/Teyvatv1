@@ -13,7 +13,8 @@ export enum MenuType {
   STORAGE = 'storage',
   ABOUT = 'about',
   FORUM = 'forum',
-  ADMIN_CONSOLE = 'admin_console'
+  ADMIN_CONSOLE = 'admin_console',
+  REALM_PORTAL = 'realm_portal'
 }
 
 export interface Language {

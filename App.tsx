@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { 
   PhoneCall, Terminal as TerminalIcon, Users, User, Settings as SettingsIcon, 
-  Image as ImageIcon, Video, Globe, LayoutDashboard, Info, MessageSquare, 
-  Menu, X, History, ShieldCheck, HardDrive, Loader2, Cloud, Lock, Sparkles, Database, LogOut, CheckCircle2, ChevronDown, Box, CloudLightning
+  ImageIcon, Video, Globe, LayoutDashboard, Info, MessageSquare, 
+  Menu, X, History, ShieldCheck, HardDrive, Loader2, Cloud, Lock, Sparkles, Database, LogOut, CheckCircle2, ChevronDown, Box, CloudLightning, Zap
 } from 'lucide-react';
 import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData, GitHubConfig } from './types';
 import { DEFAULT_PERSONAS, INITIAL_USER_PROFILE } from './constants';
@@ -16,6 +16,7 @@ import AuthModal from './components/AuthModal';
 import DatabaseSetupModal from './components/DatabaseSetupModal'; 
 import ErrorBoundary from './components/ErrorBoundary';
 import AdminConsole from './components/AdminConsole'; 
+import CookieConsent from './components/CookieConsent';
 import { 
   initSupabase, fetchUserProfile, syncUserProfile, 
   syncUserSettings, fetchUserSettings, subscribeToTable,
@@ -39,6 +40,7 @@ import Dashboard from './components/Dashboard';
 import Drive from './components/Drive'; 
 import Forum from './components/Forum';
 import About from './components/About';
+import ExternalPortal from './components/ExternalPortal';
 
 // --- HASH ROUTING HELPERS ---
 const getMenuFromHash = (): MenuType => {
@@ -209,6 +211,9 @@ const App: React.FC = () => {
                   syncUserProfile(googleProfile);
               }
               setShowAuthModal(false);
+              // 🔥 REDIRECTION LOGIC: Redirect successful login to USER_INFO
+              setActiveMenu(MenuType.USER_INFO);
+              window.location.hash = getHashFromMenu(MenuType.USER_INFO);
           } else {
               setCurrentUserId(null);
               setUserProfile(prev => ({ ...prev, isAuth: false, email: undefined }));
@@ -227,7 +232,7 @@ const App: React.FC = () => {
               setUserProfile(prev => ({
                   ...prev,
                   username: p.username, bio: p.bio, avatar: p.avatar,
-                  headerBackground: p.header_background, email: p.email,
+                  header_background: p.header_background, email: p.email,
                   githubConfig: p.github_config 
               }));
           }
@@ -277,6 +282,7 @@ const App: React.FC = () => {
           case MenuType.FORUM: return <Forum />;
           case MenuType.ABOUT: return <About onSwitchToAdmin={() => setActiveMenu(MenuType.ADMIN_CONSOLE)} />;
           case MenuType.ADMIN_CONSOLE: return <AdminConsole apiKeys={apiKeys} setApiKeys={setApiKeys} userProfile={userProfile} selectedModel={selectedModel} setSelectedModel={setSelectedModel} />;
+          case MenuType.REALM_PORTAL: return <ExternalPortal />;
           default: return <Terminal currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
       }
   }, [activeMenu, currentPersona, userProfile, currentLanguage, voiceConfig, selectedModel, isDataLoaded, apiKeys, isSupabaseConnected, customPersonas]);
@@ -309,6 +315,7 @@ const App: React.FC = () => {
     { type: MenuType.VIDEO_GEN, label: 'Video Gen', icon: Video },
     { type: MenuType.LANGUAGE, label: 'Language', icon: Globe },
     { type: MenuType.FORUM, label: 'Forum', icon: MessageSquare },
+    { type: MenuType.REALM_PORTAL, label: 'Dimensional Realms', icon: Box },
     { type: MenuType.ABOUT, label: 'About', icon: Info },
   ];
 
@@ -416,6 +423,7 @@ const App: React.FC = () => {
       <HistorySidebar isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} onSelectPersona={handlePersonaChange} onNewChat={() => setActiveMenu(MenuType.PERSONAS)} activePersonaId={currentPersona.id} customPersonas={customPersonas} />
       <DonationModal errorLog={globalErrorLog} onClose={() => setGlobalErrorLog(null)} />
       <OnboardingTutorial />
+      <CookieConsent />
     </div>
   );
 };

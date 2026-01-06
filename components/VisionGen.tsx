@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { ImageIcon, Wand2, Download, RefreshCcw, Layers, Upload, Sparkles, Edit, Box, Check, CloudLightning, Zap, Database, Clock, AlertTriangle, Activity, Loader2, ShieldCheck, Cpu, Trash2, Plus, Users, Layout, Lightbulb, ChevronRight, X, Maximize2 } from 'lucide-react';
+import { ImageIcon, Wand2, Download, RefreshCcw, Layers, Upload, Sparkles, Edit, Box, Check, CloudLightning, Zap, Database, Clock, AlertTriangle, Activity, Loader2, ShieldCheck, Cpu, Trash2, Plus, Users, Layout, Lightbulb, ChevronRight, X, Maximize2, Monitor, Smartphone, Square, EyeOff, ShieldAlert } from 'lucide-react';
 import { generateImage } from '../services/geminiService';
-import { IMAGE_GEN_MODELS } from '../data';
+import { IMAGE_GEN_MODELS, ART_STYLES, ASPECT_RATIOS } from '../data';
 
 interface VisionGenProps {
     onError?: (msg: string) => void;
@@ -18,19 +18,31 @@ const LOADING_MESSAGES = [
     "Coalescing Manifestation..."
 ];
 
+const NEGATIVE_PRESETS = [
+    { id: 'bad_anatomy', label: 'Bad Anatomy', prompt: 'mutated hands, deformed fingers, extra limbs, bad proportions' },
+    { id: 'bad_quality', label: 'Low Quality', prompt: 'low quality, blurry, pixelated, jpeg artifacts, low resolution' },
+    { id: 'over_saturated', label: 'Over Saturated', prompt: 'oversaturated, neon colors, excessive glow, color bleed' },
+    { id: 'bad_value', label: 'Bad Value', prompt: 'bad lighting, flat shading, no depth, muddy colors' },
+    { id: 'random', label: 'Random Noise', prompt: 'random objects, messy background, incoherent shapes' }
+];
+
 const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
   const [activeProvider, setActiveProvider] = useState<'Google' | 'openai' | 'OpenRouter' | 'Pollinations'>('Google');
   const [mode, setMode] = useState<'create' | 'edit' | 'merge'>('create');
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   
+  // Custom Controls State
+  const [selectedRatio, setSelectedRatio] = useState('1:1');
+  const [selectedStyle, setSelectedStyle] = useState('none');
+  const [activeNegatives, setActiveNegatives] = useState<string[]>(['bad_anatomy', 'bad_quality']);
+
   const filteredModels = useMemo(() => {
      return IMAGE_GEN_MODELS.filter(m => m.provider.toLowerCase() === activeProvider.toLowerCase());
   }, [activeProvider]);
 
   const [selectedModel, setSelectedModel] = useState<string>(filteredModels[0]?.id || '');
   
-  // Update selectedModel if provider changes and current model is no longer in filtered list
   useEffect(() => {
      if (filteredModels.length > 0) {
         const currentModelExists = filteredModels.some(m => m.id === selectedModel);
@@ -41,10 +53,10 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
   }, [activeProvider, filteredModels, selectedModel]);
 
   const [prompt, setPrompt] = useState('');
-  const [editInstruction, setEditInstruction] = useState(''); // For precise part editing
+  const [editInstruction, setEditInstruction] = useState(''); 
   const [isGenerating, setIsGenerating] = useState(false);
   const [resultImage, setResultImage] = useState<string | null>(null);
-  const [inputImages, setInputImages] = useState<string[]>([]); // Support multiple images
+  const [inputImages, setInputImages] = useState<string[]>([]); 
   const [elapsedTime, setElapsedTime] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +109,10 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
       setInputImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const toggleNegative = (id: string) => {
+      setActiveNegatives(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   const handleGenerate = async (isRegen = false) => {
     if (!prompt.trim() && mode === 'create') return;
     if ((mode === 'edit' || mode === 'merge') && inputImages.length === 0) return;
@@ -107,6 +123,9 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
     
     try {
       let finalPrompt = prompt;
+      const currentStyle = ART_STYLES.find(s => s.id === selectedStyle);
+      const currentNegative = activeNegatives.map(id => NEGATIVE_PRESETS.find(n => n.id === id)?.prompt).join(", ");
+
       if (mode === 'edit') {
           finalPrompt = `[MODE: PRECISE_EDIT] Task: ${editInstruction || 'Refine specific details'}. Context: ${prompt}. Maintain identity and background consistency. Enhance specified regions.`;
       } else if (mode === 'merge') {
@@ -120,7 +139,10 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
           "", 
           inputImages.length > 0 ? inputImages : (isRegen && resultImage ? [resultImage] : undefined), 
           undefined, 
-          selectedModel
+          selectedModel,
+          selectedRatio,
+          currentStyle?.prompt || "",
+          currentNegative
       );
       
       if (img) {
@@ -181,55 +203,57 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
         </header>
 
         <div className="space-y-6">
-            {/* Provider Selector */}
+            {/* Aspect Ratio Selector */}
             <section>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/80 mb-3 block flex items-center gap-2">
-                    <CloudLightning className="w-3 h-3" /> Core Engine Provider
+                    <Layout className="w-3 h-3" /> Dimensional Ratio
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                    {[
-                        { id: 'Google', icon: Box },
-                        { id: 'Pollinations', icon: CloudLightning },
-                        { id: 'openai', icon: Zap },
-                        { id: 'OpenRouter', icon: Database }
-                    ].map(p => (
+                <div className="grid grid-cols-5 gap-2">
+                    {ASPECT_RATIOS.map(ratio => (
                         <button 
-                            key={p.id}
-                            onClick={() => setActiveProvider(p.id as any)} 
-                            className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
-                                activeProvider === p.id 
-                                ? `bg-amber-500/20 border-amber-500 text-amber-300 shadow-[0_0_15px_rgba(0,0,0,0.3)] scale-[1.02]` 
-                                : 'bg-black/40 border-white/10 text-gray-500 hover:bg-white/5'
-                            }`}
+                            key={ratio.id}
+                            onClick={() => setSelectedRatio(ratio.id)}
+                            className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${selectedRatio === ratio.id ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-black/40 border-white/10 text-gray-500 hover:bg-white/5'}`}
                         >
-                            <p.icon className="w-4 h-4" />
-                            <span className="text-[8px] font-black uppercase tracking-widest">{p.id}</span>
+                            {ratio.id === '1:1' ? <Square className="w-3 h-3" /> : ratio.id === '16:9' ? <Monitor className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                            <span className="text-[8px] font-black">{ratio.id}</span>
                         </button>
                     ))}
                 </div>
             </section>
 
-            {/* Model Architecture Selector */}
-            <section className="animate-in slide-in-from-left-2 duration-300">
+            {/* Art Style Selector */}
+            <section>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3 block flex items-center gap-2">
-                    <Layout className="w-3 h-3" /> Model Architecture
+                    <Sparkles className="w-3 h-3" /> Aesthetic Archetype
                 </label>
-                <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                    {filteredModels.map(model => (
+                <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                    {ART_STYLES.map(style => (
                         <button
-                            key={model.id}
-                            onClick={() => setSelectedModel(model.id)}
-                            className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group ${
-                                selectedModel === model.id
-                                ? 'bg-[#d3bc8e]/10 border-[#d3bc8e]/50 text-[#d3bc8e]'
-                                : 'bg-black/20 border-white/5 text-gray-500 hover:border-white/20 hover:text-gray-300'
-                            }`}
+                            key={style.id}
+                            onClick={() => setSelectedStyle(style.id)}
+                            className={`p-2 rounded-xl border text-[9px] font-bold uppercase transition-all ${selectedStyle === style.id ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-black/20 border-white/5 text-gray-500 hover:border-white/20'}`}
                         >
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[11px] font-black truncate uppercase tracking-tighter">{model.label}</span>
-                                <span className="text-[8px] opacity-60 truncate font-medium">{model.desc}</span>
-                            </div>
-                            {selectedModel === model.id && <div className="w-4 h-4 rounded-full bg-[#d3bc8e] flex items-center justify-center"><Check className="w-2.5 h-2.5 text-black stroke-[4]" /></div>}
+                            {style.label}
+                        </button>
+                    ))}
+                </div>
+            </section>
+
+            {/* Negative Filters */}
+            <section>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500/80 mb-3 block flex items-center gap-2">
+                    <ShieldAlert className="w-3 h-3" /> Neutral Resonance Control
+                </label>
+                <div className="flex flex-wrap gap-2">
+                    {NEGATIVE_PRESETS.map(preset => (
+                        <button
+                            key={preset.id}
+                            onClick={() => toggleNegative(preset.id)}
+                            className={`px-3 py-1.5 rounded-full border text-[8px] font-black uppercase transition-all flex items-center gap-1 ${activeNegatives.includes(preset.id) ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-black/20 border-white/5 text-gray-600'}`}
+                        >
+                            {activeNegatives.includes(preset.id) ? <Check className="w-2 h-2" /> : <EyeOff className="w-2 h-2" />}
+                            {preset.label}
                         </button>
                     ))}
                 </div>
@@ -247,6 +271,25 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
                  <Users className="w-3 h-3" /> Merge
                </button>
             </div>
+
+            {/* Provider Selector & Model Architecture */}
+            <section className="grid grid-cols-2 gap-4">
+                <div>
+                   <label className="text-[10px] font-black uppercase text-gray-500 mb-2 block">Provider</label>
+                   <select value={activeProvider} onChange={(e) => setActiveProvider(e.target.value as any)} className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] font-bold text-amber-500 uppercase outline-none">
+                       <option value="Google">Google</option>
+                       <option value="Pollinations">Pollinations</option>
+                       <option value="openai">OpenAI</option>
+                       <option value="OpenRouter">OpenRouter</option>
+                   </select>
+                </div>
+                <div>
+                   <label className="text-[10px] font-black uppercase text-gray-500 mb-2 block">Architecture</label>
+                   <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-[10px] font-bold text-amber-500 uppercase outline-none">
+                       {filteredModels.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                   </select>
+                </div>
+            </section>
 
             {/* Image Source(s) Area */}
             {mode !== 'create' && (
@@ -431,7 +474,7 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
                      </div>
                      <div className="text-left">
                          <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Artifact</p>
-                         <p className="text-xs text-white font-bold">1024px Synthesis</p>
+                         <p className="text-xs text-white font-bold">{selectedRatio} Synthesis</p>
                      </div>
                  </div>
              </div>
@@ -444,7 +487,7 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
               </div>
               <h2 className="text-3xl font-bold genshin-gold font-serif tracking-widest mb-4 uppercase">Awaiting Archetype</h2>
               <p className="text-[10px] text-gray-500 uppercase tracking-[0.3em] max-w-xs leading-loose font-bold">
-                  Neural transmuter is on standby. Inject conceptual data or artifacts to begin the visualization ritual.
+                  Neural transmuter is on standby. Inject conceptual data atau pilih Aesthetic Archetype untuk memulai ritual visualisasi.
               </p>
            </div>
          )}

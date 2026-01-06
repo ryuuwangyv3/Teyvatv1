@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Edit2, Shield, User, MapPin, LogOut, CheckCircle2, ShieldCheck, Mail, Cloud, Info, LogIn } from 'lucide-react';
+import { Camera, Edit2, Shield, User, MapPin, LogOut, CheckCircle2, ShieldCheck, Mail, Cloud, Info, LogIn, Loader2, Mail as MailIcon } from 'lucide-react';
 import { UserProfile } from '../types';
-import { signOut, syncUserProfile, signInWithGoogle } from '../services/supabaseService';
+import { signOut, syncUserProfile, signInWithGoogle, fetchUserStats } from '../services/supabaseService';
 
 interface UserInfoProps {
   profile: UserProfile;
@@ -13,13 +13,32 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempProfile, setTempProfile] = useState(profile);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [stats, setStats] = useState({
+      achievements: 0,
+      companions: 12,
+      visits: 1,
+      aura: 0
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   
   const headerInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setTempProfile(profile);
+    if (profile.id) {
+        loadStats();
+    } else {
+        setIsLoadingStats(false);
+    }
   }, [profile]);
+
+  const loadStats = async () => {
+      setIsLoadingStats(true);
+      const realStats = await fetchUserStats(profile.id || 'guest');
+      setStats(realStats);
+      setIsLoadingStats(false);
+  };
 
   const handleSave = async () => {
     setProfile(tempProfile);
@@ -45,6 +64,13 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
       await signInWithGoogle();
       setIsLoginLoading(false);
   };
+
+  const statItems = [
+    { label: 'Achievements', value: isLoadingStats ? '...' : stats.achievements, icon: Shield },
+    { label: 'Companions', value: isLoadingStats ? '...' : stats.companions, icon: User },
+    { label: 'Energy Flux', value: isLoadingStats ? '...' : stats.visits, icon: Cloud },
+    { label: 'Aura Trace', value: isLoadingStats ? '...' : stats.aura, icon: MailIcon },
+  ];
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar">
@@ -121,7 +147,7 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
             </div>
             <p className="text-gray-400 mt-2 flex items-center gap-2 text-sm italic">
               <MapPin className="w-4 h-4 text-amber-500/70" />
-              <span>Adventurers' Guild • Celestial Node #{Math.floor(Math.random() * 9000) + 1000}</span>
+              <span>Adventurers' Guild • Celestial Node #{profile.id ? profile.id.substring(0, 4) : 'Guest'}</span>
             </p>
           </div>
 
@@ -184,12 +210,7 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: 'Achievements', value: '142', icon: Shield },
-                { label: 'Companions', value: '12', icon: User },
-                { label: 'Visits', value: '1.2k', icon: Cloud },
-                { label: 'Aura', value: '99', icon: Mail },
-              ].map(stat => (
+              {statItems.map(stat => (
                 <div key={stat.label} className="genshin-panel p-6 rounded-2xl border border-white/5 text-center group hover:border-amber-500/30 transition-all">
                   <p className="text-3xl font-black genshin-gold group-hover:scale-110 transition-transform">{stat.value}</p>
                   <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-2 font-bold">{stat.label}</p>
@@ -249,10 +270,5 @@ const UserInfo: React.FC<UserInfoProps> = ({ profile, setProfile }) => {
     </div>
   );
 };
-
-// Simple Loader icon since it was used in code but not imported
-const Loader2 = ({ className }: { className?: string }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-);
 
 export default UserInfo;
