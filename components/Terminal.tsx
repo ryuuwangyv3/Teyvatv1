@@ -59,13 +59,33 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
 
   useEffect(() => {
       isMounted.current = true;
+      
+      // 🔮 EXTERNAL RESONANCE LISTENER: Allow Live Call to push messages
+      const handleResonance = (e: any) => {
+          const detail = e.detail;
+          if (detail && detail.personaId === currentPersona.id) {
+              const newMsg: Message = {
+                  id: Date.now().toString(),
+                  role: detail.role,
+                  text: detail.text,
+                  imageUrl: detail.imageUrl,
+                  timestamp: Date.now(),
+                  model: detail.model || selectedModel
+              };
+              setMessages(prev => [...prev, newMsg]);
+          }
+      };
+
+      window.addEventListener('akasha:resonance', handleResonance);
+
       return () => {
           isMounted.current = false;
+          window.removeEventListener('akasha:resonance', handleResonance);
           if (recognitionRef.current) {
               try { recognitionRef.current.stop(); } catch(e) {}
           }
       };
-  }, []);
+  }, [currentPersona.id, selectedModel]);
 
   const scrollToBottom = useCallback((instant = false) => {
       if (scrollRef.current) {
@@ -88,11 +108,9 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
       }
   };
 
-  // Improved Auto-Scroll Trigger
   useEffect(() => {
       if (!loadingHistory) {
         scrollToBottom();
-        // Secondary trigger for dynamic content
         const timer = setTimeout(() => scrollToBottom(), 150);
         return () => clearTimeout(timer);
       }
@@ -186,12 +204,9 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         
         if (imgMatch) {
             setTypingStatus('Manifesting visual artifact (Recursive Fallback)...');
-            // generateImage now handles the 4-provider fallback chain internally
             const generatedImg = await generateImage(imgMatch[1], currentPersona.visualSummary);
             if (generatedImg) {
                 imgUrl = generatedImg;
-            } else {
-                throw new Error("Teyvat Visual Core (All Providers) failed to manifest image.");
             }
         }
 

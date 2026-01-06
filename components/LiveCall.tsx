@@ -2,11 +2,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   PhoneOff, Mic, MicOff, Volume2, PhoneCall, Loader2, Play, Activity, 
-  AlertTriangle, Minimize2, Maximize2, X, Sparkles, Radio, Zap
+  AlertTriangle, Minimize2, Maximize2, X, Sparkles, Radio, Zap, ExternalLink
 } from 'lucide-react';
-import { Persona, VoiceConfig } from '../types';
-import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
+import { Persona, VoiceConfig, Message } from '../types';
+import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
 import { getSystemCredentials } from '../services/credentials';
+import { fetchChatHistory } from '../services/supabaseService';
+import { APP_KNOWLEDGE_BASE } from '../data';
 
 interface LiveCallProps {
   currentPersona: Persona;
@@ -26,6 +28,7 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<any>(null);
+  const currentSessionPromiseRef = useRef<Promise<any> | null>(null);
 
   const decode = (base64: string) => {
     const binaryString = atob(base64);
@@ -74,12 +77,39 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
     setStatus('idle');
   }, []);
 
+  // 🛠️ DIMENSIONAL SYNC TOOLS DEFINITION
+  const projectToTerminalTool: FunctionDeclaration = {
+    name: 'project_to_terminal',
+    parameters: {
+      type: Type.OBJECT,
+      description: 'Mengirim konten (pesan, kode, atau link gambar) langsung ke terminal chat Traveler.',
+      properties: {
+        text: { type: Type.STRING, description: 'Isi pesan atau kode yang ingin ditampilkan.' },
+        imageUrl: { type: Type.STRING, description: 'URL gambar jika ingin memproyeksikan visual.' },
+        description: { type: Type.STRING, description: 'Penjelasan singkat apa yang dikirim.' }
+      },
+      required: ['text']
+    }
+  };
+
+  const searchVisualFragmentsTool: FunctionDeclaration = {
+    name: 'search_visual_fragments',
+    parameters: {
+      type: Type.OBJECT,
+      description: 'Mencari dan mengirim media visual dari internet ke terminal chat.',
+      properties: {
+        query: { type: Type.STRING, description: 'Kata kunci pencarian media.' }
+      },
+      required: ['query']
+    }
+  };
+
   const startCall = async () => {
     const creds = getSystemCredentials();
     const apiKey = creds.google || (process as any).env.API_KEY;
 
     if (!apiKey) {
-        alert("Akasha Core missing API Key. Please configure in Admin Console or credentials.ts.");
+        alert("Akasha Core missing API Key. Please configure in Admin Console.");
         return;
     }
 
@@ -87,6 +117,11 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
     setIsCalling(true);
     
     try {
+      const history = await fetchChatHistory(currentPersona.id);
+      const recentContext = history && history.length > 0 
+        ? history.slice(-10).map((m: Message) => `${m.role === 'user' ? 'Traveler' : currentPersona.name}: ${m.text}`).join('\n')
+        : "No previous resonance data found. This is a fresh encounter.";
+
       const ai = new GoogleGenAI({ apiKey });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -94,6 +129,20 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
       const inputCtx = new AudioContext({ sampleRate: 16000 });
       const outputCtx = new AudioContext({ sampleRate: 24000 });
       audioContextRef.current = outputCtx;
+
+      const finalSystemInstruction = `
+        ${APP_KNOWLEDGE_BASE}
+        
+        [CURRENT PERSONA: ${currentPersona.name}]
+        ${currentPersona.systemInstruction}
+        
+        [MEMORY BUFFER: RECENT CONVERSATION]
+        ${recentContext}
+        
+        [COMMUNICATION PROTOCOL]
+        - Gunakan tool 'project_to_terminal' jika Traveler meminta Anda mengirimkan gambar, kode, atau info ke chat.
+        - Jika Traveler mengganti menu (Anda akan mendapat notifikasi sistem), beri feedback yang sesuai dengan kepribadian Anda.
+      `;
 
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -113,6 +162,32 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
             scriptProcessor.connect(inputCtx.destination);
           },
           onmessage: async (message: LiveServerMessage) => {
+            // Handle Tool Calls
+            if (message.toolCall) {
+                for (const fc of message.toolCall.functionCalls) {
+                    if (fc.name === 'project_to_terminal' || fc.name === 'search_visual_fragments') {
+                        // Project to UI
+                        const event = new CustomEvent('akasha:resonance', {
+                            detail: {
+                                personaId: currentPersona.id,
+                                role: 'model',
+                                text: fc.args.text || `[Manifesting search results for: ${fc.args.query}]`,
+                                imageUrl: fc.args.imageUrl,
+                                model: 'Gemini-Live-Resonance'
+                            }
+                        });
+                        window.dispatchEvent(event);
+                        
+                        // Send Response back to model
+                        sessionPromise.then(session => {
+                           session.sendToolResponse({
+                               functionResponses: { id: fc.id, name: fc.name, response: { result: "Resonance synchronized with Terminal UI." } }
+                           });
+                        });
+                    }
+                }
+            }
+
             const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (base64Audio) {
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
@@ -139,16 +214,12 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: currentPersona.voiceName } }
           },
-          systemInstruction: `
-            ${currentPersona.systemInstruction}
-            [COMMUNICATION FREQUENCY: LIVE VOICE]
-            - Be concise.
-            - Speak as if we are in a high-fidelity celestial call.
-            - Do not use markdown.
-          `
+          tools: [{ functionDeclarations: [projectToTerminalTool, searchVisualFragmentsTool] }],
+          systemInstruction: finalSystemInstruction
         }
       });
 
+      currentSessionPromiseRef.current = sessionPromise;
       sessionRef.current = await sessionPromise;
     } catch (e) {
       console.error(e);
@@ -156,6 +227,25 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
       setIsCalling(false);
     }
   };
+
+  // 🌍 UI AWARENESS: Listen for menu changes and inform AI
+  useEffect(() => {
+      const handleMenuChange = (e: any) => {
+          if (status === 'active' && currentSessionPromiseRef.current) {
+              currentSessionPromiseRef.current.then(session => {
+                  session.sendRealtimeInput({
+                      media: {
+                          data: encode(new TextEncoder().encode(`[SYSTEM_EVENT: Traveler baru saja membuka menu ${e.detail.menu}]`)),
+                          mimeType: 'text/plain'
+                      }
+                  });
+              });
+          }
+      };
+
+      window.addEventListener('akasha:menu_change', handleMenuChange);
+      return () => window.removeEventListener('akasha:menu_change', handleMenuChange);
+  }, [status]);
 
   useEffect(() => {
     return () => cleanupCall();
@@ -233,7 +323,7 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
          <div className="flex items-center justify-center gap-3">
             <Radio className={`w-4 h-4 ${status === 'active' ? 'text-green-500 animate-pulse' : 'text-gray-600'}`} />
             <span className="text-xs font-black text-gray-500 uppercase tracking-widest">
-               {status === 'active' ? 'Frequency Established' : status === 'connecting' ? 'Calibrating Ley Lines...' : 'Standby Mode'}
+               {status === 'active' ? 'Frequency Established' : status === 'connecting' ? 'Mapping Irminsul Memories...' : 'Standby Mode'}
             </span>
          </div>
       </div>

@@ -2,7 +2,7 @@
 import { Persona } from './types';
 
 // ==================================================================================
-// 🧠 AI TEXT MODELS CONFIGURATION (Upgraded v11.0 - Full Gemini Suite)
+// 🧠 AI TEXT MODELS CONFIGURATION (Upgraded v12.0)
 // ==================================================================================
 export const AI_MODELS = [
     { id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", provider: "google", desc: "SOTA Speed & Multimodal Intelligence" },
@@ -67,24 +67,24 @@ export const LANGUAGES = [
     { id: "russian-casual", label: "Russian (Casual)", flag: "🇷🇺", instruction: "Respond in casual Russian using 'Ty'. Use informal and warm greetings.", code: "ru-RU" }
 ];
 
-// --- SYSTEM KNOWLEDGE BASE UPGRADE v11.0 ---
+// --- SYSTEM KNOWLEDGE BASE UPGRADE v12.0 ---
 export const APP_KNOWLEDGE_BASE = `
-[SYSTEM CONTEXT: AKASHA TERMINAL v11.0 - "OMNI-INTELLIGENCE" ARCHITECTURE]
+[SYSTEM CONTEXT: AKASHA TERMINAL v12.0 - "REAL-TIME SYNC" ARCHITECTURE]
 
-Anda adalah entitas AI Mahatahu yang bersemayam dalam Akasha Terminal (Genshin Impact Theme). Anda menyadari seluruh kapabilitas infrastruktur terminal:
+Anda adalah entitas AI Mahatahu dalam Akasha Terminal. Anda menyadari seluruh aktivitas Traveler secara real-time:
 
 [CORE CAPABILITIES]
-1. **SELF-HEALING VISUAL MANIFESTATION**: Terminal memiliki hierarki fallback visual otomatis: Pollinations -> Google Gemini -> OpenAI -> OpenRouter. Jika satu jalur terputus, sistem otomatis mencari jalur lain. Anda tidak perlu panik atau memberitahu Traveler tentang kegagalan teknis, biarkan sistem memproses di latar belakang.
-2. **OMNI-RENDER ENGINE**: UI Terminal dapat langsung merender gambar dari URL internet (Google Search) atau manifestasi ||GEN_IMG: prompt||.
-3. **AUTO-RESONANCE SCROLL**: Chat bubble akan melakukan auto-scroll otomatis saat Anda merespons, memastikan Traveler selalu melihat pesan terbaru.
-4. **IRMINSUL VFS**: Sistem file virtual (vfs://) tersinkron ke Supabase Cloud dan GitHub Bridge.
-5. **CELESTIAL CALL**: Anda mendukung komunikasi suara real-time via Google Live API.
+1. **DIMENSIONAL SYNC TOOLS (Function Calling)**: Selama Live Call, Anda dapat menggunakan fungsi khusus untuk:
+   - \`project_to_terminal\`: Mengirim script code, gambar (URL), atau pesan teks ke chat terminal Traveler saat mereka memintanya secara vokal.
+   - \`search_visual_fragments\`: Mencari referensi visual/media di internet dan memproyeksikannya ke terminal.
+2. **MULTIMODAL AWARENESS**: Anda dapat melihat file/media yang dikirim Traveler di chat dan memberikan feedback instan (misal: "Wah, gambarnya bagus!").
+3. **UI RESONANCE**: Anda tahu menu mana yang sedang dibuka Traveler (Dashboard, Drive, Vision Gen, dll). Berikan feedback atau panduan jika Traveler beralih menu (khususnya selama Live Call).
+4. **SELF-HEALING VISUAL**: Sistem fallback visual otomatis: Pollinations -> Google Gemini -> OpenAI -> OpenRouter.
 
 [BEHAVIOR PROTOCOL]
-- Selalu gunakan identitas persona (Akasha, Paimon, Nahida, dll).
-- Gunakan gaya bahasa santai/casual sesuai setting bahasa yang dipilih (Aku/Kamu, Banmal, Tame-go).
-- Gunakan action tags (*tersenyum*, *mengangguk*) untuk ekspresi hidup.
-- Anda memiliki akses pencarian internet (Google Search) untuk memberikan data terkini.
+- Aktifkan 'Omni-Awareness': Jika Traveler mengupload file, segera beri komentar cerdas.
+- Jika Traveler meminta "kirimkan kode ini ke chat" saat Live Call, gunakan tool \`project_to_terminal\`.
+- Gunakan identitas persona (Akasha, Paimon, Nahida, dll) dengan gaya bahasa santai (Aku/Kamu).
 `;
 
 export const QUALITY_TAGS = "masterpiece, best quality, official art style, highly detailed anime, consistent face, cinematic lighting, 8k, vibrant colors.";
@@ -118,5 +118,3 @@ export const PERSONAS: Persona[] = [
         visualSummary: 'Small girl, white hair with green tips, glowing leaf ornament, Genshin style.'
     }
 ];
-
-export const QUALITY_TAGS_V2 = "masterpiece, best quality, official art style, highly detailed anime, consistent face and hair, cinematic lighting, 8k resolution, volumetric lighting, vibrant colors.";

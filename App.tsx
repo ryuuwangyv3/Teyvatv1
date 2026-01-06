@@ -81,7 +81,12 @@ const App: React.FC = () => {
   const [currentPersona, setCurrentPersona] = useState<Persona>(DEFAULT_PERSONAS[0]);
 
   useEffect(() => {
-    const handleHashChange = () => setActiveMenu(getMenuFromHash());
+    const handleHashChange = () => {
+        const newMenu = getMenuFromHash();
+        setActiveMenu(newMenu);
+        // 🔮 Dispatch event for real-time AI awareness
+        window.dispatchEvent(new CustomEvent('akasha:menu_change', { detail: { menu: newMenu } }));
+    };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
@@ -118,7 +123,6 @@ const App: React.FC = () => {
   const initializeSystem = async () => {
       setLoadingStep("Accessing Irminsul VFS...");
       try {
-          // 1. Attempt automatic cloud connection (Checks process.env and credentials)
           const connected = initSupabase();
           setIsSupabaseConnected(connected);
 
@@ -132,7 +136,6 @@ const App: React.FC = () => {
                   const session = await getCurrentSession();
                   if (session?.user) {
                       setCurrentUserId(session.user.id);
-                      // Fetch cloud data as primary source
                       const [cloudProfile, cloudSettings] = await Promise.all([
                           fetchUserProfile(),
                           fetchUserSettings()
@@ -140,8 +143,6 @@ const App: React.FC = () => {
 
                       if (cloudProfile) {
                           setUserProfile(cloudProfile);
-                          
-                          // TRIGGER GITHUB SYNC
                           const ghConfig = cloudProfile.githubConfig || DEFAULT_GITHUB_CONFIG;
                           if (ghConfig.autoSync) {
                               setLoadingStep(`Resonating with GitHub (${ghConfig.repo})...`);
@@ -151,7 +152,6 @@ const App: React.FC = () => {
                           const googleProfile = mapUserToProfile(session.user);
                           setUserProfile(googleProfile);
                           syncUserProfile(googleProfile);
-                          // Sync default repo for new users
                           syncGithubRepo(DEFAULT_GITHUB_CONFIG);
                       }
 
@@ -162,22 +162,18 @@ const App: React.FC = () => {
                           if (cloudSettings.selectedModel) setSelectedModel(cloudSettings.selectedModel);
                       }
                   } else {
-                      // Guest user still gets default repo sync
                       setLoadingStep("Resonating with Public Fragments...");
                       syncGithubRepo(DEFAULT_GITHUB_CONFIG);
-                      
                       if (!localStorage.getItem('has_seen_auth_v2')) {
                           setShowAuthModal(true);
                       }
                   }
               }
           } else {
-              // No Supabase, sync local VFS with hardcoded GitHub
               setLoadingStep("Resonating with Local Fragments...");
               syncGithubRepo(DEFAULT_GITHUB_CONFIG);
           }
 
-          // 2. Local recovery/sync for guest or failed cloud
           if (!isSupabaseConnected || !currentUserId) {
              const vfsProfile = await fetchUserProfile();
              if (vfsProfile) setUserProfile(vfsProfile);
@@ -197,7 +193,6 @@ const App: React.FC = () => {
       }
   };
 
-  // Real-time Auth & Profile Listener
   useEffect(() => {
       const { subscription } = listenToAuthChanges(async (user) => {
           if (user) {
@@ -211,7 +206,6 @@ const App: React.FC = () => {
                   syncUserProfile(googleProfile);
               }
               setShowAuthModal(false);
-              // 🔥 REDIRECTION LOGIC: Redirect successful login to USER_INFO
               setActiveMenu(MenuType.USER_INFO);
               window.location.hash = getHashFromMenu(MenuType.USER_INFO);
           } else {
@@ -222,7 +216,6 @@ const App: React.FC = () => {
       return () => { subscription?.unsubscribe(); };
   }, []);
 
-  // REAL-TIME CLOUD SYNC LISTENERS
   useEffect(() => {
       if (!isSupabaseConnected || !userProfile.isAuth) return;
 
@@ -253,7 +246,6 @@ const App: React.FC = () => {
       };
   }, [isSupabaseConnected, userProfile.isAuth, currentUserId]);
 
-  // Sync settings real-time (Local -> Cloud)
   useEffect(() => {
     if (!isDataLoaded) return;
     syncUserSettings({ voiceConfig, apiKeys, currentLanguage, selectedModel });
