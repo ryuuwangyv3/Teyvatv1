@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, RefreshCw, Wifi, WifiOff, Cloud, Code, X, Copy, Check, Terminal } from 'lucide-react';
+import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, RefreshCw, Wifi, WifiOff, Cloud, Code, X, Copy, Check, Terminal, Info, Zap, ShieldCheck, Globe } from 'lucide-react';
 import { ApiKeyData, UserProfile } from '../types';
 import { validateApiKey } from '../services/geminiService';
 import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig } from '../services/supabaseService';
@@ -314,7 +315,30 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                     </div>
 
                     <div className="genshin-panel p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group">
-                        <h3 className="text-xl font-bold text-white mb-10 flex items-center gap-3"><Key className="w-6 h-6 text-amber-500" /> Key Repository</h3>
+                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3"><Key className="w-6 h-6 text-amber-500" /> Key Repository</h3>
+                        
+                        {/* 🌐 Pollinations Public Key Informational Block */}
+                        <div className="mb-8 p-5 bg-amber-500/5 rounded-2xl border border-amber-500/20">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Globe className="w-4 h-4 text-amber-500" />
+                                <span className="text-xs font-black text-amber-400 uppercase tracking-widest">🌐 Kunci Publik Apikey (Penyerbukan)</span>
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-start gap-2">
+                                    <Info className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
+                                    <p className="text-[10px] text-gray-400 leading-tight font-medium">Selalu terlihat di dasbor Anda</p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <ShieldCheck className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
+                                    <p className="text-[10px] text-gray-400 leading-tight font-medium">Aman digunakan dalam kode sisi klien (React, Vue, dll.)</p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <Zap className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
+                                    <p className="text-[10px] text-gray-400 leading-tight font-medium">Pembatasan laju berdasarkan serbuk sari: 1 serbuk sari/jam pengisian ulang per IP+kunci.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex flex-col gap-6 mb-10">
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <input type="text" value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="Inject Neural Key..." className="flex-1 bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white font-mono outline-none focus:border-amber-500 select-text"/>

@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import { Activity, Cpu, Database, Zap, Clock, MessageSquare, ArrowRight, ShieldCheck, Wifi, RefreshCcw, AlertTriangle, Users, TrendingUp, Globe, Heart, Settings } from 'lucide-react';
+import { Activity, Cpu, Database, Zap, Clock, MessageSquare, ArrowRight, ShieldCheck, Wifi, RefreshCcw, AlertTriangle, Users, TrendingUp, Globe, Heart, Settings, Copy, Check, Key, Sparkles } from 'lucide-react';
 import { fetchGlobalStats, fetchSystemLogs, checkDbConnection, logSystemEvent, subscribeToTable, fetchForumPosts } from '../services/supabaseService';
 import { SystemLog, ForumPost } from '../types';
 import LazyImage from './LazyImage';

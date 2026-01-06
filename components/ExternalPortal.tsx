@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Loader2, RefreshCcw, ShieldCheck, Globe, Maximize2, ChevronDown, Sparkles, Zap } from 'lucide-react';
+import { Loader2, RefreshCcw, ShieldCheck, Globe, Maximize2, ChevronDown, Sparkles, Zap, Key, Copy, Check, Info } from 'lucide-react';
 
 const REALMS = [
   {
@@ -23,8 +23,17 @@ const ExternalPortal: React.FC = () => {
   const [activeRealmIndex, setActiveRealmIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [showSelector, setShowSelector] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   const activeRealm = useMemo(() => REALMS[activeRealmIndex], [activeRealmIndex]);
+  const isVisionAI = activeRealm.url.includes('VisionAI');
+  const PUBLIC_KEY = "pk_kcR3k4nvqWfkH92K";
+
+  const handleCopyKey = () => {
+    navigator.clipboard.writeText(PUBLIC_KEY);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+  };
 
   const handleRefresh = () => {
     setIsLoading(true);
@@ -118,6 +127,49 @@ const ExternalPortal: React.FC = () => {
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
         />
+
+        {/* 🔮 PUBLIC KEY MANIFEST BANNER (Specific for Vision AI) */}
+        {isVisionAI && !isLoading && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-2xl z-50 animate-in slide-in-from-bottom-10 duration-700">
+                <div className="genshin-panel p-5 px-6 border-2 border-amber-500/40 bg-[#13182b]/95 backdrop-blur-xl shadow-[0_0_60px_rgba(211,188,142,0.4)] flex flex-col gap-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                                <Key className="w-6 h-6 text-amber-500" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                    🌐 Kunci Publik Apikey (Penyerbukan)
+                                </span>
+                                <code className="text-sm text-amber-200 font-mono mt-1 select-text cursor-copy" onClick={handleCopyKey}>{PUBLIC_KEY}</code>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleCopyKey}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg ${copiedKey ? 'bg-green-600 text-white' : 'bg-amber-500 text-black hover:bg-white'}`}
+                        >
+                            {copiedKey ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            {copiedKey ? 'Synchronized' : 'Copy Artifact'}
+                        </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-white/10">
+                        <div className="flex items-start gap-2">
+                            <Info className="w-3.5 h-3.5 text-amber-500/60 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-gray-400 font-medium leading-tight">Selalu terlihat di dasbor Anda</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <ShieldCheck className="w-3.5 h-3.5 text-amber-500/60 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-gray-400 font-medium leading-tight">Aman digunakan dalam kode sisi klien (React, Vue, dll.)</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <Zap className="w-3.5 h-3.5 text-amber-500/60 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-gray-400 font-medium leading-tight">Pembatasan laju berdasarkan serbuk sari: 1 serbuk sari/jam pengisian ulang per IP+kunci.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
 
       {/* Footer Hint */}

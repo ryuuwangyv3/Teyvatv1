@@ -19,6 +19,9 @@ const SITE_NAME = "AkashaAI V8.5";
 const VALIDATION_MODEL = 'gemini-3-flash-preview'; 
 const FALLBACK_GOOGLE_MODEL = 'gemini-3-flash-preview';
 
+// 🌐 Pollinations Public Key (Hardcoded Fallback)
+const POLLINATIONS_PUBLIC_KEY = "pk_kcR3k4nvqWfkH92K";
+
 export const SERVICE_ACCOUNT_CONFIG = {
     type: process.env.GCP_TYPE || "service_account",
     project_id: process.env.GCP_PROJECT_ID || "",
@@ -66,7 +69,14 @@ const getApiKeyForProvider = (provider: string): string => {
         case 'pollinations': envKey = creds.pollinations || ''; break;
     }
     if (envKey) return envKey;
-    return activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key || '';
+    
+    const userKey = activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key;
+    if (userKey) return userKey;
+
+    // Use Public Fallback for Pollinations
+    if (p === 'pollinations') return POLLINATIONS_PUBLIC_KEY;
+    
+    return '';
 };
 
 const requestLogs: number[] = [];
@@ -123,7 +133,11 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
       try {
           const response = await fetch(endpoint, { 
               method: "POST", 
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`, ...(provider === 'openrouter' ? { "HTTP-Referer": SITE_URL, "X-Title": SITE_NAME } : {}) }, 
+              headers: { 
+                  "Content-Type": "application/json", 
+                  "Authorization": `Bearer ${apiKey}`, 
+                  ...(provider === 'openrouter' ? { "HTTP-Referer": SITE_URL, "X-Title": SITE_NAME } : {}) 
+              }, 
               body: JSON.stringify({ model: modelName, messages, temperature: 1.0 }) 
           });
           const data = await response.json();
@@ -197,8 +211,12 @@ export const generateImage = async (
 
   const tryPollinations = async () => {
     const seed = Math.floor(Math.random() * 1000000);
+    const key = getApiKeyForProvider('pollinations');
     const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=${ratio.width}&height=${ratio.height}&seed=${seed}&nologo=true`;
-    const res = await fetch(url);
+    
+    const res = await fetch(url, {
+        headers: key ? { "Authorization": `Bearer ${key}` } : {}
+    });
     if (!res.ok) throw new Error("Pollinations Down");
     return url;
   };
