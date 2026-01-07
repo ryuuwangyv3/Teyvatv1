@@ -82,14 +82,38 @@ const requestLogs: number[] = [];
 const checkRateLimit = () => {
     const now = Date.now();
     while (requestLogs.length > 0 && requestLogs[0] < now - 60000) requestLogs.shift();
-    if (requestLogs.length >= 25) throw new Error("Resonance Frequency Limit reached.");
+    if (requestLogs.length >= 50) throw new Error("Resonance Frequency Limit reached. Please wait a moment.");
     requestLogs.push(now);
 };
 
 const getAI = (customKey?: string) => {
   const key = customKey || getApiKeyForProvider('google');
-  if (!key) throw new Error("Irminsul Error: Google API Key missing.");
+  if (!key) throw new Error("Irminsul Error: Google API Key missing. Please configure it in Admin Console.");
   return new GoogleGenAI({ apiKey: key });
+};
+
+/**
+ * 👁️ CELESTIAL VISION SERVICE (Integrated Google Vision Logic)
+ * Performs deep image analysis: OCR, Object Detection, Scene Understanding.
+ */
+export const analyzeImageVision = async (images: ImageAttachment[]): Promise<string> => {
+    if (images.length === 0) return "";
+    try {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: {
+                parts: [
+                    ...images,
+                    { text: "ACT AS GOOGLE VISION SERVICE. Analyze this image. Identify: 1. Detailed labels, 2. Text/OCR, 3. Landmark/Location hints, 4. Dominant atmosphere. Provide a concise technical summary." }
+                ]
+            }
+        });
+        return response.text || "[Vision Scan Empty]";
+    } catch (e) {
+        console.error("Vision Service Failure:", e);
+        return "[Vision Service Offline]";
+    }
 };
 
 export const validateApiKey = async (key: string, provider: string): Promise<boolean> => {
@@ -109,15 +133,38 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
     return !!key;
 };
 
-export const chatWithAI = async (modelName: string, history: any[], message: string, systemInstruction: string, userContext: string = "", images: any[] = []) => {
-  checkRateLimit();
+export const chatWithAI = async (modelName: string, history: any[], message: string, systemInstruction: string, userContext: string = "", images: any[] = [], isRetry: boolean = false): Promise<string> => {
+  try {
+      checkRateLimit();
+  } catch (e: any) {
+      return e.message;
+  }
+
   const safeMessage = sanitizeInput(message);
-  const finalInstruction = `${DEEP_SEARCH_INSTRUCTION}\n${APP_KNOWLEDGE_BASE}\n${systemInstruction}`;
+  
+  // Inject Vision Intelligence if images are present
+  let visionSummary = "";
+  if (images.length > 0 && !isRetry) {
+      visionSummary = await analyzeImageVision(images);
+  }
+
+  const finalInstruction = `
+    ${DEEP_SEARCH_INSTRUCTION}
+    ${APP_KNOWLEDGE_BASE}
+    ${systemInstruction}
+    ${visionSummary ? `[VISION_SCAN_DATA: ${visionSummary}]` : ""}
+  `;
+  
   const modelConfig = AI_MODELS.find(m => m.id === modelName);
   const provider = modelConfig?.provider || 'google';
 
   if (['pollinations', 'openrouter', 'openai'].includes(provider)) {
       const apiKey = getApiKeyForProvider(provider);
+      if (!apiKey && provider !== 'pollinations') {
+          if (isRetry) return "Neural connection lost. All providers failed.";
+          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images, true);
+      }
+
       const endpoint = provider === 'pollinations' ? "https://text.pollinations.ai/v1/chat/completions" : 
                        provider === 'openrouter' ? "https://openrouter.ai/api/v1/chat/completions" : 
                        "https://api.openai.com/v1/chat/completions";
@@ -134,33 +181,50 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
               method: "POST", 
               headers: { 
                   "Content-Type": "application/json", 
-                  "Authorization": `Bearer ${apiKey}`, 
+                  ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
                   ...(provider === 'openrouter' ? { "HTTP-Referer": SITE_URL, "X-Title": SITE_NAME } : {}) 
               }, 
               body: JSON.stringify({ model: modelName, messages, temperature: 1.0 }) 
           });
-          const data = await response.json();
-          return data.choices?.[0]?.message?.content || "Neural feedback empty.";
-      } catch (e) { return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images); }
-  } else {
-      const ai = getAI(); 
-      const canUseTools = modelName.includes('gemini-3');
-      
-      const executeRequest = async (useTools: boolean) => {
-        return await ai.models.generateContent({
-            model: modelName, 
-            contents: [...history, { role: 'user', parts: [...images, { text: safeMessage }] }],
-            config: { 
-                systemInstruction: finalInstruction, 
-                temperature: 1.0, 
-                ...(useTools ? { tools: [{ googleSearch: {} }] } : {}) 
-            }
-          });
-      };
 
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content;
+          
+          if (!content) {
+              if (isRetry) return "Neural feedback empty from all nodes.";
+              return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images, true);
+          }
+          return content;
+      } catch (e) { 
+          if (isRetry) return "Celestial signal lost. Check your internet or API Key.";
+          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images, true); 
+      }
+  } else {
+      // Google Gemini Logic
       try {
+          const ai = getAI(); 
+          const canUseTools = modelName.includes('gemini-3');
+          
+          const executeRequest = async (useTools: boolean) => {
+            return await ai.models.generateContent({
+                model: modelName, 
+                contents: [...history, { role: 'user', parts: [...images, { text: safeMessage }] }],
+                config: { 
+                    systemInstruction: finalInstruction, 
+                    temperature: 1.0, 
+                    ...(useTools ? { tools: [{ googleSearch: {} }] } : {}) 
+                }
+              });
+          };
+
           let response = await executeRequest(canUseTools);
           let textOutput = response.text || "";
+          
+          if (!textOutput && !isRetry) {
+              return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images, true);
+          }
           
           const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
           if (grounding && grounding.length > 0) {
@@ -171,17 +235,11 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
                 textOutput += "\n\n**Sources Found:**\n" + links.join("\n");
               }
           }
-          return textOutput;
+          return textOutput || "Resonance achieved, but no data returned.";
       } catch (e: any) { 
-          if (canUseTools && (e.message?.includes('argument') || e.message?.includes('tool'))) {
-              try {
-                  const fallbackRes = await executeRequest(false);
-                  return fallbackRes.text || "Resonance recovered without external search.";
-              } catch (innerE) {
-                  return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images);
-              }
-          }
-          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images); 
+          console.error("Gemini Error:", e);
+          if (isRetry) return `Irminsul Error: ${e.message || "Celestial Anomaly"}`;
+          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images, true); 
       }
   }
 };
@@ -199,7 +257,12 @@ export const generateImage = async (
     stylePrompt: string = "",
     negativePrompt: string = ""
 ): Promise<string | null> => {
-  checkRateLimit();
+  try {
+      checkRateLimit();
+  } catch(e) {
+      return null;
+  }
+  
   const context = getDynamicVisualContext(prompt);
   const ratio = ASPECT_RATIOS.find(r => r.id === ratioId) || ASPECT_RATIOS[0];
   
@@ -208,7 +271,6 @@ export const generateImage = async (
   const tryPollinations = async () => {
     const seed = Math.floor(Math.random() * 1000000);
     const key = getApiKeyForProvider('pollinations');
-    // ✨ Updated URL structure using dynamic preferredModel
     const url = `https://gen.pollinations.ai/image/prompt/${encodeURIComponent(finalPrompt)}?model=${preferredModel}&width=${ratio.width}&height=${ratio.height}&seed=${seed}&nologo=true`;
     
     const res = await fetch(url, {
@@ -322,9 +384,9 @@ export const analyzePersonaFromImage = async (base64WithHeader: string) => {
   const [header, data] = base64WithHeader.split(',');
   try {
     const response = await ai.models.generateContent({
-      model: FALLBACK_GOOGLE_MODEL, 
+      model: 'gemini-3-pro-preview', // High intelligence for persona extraction
       contents: {
-        parts: [{ inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/jpeg', data } }, { text: "DEEP_ANALYSIS_V2: JSON {name, description, personality, background, speechStyle, visualSummary, voiceSuggestion}." }]
+        parts: [{ inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/jpeg', data } }, { text: "DEEP_VISION_ANALYSIS: Analyze this character image using Google Vision logic. Extract: {name, description, personality, background, speechStyle, visualSummary, voiceSuggestion}. Format as JSON." }]
       },
       config: { 
           responseMimeType: "application/json", 

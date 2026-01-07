@@ -28,8 +28,8 @@
             --genshin-blue: #3d447a;
             --genshin-accent: #f4d06f;
             --genshin-white: #ece5d8;
-            /* Fluid font size for better responsive scaling */
-            font-size: clamp(14px, 1vw + 10px, 18px);
+            /* Fluid font size optimized for 360DPI devices */
+            font-size: clamp(12px, 0.8vw + 10px, 18px);
         }
         
         * {
@@ -43,6 +43,7 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
+            position: fixed; /* Prevent bounce scroll on iOS */
         }
 
         body {
@@ -79,9 +80,9 @@
         }
 
         .genshin-panel {
-            background: rgba(13, 17, 28, 0.75);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            background: rgba(13, 17, 28, 0.85);
+            backdrop-filter: blur(25px) saturate(200%);
+            -webkit-backdrop-filter: blur(25px) saturate(200%);
             border: 1px solid rgba(211, 188, 142, 0.15);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
             border-radius: 1.25rem;
@@ -108,7 +109,7 @@
             transform: scale(0.98);
         }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; height: 3px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { 
             background: rgba(211, 188, 142, 0.2); 
@@ -116,7 +117,7 @@
         }
 
         .safe-area-bottom {
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: max(env(safe-area-inset-bottom), 1rem);
         }
         
         .safe-area-top {
@@ -125,7 +126,7 @@
 
         @keyframes float {
             0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-8px); }
             100% { transform: translateY(0px); }
         }
 
@@ -137,7 +138,14 @@
             background: linear-gradient(to right, rgba(236, 229, 216, 0.1), rgba(236, 229, 216, 0.05));
             border-left: 3px solid var(--genshin-gold);
             border-radius: 0 1rem 1rem 0;
-            box-shadow: 10px 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 5px 5px 20px rgba(0,0,0,0.2);
+        }
+
+        /* Fix for smaller device ratios */
+        @media (max-width: 400px) {
+            .genshin-panel {
+                border-radius: 1rem;
+            }
         }
     </style>
 <script type="importmap">
