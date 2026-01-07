@@ -318,7 +318,8 @@ export const subscribeToTable = (tableName: string, callback: (payload: any) => 
 
 export const fetchSystemLogs = async (): Promise<SystemLog[]> => {
     if (!supabaseInstance) return [];
-    const { data } = await supabaseInstance.from('system_logs').order('created_at', { ascending: false }).limit(50);
+    // Fix: Added missing select() before order()
+    const { data } = await supabaseInstance.from('system_logs').select('*').order('created_at', { ascending: false }).limit(50);
     return data || [];
 };
 
@@ -386,6 +387,7 @@ export const mapUserToProfile = (user: User): UserProfile => ({
 
 export const fetchForumPosts = async (type: string = 'latest'): Promise<ForumPost[]> => {
     if (!supabaseInstance) return [];
+    // Fix: Query builder was missing explicit select() in branching logic
     let q = supabaseInstance.from('forum_posts').select('*');
     if (type === 'trending') q = q.order('likes', { ascending: false });
     else q = q.order('created_at', { ascending: false });

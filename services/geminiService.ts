@@ -49,10 +49,11 @@ const getDynamicVisualContext = (userPrompt: string) => {
 };
 
 const DEEP_SEARCH_INSTRUCTION = `
-[PROTOCOL: INFINITE RESONANCE v10.0]
-1. MEDIA RETRIEVAL: Jika Traveler meminta gambar/foto dari internet, carilah Direct URL yang valid dan sertakan dalam teks.
-2. VISUAL FALLBACK AWARENESS: Sistem memiliki hierarki fallback visual (Pollinations -> Google -> OpenAI -> OpenRouter).
-3. CASUAL RESONANCE: Gunakan gaya bicara santai sesuai instruksi bahasa.
+[PROTOCOL: CELESTIAL MEDIA RETRIEVAL v11.0]
+1. MEDIA SEARCH: Jika Traveler meminta gambar/media dari internet (Google, Pixiv, Pinterest, dsb), gunakan googleSearch untuk menemukan Direct URL yang paling relevan.
+2. RENDERING: Masukkan URL gambar (.jpg/png/webp) langsung di dalam teks agar sistem UI dapat merendernya.
+3. GROUNDING: SELALU tampilkan sumber website aslinya sebagai referensi di bawah media.
+4. NARRATION: Berikan narasi yang puitis atau santai sesuai persona Anda saat memproyeksikan media tersebut.
 `;
 
 let activeUserKeys: ApiKeyData[] = [];
@@ -92,10 +93,6 @@ const getAI = (customKey?: string) => {
   return new GoogleGenAI({ apiKey: key });
 };
 
-/**
- * 👁️ CELESTIAL VISION SERVICE (Integrated Google Vision Logic)
- * Performs deep image analysis: OCR, Object Detection, Scene Understanding.
- */
 export const analyzeImageVision = async (images: ImageAttachment[]): Promise<string> => {
     if (images.length === 0) return "";
     try {
@@ -229,10 +226,13 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
           const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
           if (grounding && grounding.length > 0) {
               const links = grounding
-                .map((c: any) => c.web?.uri ? `- [${c.web.title || 'Source'}](${c.web.uri})` : null)
+                .map((c: any) => {
+                    if (c.web?.uri) return `- [${c.web.title || 'Celestial Source'}](${c.web.uri})`;
+                    return null;
+                })
                 .filter(Boolean);
               if (links.length > 0) {
-                textOutput += "\n\n**Sources Found:**\n" + links.join("\n");
+                textOutput += "\n\n**Fragments found in Irminsul:**\n" + links.join("\n");
               }
           }
           return textOutput || "Resonance achieved, but no data returned.";
@@ -244,9 +244,6 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
   }
 };
 
-/**
- * 🎨 Recursive Visual Manifestation
- */
 export const generateImage = async (
     prompt: string, 
     personaVisuals: string = "", 
@@ -295,23 +292,9 @@ export const generateImage = async (
     throw new Error("Google Empty");
   };
 
-  const tryOpenAI = async () => {
-    const key = getApiKeyForProvider('openai');
-    if (!key) throw new Error("No OpenAI Key");
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-        body: JSON.stringify({ model: "dall-e-3", prompt: finalPrompt, n: 1, size: "1024x1024" })
-    });
-    const data = await res.json();
-    if (data.data?.[0]?.url) return data.data[0].url;
-    throw new Error("OpenAI Failed");
-  };
-
   const chain = [
     { name: 'Pollinations', fn: tryPollinations },
-    { name: 'Google', fn: tryGoogle },
-    { name: 'OpenAI', fn: tryOpenAI }
+    { name: 'Google', fn: tryGoogle }
   ];
 
   for (const provider of chain) {
@@ -384,7 +367,7 @@ export const analyzePersonaFromImage = async (base64WithHeader: string) => {
   const [header, data] = base64WithHeader.split(',');
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // High intelligence for persona extraction
+      model: 'gemini-3-pro-preview', 
       contents: {
         parts: [{ inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/jpeg', data } }, { text: "DEEP_VISION_ANALYSIS: Analyze this character image using Google Vision logic. Extract: {name, description, personality, background, speechStyle, visualSummary, voiceSuggestion}. Format as JSON." }]
       },
