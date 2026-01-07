@@ -59,8 +59,6 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
 
   useEffect(() => {
       isMounted.current = true;
-      
-      // 🔮 EXTERNAL RESONANCE LISTENER: Allow Live Call to push messages
       const handleResonance = (e: any) => {
           const detail = e.detail;
           if (detail && detail.personaId === currentPersona.id) {
@@ -75,9 +73,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
               setMessages(prev => [...prev, newMsg]);
           }
       };
-
       window.addEventListener('akasha:resonance', handleResonance);
-
       return () => {
           isMounted.current = false;
           window.removeEventListener('akasha:resonance', handleResonance);
@@ -203,11 +199,9 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         const imgMatch = rawResponse.match(/\|\|GEN_IMG:\s*(.*?)\s*\|\|/);
         
         if (imgMatch) {
-            setTypingStatus('Manifesting visual artifact (Recursive Fallback)...');
+            setTypingStatus('Manifesting visual artifact...');
             const generatedImg = await generateImage(imgMatch[1], currentPersona.visualSummary);
-            if (generatedImg) {
-                imgUrl = generatedImg;
-            }
+            if (generatedImg) imgUrl = generatedImg;
         }
 
         if (voiceConfig.autoPlay) {
@@ -234,19 +228,15 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
 
   const handleSend = async () => {
     if (!inputValue.trim() && files.length === 0) return;
-    
     setIsTyping(true);
     setTypingStatus('Mapping neural vectors...');
-
     let attachments: Attachment[] = [];
     let imageAttachments: ImageAttachment[] = [];
 
     if (files.length > 0) {
         const filePromises = files.map(async (file) => {
             const base64Data = await fileToBase64(file);
-            if (file.type.startsWith('image/')) {
-                imageAttachments.push(base64Data);
-            }
+            if (file.type.startsWith('image/')) imageAttachments.push(base64Data);
             return {
                 name: file.name,
                 url: URL.createObjectURL(file),
@@ -264,35 +254,21 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
     setInputValue('');
     setFiles([]);
     setReplyTo(null);
-    
     processAIResponse(newHistory, imageAttachments);
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0b0e14] relative overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-[#0b0e14] relative overflow-hidden">
       {lightboxImage && (
         <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in" onClick={() => setLightboxImage(null)}>
            <div className="max-w-4xl w-full flex flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
               <img src={lightboxImage} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
-              <div className="flex gap-4 animate-in slide-in-from-bottom-4 duration-500">
-                <button 
-                  onClick={() => {
-                    const a = document.createElement('a');
-                    a.href = lightboxImage;
-                    a.download = `akasha_capture_${Date.now()}.png`;
-                    a.click();
-                  }} 
-                  className="flex items-center gap-2 px-8 py-3 bg-[#d3bc8e] text-black rounded-full font-black uppercase tracking-widest shadow-[0_0_20px_rgba(211,188,142,0.4)] hover:scale-105 transition-all active:scale-95"
-                >
-                  <Download className="w-5 h-5" />
-                  <span className="hidden sm:inline">Download Artifact</span>
+              <div className="flex flex-wrap justify-center gap-4 animate-in slide-in-from-bottom-4 duration-500">
+                <button onClick={() => { const a = document.createElement('a'); a.href = lightboxImage; a.download = `akasha_${Date.now()}.png`; a.click(); }} className="flex items-center gap-2 px-6 py-3 bg-[#d3bc8e] text-black rounded-full font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transition-all">
+                  <Download className="w-4 h-4" /> <span>Download</span>
                 </button>
-                <button 
-                  onClick={() => setLightboxImage(null)} 
-                  className="flex items-center gap-2 px-8 py-3 bg-white/10 text-white rounded-full font-black uppercase tracking-widest border border-white/20 backdrop-blur-md hover:bg-white/20 transition-all active:scale-95"
-                >
-                  <X className="w-5 h-5" />
-                  <span className="hidden sm:inline">Close</span>
+                <button onClick={() => setLightboxImage(null)} className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-full font-black uppercase text-xs tracking-widest border border-white/20 backdrop-blur-md">
+                  <X className="w-4 h-4" /> <span>Close</span>
                 </button>
               </div>
            </div>
@@ -300,40 +276,40 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
       )}
 
       {showClearConfirm && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-in zoom-in duration-300">
-            <div className="genshin-panel max-w-sm w-full p-8 border border-red-500/30 text-center">
-                <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
-                    <Eraser className="w-8 h-8 text-red-500" />
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in zoom-in duration-300">
+            <div className="genshin-panel max-w-xs w-full p-6 border border-red-500/30 text-center">
+                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                    <Eraser className="w-6 h-6 text-red-500" />
                 </div>
-                <h3 className="text-xl font-bold genshin-gold uppercase tracking-widest mb-4">Clear Resonance?</h3>
-                <p className="text-xs text-gray-400 mb-8 leading-relaxed italic">
-                    "Traveler, are you sure you want to wipe the current neural history with {currentPersona.name}? This action cannot be undone by Irminsul."
+                <h3 className="text-lg font-bold genshin-gold uppercase tracking-widest mb-3">Clear Resonance?</h3>
+                <p className="text-[10px] text-gray-400 mb-6 leading-relaxed italic">
+                    "Purge current neural archive with {currentPersona.name}? This action is irreversible."
                 </p>
-                <div className="flex gap-4">
-                    <button onClick={() => setShowClearConfirm(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 font-bold hover:bg-white/5 transition-all">Cancel</button>
-                    <button onClick={handleClear} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold shadow-lg shadow-red-900/40 hover:bg-red-600 transition-all">Clear Memory</button>
+                <div className="flex gap-3">
+                    <button onClick={() => setShowClearConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 font-bold text-xs uppercase">Cancel</button>
+                    <button onClick={handleClear} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-xs uppercase">Clear</button>
                 </div>
             </div>
         </div>
       )}
       
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar scroll-smooth relative message-container">
-        {loadingHistory && <div className="flex justify-center py-20"><Loader2 className="w-12 h-12 animate-spin text-[#d3bc8e]" /></div>}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 custom-scrollbar scroll-smooth relative message-container">
+        {loadingHistory && <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#d3bc8e]" /></div>}
         
         {!loadingHistory && messages.length > 0 && (
-            <div className="max-w-4xl mx-auto flex justify-end mb-8 sticky top-0 z-20">
-                <button onClick={() => setShowClearConfirm(true)} className="flex items-center gap-2 px-4 py-2 bg-[#131823]/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 hover:border-red-500/30 transition-all shadow-xl group">
-                    <Eraser className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
-                    <span className="hidden sm:inline">Clear Archive</span>
+            <div className="max-w-4xl mx-auto flex justify-end mb-6 sticky top-0 z-20">
+                <button onClick={() => setShowClearConfirm(true)} className="flex items-center gap-2 px-3 py-1.5 bg-[#131823]/60 backdrop-blur-md border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all shadow-lg group">
+                    <Eraser className="w-3 h-3" />
+                    <span className="hidden sm:inline">Purge Memory</span>
                 </button>
             </div>
         )}
 
         {messages.length === 0 && !loadingHistory && (
-            <div className="h-full flex flex-col items-center justify-center opacity-20 pointer-events-none">
-                <TerminalIcon className="w-20 h-20 mb-4" />
-                <h2 className="text-lg font-black font-serif uppercase tracking-[0.4em]">Akasha Terminal Active</h2>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Ready for neural resonance with {currentPersona.name}</p>
+            <div className="h-full flex flex-col items-center justify-center opacity-20 pointer-events-none text-center px-6">
+                <TerminalIcon className="w-16 h-16 sm:w-20 sm:h-20 mb-4" />
+                <h2 className="text-md sm:text-lg font-black font-serif uppercase tracking-[0.4em]">Akasha Terminal Online</h2>
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Establishing neural bridge with {currentPersona.name}</p>
             </div>
         )}
         
@@ -344,7 +320,6 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
                   const msgIndex = prev.findIndex(x => x.id === id);
                   if (msgIndex === -1) return prev;
                   const newMessages = prev.map((x, i) => i === msgIndex ? {...x, text} : x);
-                  
                   if (regenerate && newMessages[msgIndex].role === 'user') {
                     const historyToProcess = newMessages.slice(0, msgIndex + 1);
                     setTimeout(() => processAIResponse(historyToProcess), 50);
@@ -357,44 +332,53 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
             ))}
 
             {isTyping && (
-               <div className="flex items-center gap-4 pl-4 mt-6 animate-pulse">
-                  <div className="w-10 h-10 rounded-full border border-[#d3bc8e]/20 bg-black/40 flex items-center justify-center"><Loader2 className="w-5 h-5 animate-spin text-[#d3bc8e]" /></div>
+               <div className="flex items-center gap-3 pl-2 sm:pl-4 mt-6 animate-pulse">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-[#d3bc8e]/20 bg-black/40 flex items-center justify-center"><Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-[#d3bc8e]" /></div>
                   <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.2em] mb-1">{currentPersona.name} Resonating...</span>
-                      <span className="text-xs text-gray-500 font-mono">{typingStatus}</span>
+                      <span className="text-[9px] sm:text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.2em] mb-0.5">{currentPersona.name}...</span>
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-mono truncate max-w-[200px] sm:max-w-none">{typingStatus}</span>
                   </div>
                </div>
             )}
         </div>
 
-        <div className={`fixed bottom-32 right-8 z-30 flex flex-col gap-3 transition-all duration-500 ${showScrollControls ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
-           <button onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} className="p-3 bg-black/60 border border-white/10 rounded-full text-[#d3bc8e] hover:bg-[#d3bc8e] hover:text-black transition-all shadow-xl"><ArrowUp className="w-5 h-5" /></button>
-           <button onClick={() => scrollToBottom()} className="p-3 bg-[#d3bc8e] border border-white/10 rounded-full text-black hover:scale-110 transition-all shadow-xl shadow-[#d3bc8e]/20"><ArrowDown className="w-5 h-5" /></button>
+        <div className={`fixed bottom-28 sm:bottom-32 right-4 sm:right-8 z-30 flex flex-col gap-2 sm:gap-3 transition-all duration-500 ${showScrollControls ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0 pointer-events-none'}`}>
+           <button onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} className="p-2.5 sm:p-3 bg-black/60 border border-white/10 rounded-full text-[#d3bc8e] hover:bg-[#d3bc8e] hover:text-black transition-all shadow-xl"><ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+           <button onClick={() => scrollToBottom()} className="p-2.5 sm:p-3 bg-[#d3bc8e] border border-white/10 rounded-full text-black hover:scale-110 transition-all shadow-xl shadow-[#d3bc8e]/20"><ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" /></button>
         </div>
       </div>
 
-      <div className="p-6 md:p-8 bg-[#0b0e14]/95 backdrop-blur-xl border-t border-white/5 relative z-20">
+      <div className="p-4 sm:p-6 md:p-8 bg-[#0b0e14]/95 backdrop-blur-xl border-t border-white/5 relative z-20 safe-area-bottom">
         <div className="max-w-4xl mx-auto">
             {replyTo && (
-               <div className="flex items-center justify-between bg-[#3d447a]/20 border border-[#3d447a]/40 p-4 rounded-t-2xl mb-0 animate-in slide-in-from-bottom-2">
-                  <div className="flex flex-col text-xs">
-                      <span className="font-black text-[#d3bc8e] uppercase tracking-widest mb-1 flex items-center gap-2"><Zap className="w-3 h-3" /> Resonating with past thought</span>
-                      <span className="text-gray-400 truncate max-w-md italic">"{replyTo.text}"</span>
+               <div className="flex items-center justify-between bg-[#3d447a]/20 border border-[#3d447a]/40 p-3 sm:p-4 rounded-t-2xl mb-0 animate-in slide-in-from-bottom-2">
+                  <div className="flex flex-col text-[10px] sm:text-xs">
+                      <span className="font-black text-[#d3bc8e] uppercase tracking-widest mb-0.5 flex items-center gap-2"><Zap className="w-2.5 h-2.5 sm:w-3 h-3" /> Resonating Thought</span>
+                      <span className="text-gray-400 truncate max-w-[200px] sm:max-w-md italic">"{replyTo.text}"</span>
                   </div>
-                  <button onClick={() => setReplyTo(null)} className="p-2 hover:bg-white/10 rounded-full text-gray-500"><X className="w-5 h-5" /></button>
+                  <button onClick={() => setReplyTo(null)} className="p-1.5 hover:bg-white/10 rounded-full text-gray-500"><X className="w-4 h-4" /></button>
                </div>
             )}
             
-            <div className={`flex items-end gap-3 bg-[#131823] p-3 md:p-4 rounded-3xl border ${replyTo ? 'rounded-t-none' : ''} border-white/10 shadow-2xl group focus-within:border-[#d3bc8e]/50 transition-all`}>
-                <button onClick={() => fileInputRef.current?.click()} className="p-3 text-gray-500 hover:text-[#d3bc8e] transition-colors rounded-full hover:bg-white/5"><Paperclip className="w-6 h-6" /></button>
-                <input type="file" autoFocus={false} ref={fileInputRef} className="hidden" onChange={(e) => { if(e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} multiple />
+            <div className={`flex items-end gap-2 sm:gap-3 bg-[#131823] p-2 sm:p-3 md:p-4 rounded-3xl border ${replyTo ? 'rounded-t-none' : ''} border-white/10 shadow-2xl focus-within:border-[#d3bc8e]/40 transition-all`}>
+                <div className="flex items-center">
+                    <button onClick={() => fileInputRef.current?.click()} className="p-2 sm:p-3 text-gray-500 hover:text-[#d3bc8e] transition-colors rounded-full hover:bg-white/5"><Paperclip className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+                    <button onClick={() => setIsRecording(!isRecording)} className={`p-2 sm:p-3 transition-colors rounded-full hover:bg-white/5 ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-500 hover:text-[#d3bc8e]'}`}>{isRecording ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}</button>
+                </div>
                 
-                <button onClick={() => setIsRecording(!isRecording)} className={`p-3 transition-colors rounded-full hover:bg-white/5 ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-500 hover:text-[#d3bc8e]'}`}>{isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}</button>
+                <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => { if(e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} multiple />
                 
-                <textarea value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && (window.innerWidth >= 1024)) { e.preventDefault(); handleSend(); } }} placeholder={`Resonate with ${currentPersona.name}...`} className="flex-1 bg-transparent py-3 px-2 outline-none resize-none text-white h-12 max-h-48 custom-scrollbar text-[15px] placeholder:text-gray-600 font-medium select-text" rows={1} />
+                <textarea 
+                    value={inputValue} 
+                    onChange={e => setInputValue(e.target.value)} 
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 1024) { e.preventDefault(); handleSend(); } }} 
+                    placeholder={`Speak...`} 
+                    className="flex-1 bg-transparent py-2 px-1 outline-none resize-none text-white h-10 max-h-40 custom-scrollbar text-sm sm:text-[15px] placeholder:text-gray-600 font-medium select-text" 
+                    rows={1} 
+                />
                 
-                <button onClick={handleSend} disabled={(!inputValue.trim() && files.length === 0) || isTyping} className="w-12 h-12 flex items-center justify-center rounded-2xl genshin-button disabled:opacity-50 disabled:grayscale transition-all hover:scale-105 active:scale-95 shadow-xl">
-                    {isTyping ? <StopCircle className="w-6 h-6 animate-pulse" /> : <Send className="w-6 h-6" />}
+                <button onClick={handleSend} disabled={(!inputValue.trim() && files.length === 0) || isTyping} className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-2xl genshin-button disabled:opacity-50 disabled:grayscale transition-all shadow-xl shrink-0">
+                    {isTyping ? <StopCircle className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" /> : <Send className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </button>
             </div>
         </div>

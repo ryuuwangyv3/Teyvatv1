@@ -73,7 +73,6 @@ const getApiKeyForProvider = (provider: string): string => {
     const userKey = activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key;
     if (userKey) return userKey;
 
-    // Use Public Fallback for Pollinations
     if (p === 'pollinations') return POLLINATIONS_PUBLIC_KEY;
     
     return '';
@@ -145,7 +144,6 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
       } catch (e) { return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images); }
   } else {
       const ai = getAI(); 
-      // Only use tools for Gemini 3 models
       const canUseTools = modelName.includes('gemini-3');
       
       const executeRequest = async (useTools: boolean) => {
@@ -164,7 +162,6 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
           let response = await executeRequest(canUseTools);
           let textOutput = response.text || "";
           
-          // Enhanced grounding link extraction
           const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
           if (grounding && grounding.length > 0) {
               const links = grounding
@@ -176,7 +173,6 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
           }
           return textOutput;
       } catch (e: any) { 
-          // 🛡️ CRITICAL BUG FIX: If "Invalid Argument" (often tool mismatch), retry without tools
           if (canUseTools && (e.message?.includes('argument') || e.message?.includes('tool'))) {
               try {
                   const fallbackRes = await executeRequest(false);
@@ -198,7 +194,7 @@ export const generateImage = async (
     personaVisuals: string = "", 
     base64Inputs?: string | string[], 
     referenceImageUrl?: string, 
-    preferredModel: string = 'flux',
+    preferredModel: string = 'zimage',
     ratioId: string = "1:1",
     stylePrompt: string = "",
     negativePrompt: string = ""
@@ -212,7 +208,8 @@ export const generateImage = async (
   const tryPollinations = async () => {
     const seed = Math.floor(Math.random() * 1000000);
     const key = getApiKeyForProvider('pollinations');
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?model=flux&width=${ratio.width}&height=${ratio.height}&seed=${seed}&nologo=true`;
+    // ✨ Updated URL structure using dynamic preferredModel
+    const url = `https://gen.pollinations.ai/image/prompt/${encodeURIComponent(finalPrompt)}?model=${preferredModel}&width=${ratio.width}&height=${ratio.height}&seed=${seed}&nologo=true`;
     
     const res = await fetch(url, {
         headers: key ? { "Authorization": `Bearer ${key}` } : {}

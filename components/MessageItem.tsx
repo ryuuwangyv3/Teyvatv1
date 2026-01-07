@@ -73,9 +73,10 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                             );
                         }
                         
-                        // Robust image detection for search grounding results and direct links
+                        // Enhanced image detection for search grounding results and Pollinations direct links
                         const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp)($|\?)/i) || 
                                           url.includes('images.unsplash.com') || 
+                                          url.includes('gen.pollinations.ai') ||
                                           url.includes('image.pollinations.ai') ||
                                           url.includes('googleusercontent.com');
 
@@ -83,7 +84,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                             return (
                                 <div key={j} className="my-3 rounded-xl overflow-hidden border border-white/10 cursor-zoom-in select-none bg-black/20 group/omni" onClick={() => onLightbox(url)}>
                                     <LazyImage src={url} alt="Celestial visual" className="w-full h-auto max-h-[400px] object-contain hover:scale-[1.02] transition-transform duration-500" />
-                                    <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded text-[8px] text-white opacity-0 group-hover/omni:opacity-100 transition-opacity uppercase tracking-widest font-black">Visual Link</div>
+                                    <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded text-[8px] text-white opacity-0 group-hover/omni:opacity-100 transition-opacity uppercase tracking-widest font-black">Visual Manifestation</div>
                                 </div>
                             );
                         }

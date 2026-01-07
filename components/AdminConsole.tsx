@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, RefreshCw, Wifi, WifiOff, Cloud, Code, X, Copy, Check, Terminal, Info, Zap, ShieldCheck, Globe } from 'lucide-react';
+import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, RefreshCw, Wifi, WifiOff, Cloud, Code, X, Copy, Check, Terminal, Info, Zap, ShieldCheck, Globe, ChevronDown, ChevronUp } from 'lucide-react';
 import { ApiKeyData, UserProfile } from '../types';
 import { validateApiKey } from '../services/geminiService';
 import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig } from '../services/supabaseService';
@@ -178,6 +178,10 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
     const [latency, setLatency] = useState<number | null>(null);
     const [showSqlModal, setShowSqlModal] = useState(false);
     const [copiedSql, setCopiedSql] = useState(false);
+    const [showPollinationsInfo, setShowPollinationsInfo] = useState(() => {
+        const saved = localStorage.getItem('akasha_pollinations_info_visible');
+        return saved === null ? true : saved === 'true';
+    });
 
     useEffect(() => {
         const config = getSupabaseConfig();
@@ -187,6 +191,10 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
         }
         checkDb();
     }, []);
+
+    useEffect(() => {
+        localStorage.setItem('akasha_pollinations_info_visible', showPollinationsInfo.toString());
+    }, [showPollinationsInfo]);
 
     const checkDb = async () => {
         setDbStatus('checking');
@@ -230,7 +238,6 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                     lastChecked: Date.now(), 
                     label: `Node ${apiKeys.length + 1}` 
                 }];
-                // Rely on the parent component's useEffect to handle the database sync
                 setApiKeys(updatedKeys);
                 setNewKey('');
             } else { alert("Neural verification failed."); }
@@ -244,57 +251,58 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
     };
 
     return (
-        <div className="h-full p-6 lg:p-12 overflow-y-auto custom-scrollbar relative">
+        <div className="h-full p-4 sm:p-6 lg:p-12 overflow-y-auto custom-scrollbar relative">
             {showSqlModal && (
-                <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in zoom-in-95">
+                <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-6 animate-in fade-in zoom-in-95">
                     <div className="w-full max-w-4xl bg-[#0b0e14] border-2 border-amber-500/50 rounded-3xl overflow-hidden shadow-[0_0_120px_rgba(245,158,11,0.2)] flex flex-col max-h-[85vh]">
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-amber-900/20 to-transparent">
+                        <div className="p-4 sm:p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-amber-900/20 to-transparent">
                             <div className="flex items-center gap-3">
-                                <Database className="w-6 h-6 text-amber-500" />
-                                <h3 className="text-xl font-bold genshin-gold uppercase tracking-widest font-serif">Celestial Schema V8.0</h3>
+                                <Database className="w-5 h-5 sm:w-6 h-6 text-amber-500" />
+                                <h3 className="text-lg sm:text-xl font-bold genshin-gold uppercase tracking-widest font-serif truncate">Celestial Schema V8.0</h3>
                             </div>
                             <button onClick={() => setShowSqlModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-all text-gray-500 hover:text-white"><X /></button>
                         </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-black/40">
-                             <pre className="text-[10px] md:text-xs font-mono text-cyan-400 leading-relaxed select-text whitespace-pre-wrap">{SQL_SCRIPT}</pre>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 bg-black/40">
+                             <pre className="text-[9px] sm:text-xs font-mono text-cyan-400 leading-relaxed select-text whitespace-pre-wrap">{SQL_SCRIPT}</pre>
                         </div>
-                        <div className="p-6 bg-black border-t border-white/5 flex gap-4">
-                            <button onClick={handleCopySql} className={`flex-1 py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${copiedSql ? 'bg-green-600 text-white' : 'bg-amber-500 text-black hover:bg-white'}`}>
+                        <div className="p-4 sm:p-6 bg-black border-t border-white/5 flex flex-col sm:flex-row gap-4">
+                            <button onClick={handleCopySql} className={`flex-1 py-4 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${copiedSql ? 'bg-green-600 text-white' : 'bg-amber-500 text-black hover:bg-white'}`}>
                                 {copiedSql ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                 {copiedSql ? 'Ritual Captured' : 'Copy SQL Initialization'}
                             </button>
-                            <button onClick={() => setShowSqlModal(false)} className="px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-gray-400 font-bold text-xs uppercase tracking-widest hover:bg-white/10">Dismiss</button>
+                            <button onClick={() => setShowSqlModal(false)} className="px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-gray-400 font-bold text-[10px] sm:text-xs uppercase tracking-widest hover:bg-white/10">Dismiss</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="max-w-6xl mx-auto space-y-12">
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            <div className="max-w-6xl mx-auto space-y-8 sm:space-y-12">
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="space-y-2">
-                        <h2 className="text-4xl font-bold text-red-500 uppercase tracking-[0.2em] flex items-center gap-4 font-serif">
-                            <ShieldAlert className="w-10 h-10 animate-pulse" /> Omni-Root Access
+                        <h2 className="text-2xl sm:text-4xl font-bold text-red-500 uppercase tracking-[0.2em] flex items-center gap-4 font-serif">
+                            <ShieldAlert className="w-8 h-8 sm:w-10 h-10 animate-pulse" /> Omni-Root Access
                         </h2>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-[0.4em] font-black flex items-center gap-2">
+                        <p className="text-gray-500 text-[8px] sm:text-[10px] uppercase tracking-[0.4em] font-black flex items-center gap-2">
                            <Terminal className="w-3 h-3" /> Secure Node V12.0 • Omni-Shield Active
                         </p>
                     </div>
-                    <button onClick={() => setShowSqlModal(true)} className="flex items-center gap-3 bg-amber-500/10 hover:bg-amber-500 hover:text-black text-amber-500 px-8 py-4 rounded-2xl border border-amber-500/30 transition-all font-black text-[11px] uppercase tracking-widest shadow-2xl">
+                    <button onClick={() => setShowSqlModal(true)} className="w-full sm:w-auto flex items-center justify-center gap-3 bg-amber-500/10 hover:bg-amber-500 hover:text-black text-amber-500 px-8 py-4 rounded-2xl border border-amber-500/30 transition-all font-black text-[10px] sm:text-[11px] uppercase tracking-widest shadow-2xl">
                         <Code className="w-4 h-4" /> <span>Celestial Schema</span>
                     </button>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="genshin-panel p-8 rounded-[3rem] border border-white/10 flex flex-col shadow-2xl relative overflow-hidden group">
-                        <div className="flex justify-between items-center mb-10">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-3"><Cloud className="w-6 h-6 text-blue-400" /> Irminsul Link</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                    {/* Database Config */}
+                    <div className="genshin-panel p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-white/10 flex flex-col shadow-2xl relative overflow-hidden group">
+                        <div className="flex justify-between items-center mb-8">
+                            <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-3"><Cloud className="w-5 h-5 sm:w-6 h-6 text-blue-400" /> Irminsul Link</h3>
                             {dbStatus === 'connected' ? (
                                 <div className="flex items-center gap-2 bg-green-500/10 px-4 py-1.5 rounded-full border border-green-500/30">
-                                    <Wifi className="w-3.5 h-3.5 text-green-500" /><span className="text-[10px] font-black text-green-400 uppercase tracking-widest">{latency}ms Stability</span>
+                                    <Wifi className="w-3.5 h-3.5 text-green-500" /><span className="text-[8px] sm:text-[10px] font-black text-green-400 uppercase tracking-widest">{latency}ms Stability</span>
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2 bg-red-500/10 px-4 py-1.5 rounded-full border border-red-500/30 animate-pulse">
-                                    <WifiOff className="w-3.5 h-3.5 text-red-500" /><span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Disconnected</span>
+                                    <WifiOff className="w-3.5 h-3.5 text-red-500" /><span className="text-[8px] sm:text-[10px] font-black text-red-400 uppercase tracking-widest">Disconnected</span>
                                 </div>
                             )}
                         </div>
@@ -307,66 +315,78 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                                 <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Signature Key</label>
                                 <input type="password" value={dbKey} onChange={(e) => setDbKey(e.target.value)} placeholder="sb_secret_ndbyZ2XztVkI7XRaft-lug_V0SVpOr2" className="w-full bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white focus:border-blue-500 font-mono outline-none select-text" />
                             </div>
-                            <div className="pt-4 flex gap-4">
-                                <button onClick={handleUpdateDb} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl">Synchronize Link</button>
-                                <button onClick={checkDb} className="px-6 py-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all"><RefreshCw className={`w-5 h-5 text-gray-400 ${dbStatus === 'checking' ? 'animate-spin text-blue-400' : ''}`} /></button>
+                            <div className="pt-4 flex flex-col sm:flex-row gap-4">
+                                <button onClick={handleUpdateDb} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-5 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl">Synchronize Link</button>
+                                <button onClick={checkDb} className="w-full sm:w-auto px-6 py-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all flex justify-center"><RefreshCw className={`w-5 h-5 text-gray-400 ${dbStatus === 'checking' ? 'animate-spin text-blue-400' : ''}`} /></button>
                             </div>
                         </div>
                     </div>
 
-                    <div className="genshin-panel p-8 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group">
-                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3"><Key className="w-6 h-6 text-amber-500" /> Key Repository</h3>
-                        
-                        {/* 🌐 Pollinations Public Key Informational Block */}
-                        <div className="mb-8 p-5 bg-amber-500/5 rounded-2xl border border-amber-500/20">
-                            <div className="flex items-center gap-2 mb-3">
-                                <Globe className="w-4 h-4 text-amber-500" />
-                                <span className="text-xs font-black text-amber-400 uppercase tracking-widest">🌐 Kunci Publik Apikey (Penyerbukan)</span>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="flex items-start gap-2">
-                                    <Info className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
-                                    <p className="text-[10px] text-gray-400 leading-tight font-medium">Selalu terlihat di dasbor Anda</p>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                    <ShieldCheck className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
-                                    <p className="text-[10px] text-gray-400 leading-tight font-medium">Aman digunakan dalam kode sisi klien (React, Vue, dll.)</p>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                    <Zap className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
-                                    <p className="text-[10px] text-gray-400 leading-tight font-medium">Pembatasan laju berdasarkan serbuk sari: 1 serbuk sari/jam pengisian ulang per IP+kunci.</p>
-                                </div>
-                            </div>
+                    {/* Key Repo */}
+                    <div className="genshin-panel p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group">
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-3"><Key className="w-5 h-5 sm:w-6 h-6 text-amber-500" /> Key Repository</h3>
+                          <button 
+                            onClick={() => setShowPollinationsInfo(!showPollinationsInfo)}
+                            className={`p-2 rounded-lg transition-all ${showPollinationsInfo ? 'bg-amber-500/20 text-amber-500' : 'bg-white/5 text-gray-500 hover:text-white'}`}
+                            title={showPollinationsInfo ? "Hide Pollinations Help" : "Show Pollinations Help"}
+                          >
+                            {showPollinationsInfo ? <ChevronUp className="w-4 h-4" /> : <Info className="w-4 h-4" />}
+                          </button>
                         </div>
+                        
+                        {showPollinationsInfo && (
+                          <div className="mb-8 p-4 sm:p-5 bg-amber-500/5 rounded-2xl border border-amber-500/20 animate-in slide-in-from-top-2 duration-300 relative">
+                              <button onClick={() => setShowPollinationsInfo(false)} className="absolute top-2 right-2 text-amber-500/40 hover:text-amber-500"><X className="w-3.5 h-3.5" /></button>
+                              <div className="flex items-center gap-2 mb-3">
+                                  <Globe className="w-4 h-4 text-amber-500" />
+                                  <span className="text-[10px] sm:text-xs font-black text-amber-400 uppercase tracking-widest">🌐 Kunci Publik Apikey (Pollinations)</span>
+                              </div>
+                              <div className="space-y-2">
+                                  <div className="flex items-start gap-2">
+                                      <Info className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
+                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Selalu terlihat di dasbor Anda sebagai referensi cepat.</p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                      <ShieldCheck className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
+                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Aman digunakan dalam kode sisi klien.</p>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                      <Zap className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
+                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Pembatasan laju: 1 per jam pengisian ulang per IP+kunci.</p>
+                                  </div>
+                              </div>
+                          </div>
+                        )}
 
-                        <div className="flex flex-col gap-6 mb-10">
+                        <div className="flex flex-col gap-4 sm:gap-6 mb-10">
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <input type="text" value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="Inject Neural Key..." className="flex-1 bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white font-mono outline-none focus:border-amber-500 select-text"/>
-                                <select value={keyProvider} onChange={(e) => setKeyProvider(e.target.value as any)} className="bg-black/80 border border-white/5 rounded-2xl px-4 text-[10px] font-black uppercase text-amber-400 focus:border-amber-500">
+                                <select value={keyProvider} onChange={(e) => setKeyProvider(e.target.value as any)} className="bg-black/80 border border-white/5 rounded-2xl px-4 h-14 sm:h-auto text-[9px] sm:text-[10px] font-black uppercase text-amber-400 focus:border-amber-500">
                                     <option value="google">Google</option>
                                     <option value="openai">OpenAI</option>
                                     <option value="openrouter">OpenRouter</option>
                                     <option value="pollinations">Pollinations</option>
                                 </select>
                             </div>
-                            <button onClick={handleAddKey} disabled={isAddingKey || !newKey} className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white hover:scale-105 transition-all shadow-xl disabled:opacity-50">
+                            <button onClick={handleAddKey} disabled={isAddingKey || !newKey} className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:bg-white hover:scale-105 transition-all shadow-xl disabled:opacity-50 flex items-center justify-center gap-2">
                                 {isAddingKey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />} Manifest Secret
                             </button>
                         </div>
                         <div className="space-y-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-2">
                             {apiKeys.length === 0 ? (
-                                <div className="text-center py-10 text-gray-700 italic text-xs uppercase font-bold tracking-widest">Vault Empty</div>
+                                <div className="text-center py-10 text-gray-700 italic text-[10px] sm:text-xs uppercase font-bold tracking-widest">Vault Empty</div>
                             ) : (
                                 apiKeys.map((k, i) => (
-                                    <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group/item hover:border-amber-500/30 transition-all">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-black uppercase text-amber-400 tracking-widest">{k.provider} Node</span>
-                                            <span className="text-xs text-gray-500 font-mono tracking-tighter">{k.key.substring(0, 20)}...</span>
+                                    <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group/item hover:border-amber-500/30 transition-all animate-in slide-in-from-right-2">
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-[9px] sm:text-[10px] font-black uppercase text-amber-400 tracking-widest truncate">{k.provider} Node</span>
+                                            <span className="text-[10px] sm:text-xs text-gray-500 font-mono tracking-tighter truncate">{k.key.substring(0, 20)}...</span>
                                         </div>
                                         <button onClick={() => { 
                                             const updated = apiKeys.filter((_, idx) => idx !== i);
                                             setApiKeys(updated);
-                                        }} className="text-gray-600 hover:text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
+                                        }} className="text-gray-600 hover:text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-all shrink-0"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 ))
                             )}
@@ -374,13 +394,14 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                     </div>
                 </div>
 
-                <div className="genshin-panel p-10 rounded-[3rem] border border-red-500/20 bg-red-900/5 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-2 h-full bg-red-500/40"></div>
-                    <div className="flex items-start gap-8 relative z-10">
-                         <div className="p-5 rounded-[2rem] bg-red-500/10 border border-red-500/20"><ShieldAlert className="w-8 h-8 text-red-500" /></div>
+                {/* Lockdown Card */}
+                <div className="genshin-panel p-8 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-red-500/20 bg-red-900/5 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 sm:w-2 h-full bg-red-500/40"></div>
+                    <div className="flex flex-col sm:flex-row items-start gap-6 sm:gap-8 relative z-10">
+                         <div className="p-4 sm:p-5 rounded-[1.5rem] sm:rounded-[2rem] bg-red-500/10 border border-red-500/20 shrink-0"><ShieldAlert className="w-6 h-6 sm:w-8 h-8 text-red-500" /></div>
                          <div className="flex-1">
-                             <h4 className="text-red-400 font-black uppercase tracking-[0.3em] mb-3 text-sm">Celestial Lockdown Mode</h4>
-                             <p className="text-xs text-gray-500 italic max-w-3xl leading-relaxed">
+                             <h4 className="text-red-400 font-black uppercase tracking-[0.3em] mb-3 text-xs sm:text-sm">Celestial Lockdown Mode</h4>
+                             <p className="text-[10px] sm:text-xs text-gray-500 italic max-w-3xl leading-relaxed">
                                 "Akasha Omni-Shield V12.0 is operating at peak efficiency. High-frequency encryption protocols are actively safeguarding the celestial data stream. Unauthorized inspection attempts are programmatically mitigated. Resonance verified."
                              </p>
                          </div>

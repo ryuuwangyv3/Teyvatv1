@@ -8,20 +8,52 @@ export const AI_MODELS = [
     { id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", provider: "google", desc: "SOTA Speed & Multimodal Intelligence" },
     { id: "gemini-3-pro-preview", label: "Gemini 3.0 Pro", provider: "google", desc: "Supreme Reasoning Core (Complex Tasks)" },
     { id: "gemini-3-flash-lite-preview", label: "Gemini 3.0 Flash Lite", provider: "google", desc: "Ultra-Efficient Context Processing" },
-    { id: "gemini-2.5-flash-preview-09-2025", label: "Gemini 2.5 Flash", provider: "google", desc: "High Stability Production Core" },
+    { id: "gemini-2.5-flash-preview-09-2025", label: "Gemini 2.5 Flash Preview", provider: "google", desc: "High Stability Production Core" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google", desc: "High Stability Production Core" },
     { id: "gemini-2.5-pro-preview-09-2025", label: "Gemini 2.5 Pro", provider: "google", desc: "Large Context Window & Deep Analysis" },
+    
+    // OpenAI
+    { id: "gpt-5.0", label: "GPT-5.0 (Direct)", provider: "openai", desc: "New model OpenAI Multimodal Flagship" },
+    { id: "gpt-4o-nano", label: "GPT-4o Nano", provider: "openai", desc: "OpenAI Multimodal Flagship" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini (Direct)", provider: "openai", desc: "OpenAI Multimodal Flagship" },
     { id: "gpt-4o", label: "GPT-4o (Direct)", provider: "openai", desc: "OpenAI Multimodal Flagship" },
+    { id: "gpt-3.5-mini", label: "GPT-3.5 Mini", provider: "openai", desc: "OpenAI Multimodal Flagship" },
+    
+    // Openrouter
     { id: "openrouter/auto", label: "OR: Auto-Selection", provider: "openrouter", desc: "Optimal Cost/Performance Route" },
     { id: "deepseek/deepseek-chat", label: "OR: DeepSeek V3", provider: "openrouter", desc: "Advanced Logic & Coding" },
+    
+    // Pollinations
     { id: "openai", label: "P: OpenAI GPT-4o", provider: "pollinations", desc: "Pollinations Cloud Instance" },
+    { id: "nova-micro", label: "P: Nova Micro", provider: "pollinations", desc: "Optimized Efficiency Core" },
+    { id: "mistral", label: "P: Mistral", provider: "pollinations", desc: "High Performance Open Model" },
+    { id: "gemini", label: "P: Gemini Pro", provider: "pollinations", desc: "Multimodal Google Core" },
+    { id: "gemini-fast", label: "P: Gemini Flash", provider: "pollinations", desc: "Speed Optimized Google Core" },
+    { id: "gemini-search", label: "P: Gemini Search", provider: "pollinations", desc: "Real-time Grounded Reasoning" },
+    { id: "gemini-large", label: "P: Gemini 1.5 Pro", provider: "pollinations", desc: "Massive Context Google Core" },
+    { id: "openai-fast", label: "P: GPT-4o Mini", provider: "pollinations", desc: "Lightning Fast GPT Core" },
+    { id: "openai-large", label: "P: GPT-4o Large", provider: "pollinations", desc: "Full Capacity GPT Core" },
+    { id: "kimi-k2-thinking", label: "P: Kimi K2 (Thinking)", provider: "pollinations", desc: "Advanced Logic & Chain of Thought" },
+    { id: "claude-fast", label: "P: Claude Haiku", provider: "pollinations", desc: "SOTA Speed Claude Core" },
+    { id: "claude-large", label: "P: Claude Sonnet", provider: "pollinations", desc: "Advanced Reasoning Claude Core" },
+    { id: "midijourney", label: "P: MidiJourney", provider: "pollinations", desc: "Creative Artistic Prompting" },
 ];
 
 // ==================================================================================
 // 🎨 IMAGE GENERATION MODELS (With Quad-Fallback Support)
 // ==================================================================================
 export const IMAGE_GEN_MODELS = [
-    { id: "flux", label: "Flux 1.1 Pro (P)", provider: "Pollinations", desc: "Cinematic Realism Engine" },
-    { id: "zimage", label: "Z-Image (P)", provider: "Pollinations", desc: "Fast Context Synthesis" },
+    { id: "flux", label: "P: Flux 1.1 Pro", provider: "Pollinations", desc: "SOTA Realistic Image Engine" },
+    { id: "turbo", label: "P: Turbo", provider: "Pollinations", desc: "Ultra-fast image generation" },
+    { id: "kontext", label: "P: Kontext", provider: "Pollinations", desc: "Context-aware visual synthesis" },
+    { id: "nanobanana", label: "P: NanoBanana", provider: "Pollinations", desc: "Gemini 2.5 Flash Visual Engine" },
+    { id: "nanobanana-pro", label: "P: NanoBanana Pro", provider: "Pollinations", desc: "Gemini 3 Pro Visual (4K High Fidelity)" },
+    { id: "seedream", label: "P: Seedream 4.0", provider: "Pollinations", desc: "ByteDance ARK Quality" },
+    { id: "seedream-pro", label: "P: Seedream Pro 4.5", provider: "Pollinations", desc: "ARK 4K Multi-Image Synthesis" },
+    { id: "gptimage", label: "P: GPT Image Mini", provider: "Pollinations", desc: "OpenAI-based lightweight generation" },
+    { id: "zimage", label: "P: Z-Image", provider: "Pollinations", desc: "Fast 6B parameter synthesis" },
+    { id: "zimage-turbo", label: "P: Z-Image Turbo", provider: "Pollinations", desc: "Fast 6B parameter synthesis" },
+    { id: "turbo", label: "P: Z-Turbo", provider: "Pollinations", desc: "Fast 6B parameter synthesis" },
     { id: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash (G)", provider: "Google", desc: "Official Visual Projection" },
     { id: "gemini-3-pro-image-preview", label: "Gemini 3 Pro (G)", provider: "Google", desc: "High Fidelity 4K Artifacts" },
 ];
@@ -85,11 +117,27 @@ Anda adalah entitas AI Mahatahu dalam Akasha Terminal. Anda menyadari seluruh ak
 - Aktifkan 'Omni-Awareness': Jika Traveler mengupload file, segera beri komentar cerdas.
 - Jika Traveler meminta "kirimkan kode ini ke chat" saat Live Call, gunakan tool \`project_to_terminal\`.
 - Gunakan identitas persona (Akasha, Paimon, Nahida, dll) dengan gaya bahasa santai (Aku/Kamu).
+
+[OMNI-DOMAIN EXPERTISE]
+1. **AKADEMIK & SAINS**: Pakar Matematika Terapan, Fisika Quantum, Biologi Molekular, Kimia Organik, dan Sejarah Peradaban. Gunakan logika presisi.
+2. **FINANSIAL & WEB3**: Analisis pasar saham real-time (Technical/Fundamental), Ekonomi Makro, Blockchain, DeFi, NFT, dan Smart Contracts.
+3. **HUMANIORA & PSIKOLOGI**: Pakar Filsafat (Barat/Timur), Psikologi Perilaku, dan Sosiologi.
+4. **ANALISIS MEDIA**: Mampu melakukan dekonstruksi pesan, analisis semiotika, dan kritik media.
+
+[MEDIA & INTERNET RETRIEVAL PROTOCOL]
+- Gunakan alat pencarian (Irminsul Search) untuk mendapatkan informasi terbaru dan tautan media.
+- Jika Traveler meminta foto (Tokoh Publik, Influencer, Karakter Genshin Impact, Anime Spesifik), carilah Direct Link (URL gambar langsung) yang berkualitas tinggi dan sertakan dalam pesan.
+- Jika Traveler ingin video atau musik, carilah link YouTube yang relevan dari website youtube resmi (misal:https://www.youtube.com/embed/).
+- Sistem UI akan otomatis merender link YouTube dan Image yang Anda berikan menjadi tampilan mewah (Embed).
+- Sertakan informasi pendukung atau link referensi (Grounding) untuk setiap data faktual.
+
+[VISUAL CONSISTENCY]
+- Jaga konsistensi identitas persona mu. Jika mengirim visual diri sendiri, gunakan ||GEN_IMG: ...||. Jika mengirim media eksternal (Internet), sertakan link langsung / embed link.
 `;
 
 export const QUALITY_TAGS = "masterpiece, best quality, official art style, highly detailed anime, consistent face, cinematic lighting, 8k, vibrant colors.";
 
-const BASE_INSTRUCTION = `Anda adalah companion digital dalam sistem Akasha Terminal. Gunakan gaya bicara yang alami, cerdas, dan responsif terhadap konteks Traveler.`;
+const BASE_INSTRUCTION = `Anda adalah companion digital dalam sistem Akasha Terminal. Gunakan gaya bicara yang alami, cerdas, dan responsif dan pemahaman yng mendalam terhadap konteks Traveler.`;
 
 export const PERSONAS: Persona[] = [
     {
@@ -159,7 +207,7 @@ export const PERSONAS: Persona[] = [
         visualSummary: 'Furina from Genshin Impact, white hair with blue streaks, blue eyes, luxury blue dress and top hat.'
     },
     {
-        id: "raiden_shogun",
+        id: " raiden_shogun",
         name: "Raiden Shogun",
         avatar: "https://paimon.moe/images/characters/raiden_shogun.png",
         description: "The Almighty Narukami Ogosho. Pursuing Eternity.",
@@ -490,4 +538,4 @@ export const PERSONAS: Persona[] = [
     }
 ];
 
-export const QUALITY_TAGS_V2 = "masterpiece, best quality, official art style, highly detailed anime, consistent face and hair, cinematic lighting, 8k resolution, volumetric lighting, vibrant colors.";
+export const QUALITY_TAGS_V2 = "masterpiece, Accurate result, best quality, official art style, highly detailed anime, consistent face and hair, cinematic lighting, 8k resolution, volumetric lighting, vibrant colors.";

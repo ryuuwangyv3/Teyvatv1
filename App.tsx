@@ -84,7 +84,6 @@ const App: React.FC = () => {
     const handleHashChange = () => {
         const newMenu = getMenuFromHash();
         setActiveMenu(newMenu);
-        // 🔮 Dispatch event for real-time AI awareness
         window.dispatchEvent(new CustomEvent('akasha:menu_change', { detail: { menu: newMenu } }));
     };
     window.addEventListener('hashchange', handleHashChange);
@@ -100,12 +99,12 @@ const App: React.FC = () => {
     enableRuntimeProtection(); 
     initializeSystem();
     const handleResize = () => {
+       // Only auto-close sidebar on window resize if crossing the threshold
        if (window.innerWidth < 1024) setIsSidebarOpen(false);
        else setIsSidebarOpen(true);
     };
     window.addEventListener('resize', handleResize);
     
-    // Periodic GitHub Sync (every 10 minutes)
     const syncInterval = setInterval(() => {
         const ghConfig = userProfile.githubConfig || DEFAULT_GITHUB_CONFIG;
         if (ghConfig.autoSync) {
@@ -119,7 +118,6 @@ const App: React.FC = () => {
     };
   }, [userProfile.githubConfig]);
 
-  // AUTO CONNECTION ENGINE
   const initializeSystem = async () => {
       setLoadingStep("Accessing Irminsul VFS...");
       try {
@@ -282,15 +280,15 @@ const App: React.FC = () => {
   if (!isDataLoaded) {
       return (
         <div className="h-screen w-screen bg-[#0b0e14] flex flex-col items-center justify-center overflow-hidden text-[#ece5d8]">
-            <div className="relative w-64 h-64 flex items-center justify-center mb-8">
+            <div className="relative w-40 h-40 sm:w-64 sm:h-64 flex items-center justify-center mb-8">
                 <div className="absolute inset-0 rounded-full border border-dashed border-amber-500/20 akasha-loader-ring"></div>
-                <div className="absolute inset-16 rounded-full bg-black/40 backdrop-blur-sm akasha-pulse flex items-center justify-center">
-                    <TerminalIcon className="w-16 h-16 text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]" />
+                <div className="absolute inset-10 sm:inset-16 rounded-full bg-black/40 backdrop-blur-sm akasha-pulse flex items-center justify-center">
+                    <TerminalIcon className="w-10 h-10 sm:w-16 sm:h-16 text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]" />
                 </div>
             </div>
-            <div className="text-center">
-                <h1 className="text-4xl font-bold font-serif tracking-[0.2em] genshin-gold mb-2">TEYVAT.AI</h1>
-                <p className="text-xs font-mono text-cyan-400 uppercase tracking-widest animate-pulse">[{loadingStep}]</p>
+            <div className="text-center px-6">
+                <h1 className="text-2xl sm:text-4xl font-bold font-serif tracking-[0.2em] genshin-gold mb-2 uppercase">Akasha Terminal</h1>
+                <p className="text-[9px] sm:text-xs font-mono text-cyan-400 uppercase tracking-widest animate-pulse">[{loadingStep}]</p>
             </div>
         </div>
       );
@@ -307,40 +305,48 @@ const App: React.FC = () => {
     { type: MenuType.VIDEO_GEN, label: 'Video Gen', icon: Video },
     { type: MenuType.LANGUAGE, label: 'Language', icon: Globe },
     { type: MenuType.FORUM, label: 'Forum', icon: MessageSquare },
-    { type: MenuType.REALM_PORTAL, label: 'Dimensional Realms', icon: Box },
+    { type: MenuType.REALM_PORTAL, label: 'Realms', icon: Box },
     { type: MenuType.ABOUT, label: 'About', icon: Info },
   ];
 
   return (
-    <div className="flex h-screen w-full bg-[#0b0e14] text-[#ece5d8] overflow-hidden relative">
+    <div className="flex h-screen w-full bg-[#0b0e14] text-[#ece5d8] overflow-hidden relative font-sans">
       {showAuthModal && <AuthModal onLogin={async () => { setIsAuthLoading(true); const r = await signInWithGoogle(); setIsAuthLoading(false); return r; }} onGuest={() => { setShowAuthModal(false); localStorage.setItem('has_seen_auth_v2', 'true'); }} isLoading={isAuthLoading} />}
       {showDbSetupModal && <DatabaseSetupModal onClose={() => setShowDbSetupModal(false)} />}
 
-      <aside className={`fixed inset-y-0 left-0 z-[70] h-full genshin-panel border-r border-white/10 transition-all duration-300 lg:relative lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:w-20'}`}>
+      {/* Mobile Sidebar Backdrop - Improved interaction */}
+      {isSidebarOpen && window.innerWidth < 1024 && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[65] transition-all duration-300 ease-in-out cursor-pointer"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`fixed inset-y-0 left-0 z-[70] h-full genshin-panel border-r border-white/10 transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 w-72 sm:w-80 lg:w-72 shadow-[20px_0_50px_rgba(0,0,0,0.8)]' : '-translate-x-full lg:w-20'}`}>
           <div className="p-6 flex items-center justify-between shrink-0">
-              <span className="text-xl font-bold tracking-widest genshin-gold truncate">{isSidebarOpen ? 'TEYVAT.AI' : 'T.AI'}</span>
-              <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 rounded-md hover:bg-white/10"><X /></button>
+              <span className="text-lg sm:text-xl font-bold tracking-widest genshin-gold truncate">{isSidebarOpen ? 'TEYVAT.AI' : 'T.AI'}</span>
+              <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-full hover:bg-white/10 text-amber-500 transition-colors"><X className="w-5 h-5 sm:w-6 h-6"/></button>
           </div>
-          <nav className="flex-1 overflow-y-auto px-2 space-y-1 custom-scrollbar">
+          <nav className="flex-1 overflow-y-auto px-3 space-y-1.5 custom-scrollbar">
             <button onClick={() => setIsLiveCallOpen(true)} className={`w-full flex items-center gap-4 p-3 rounded-xl mb-4 transition-all bg-gradient-to-r from-amber-500/20 to-transparent border-l-4 border-amber-500 text-white shadow-lg shadow-amber-900/10 group`}>
-              <div className="relative">
-                <PhoneCall className="w-6 h-6 shrink-0 text-amber-500 group-hover:scale-110 transition-transform" />
+              <div className="relative shrink-0">
+                <PhoneCall className="w-6 h-6 text-amber-500 group-hover:scale-110 transition-transform" />
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
               </div>
-              {isSidebarOpen && <span className="font-black uppercase tracking-widest text-xs">Celestial Call</span>}
+              {isSidebarOpen && <span className="font-black uppercase tracking-widest text-xs truncate">Celestial Call</span>}
             </button>
             {navItems.map((item) => (
-              <button key={item.type} onClick={() => { setActiveMenu(item.type); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-3 rounded-lg transition-all ${activeMenu === item.type ? 'sidebar-item-active' : 'text-gray-400 hover:bg-white/5'}`} title={item.label}>
+              <button key={item.type} onClick={() => { setActiveMenu(item.type); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${activeMenu === item.type ? 'sidebar-item-active' : 'text-gray-400 hover:bg-white/5'}`} title={item.label}>
                 <item.icon className={`w-6 h-6 shrink-0 ${activeMenu === item.type ? 'text-amber-500' : ''}`} />
-                {isSidebarOpen && <span className="font-medium truncate">{item.label}</span>}
+                {isSidebarOpen && <span className="font-medium truncate text-sm">{item.label}</span>}
               </button>
             ))}
-            {activeMenu === MenuType.ADMIN_CONSOLE && <button className="w-full flex items-center gap-4 p-3 rounded-lg bg-red-900/20 border-l-4 border-red-500 text-red-400"><Lock className="w-6 h-6 shrink-0" />{isSidebarOpen && <span className="font-bold">ADMIN ROOT</span>}</button>}
+            {activeMenu === MenuType.ADMIN_CONSOLE && <button className="w-full flex items-center gap-4 p-3 rounded-xl bg-red-900/20 border-l-4 border-red-500 text-red-400 shrink-0"><Lock className="w-6 h-6 shrink-0" />{isSidebarOpen && <span className="font-bold text-sm truncate">ADMIN ROOT</span>}</button>}
           </nav>
           
-          <div className="p-3 border-t border-white/10 bg-[#0e121b]/80 backdrop-blur-xl shrink-0 group">
-              <div className="flex items-center gap-3 p-2 rounded-xl transition-all hover:bg-white/5">
-                  <div className="relative cursor-pointer shrink-0" onClick={() => setActiveMenu(MenuType.USER_INFO)}>
+          <div className="p-4 border-t border-white/10 bg-[#0e121b]/80 backdrop-blur-xl shrink-0">
+              <div className="flex items-center gap-3 p-2 rounded-2xl transition-all hover:bg-white/5 group">
+                  <div className="relative cursor-pointer shrink-0" onClick={() => { setActiveMenu(MenuType.USER_INFO); if(window.innerWidth < 1024) setIsSidebarOpen(false); }}>
                       <LazyImage src={userProfile.avatar} className="w-10 h-10 rounded-xl border border-white/20 shadow-lg group-hover:border-amber-500/50 transition-colors" alt="User" />
                       {userProfile.isAuth && (
                           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0e121b] rounded-full flex items-center justify-center shadow-md">
@@ -354,7 +360,7 @@ const App: React.FC = () => {
                               {userProfile.username}
                               {userProfile.isAuth && <ShieldCheck className="w-3 h-3 text-amber-500" />}
                           </div>
-                          <div className="text-[10px] text-gray-500 truncate font-mono uppercase tracking-tighter">
+                          <div className="text-[9px] sm:text-[10px] text-gray-500 truncate font-mono uppercase tracking-tighter">
                               {userProfile.isAuth ? (userProfile.email || 'Google Account') : 'Guest Session'}
                           </div>
                       </div>
@@ -363,23 +369,23 @@ const App: React.FC = () => {
           </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden">
-        <header className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-[#0b0e14]/90 backdrop-blur-md z-30">
-           <div className="flex items-center gap-3">
-               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors"><Menu /></button>
-               <h2 className="text-lg font-medium genshin-gold uppercase tracking-[0.1em]">{activeMenu.replace('_', ' ')}</h2>
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden w-full">
+        <header className="h-14 sm:h-16 border-b border-white/10 flex items-center justify-between px-4 sm:px-6 bg-[#0b0e14]/90 backdrop-blur-md z-30 shrink-0">
+           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-1 sm:-ml-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0"><Menu className="w-5 h-5 sm:w-6 h-6" /></button>
+               <h2 className="text-xs sm:text-lg font-medium genshin-gold uppercase tracking-[0.15em] truncate">{activeMenu.replace('_', ' ')}</h2>
            </div>
-           <div className="flex items-center gap-4">
+           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                {activeMenu === MenuType.TERMINAL && (
                     <div className="relative" onMouseEnter={() => setShowModelSelector(true)} onMouseLeave={() => setShowModelSelector(false)}>
-                        <button className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] hover:text-[#d3bc8e] transition-all bg-white/5 px-4 py-2 rounded-full border border-white/5 hover:border-[#d3bc8e]/30">
-                            {AI_MODELS.find(m => m.id === selectedModel)?.provider === 'openai' ? <CloudLightning className="w-3 h-3" /> : <Box className="w-3 h-3" />}
-                            <span className="hidden sm:inline">Engine: {AI_MODELS.find(m => m.id === selectedModel)?.label}</span>
-                            <ChevronDown className={`w-3 h-3 transition-transform ${showModelSelector ? 'rotate-180' : ''}`} />
+                        <button className="flex items-center gap-2 text-[7px] sm:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] hover:text-[#d3bc8e] transition-all bg-white/5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/5 hover:border-[#d3bc8e]/30">
+                            {AI_MODELS.find(m => m.id === selectedModel)?.provider === 'openai' ? <CloudLightning className="w-2.5 h-2.5 sm:w-3 h-3" /> : <Box className="w-2.5 h-2.5 sm:w-3 h-3" />}
+                            <span className="hidden sm:inline truncate max-w-[80px]">Engine: {AI_MODELS.find(m => m.id === selectedModel)?.label}</span>
+                            <ChevronDown className={`w-2.5 h-2.5 sm:w-3 h-3 transition-transform shrink-0 ${showModelSelector ? 'rotate-180' : ''}`} />
                         </button>
                         {showModelSelector && (
-                            <div className="absolute top-full right-0 mt-2 w-64 bg-[#131823] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in slide-in-from-top-2">
-                                <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] p-2 border-b border-white/5 mb-2">Select Wisdom Core</div>
+                            <div className="absolute top-full right-0 mt-2 w-56 sm:w-64 bg-[#131823] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in slide-in-from-top-2">
+                                <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] p-2 border-b border-white/5 mb-2">Wisdom Core</div>
                                 <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
                                     {AI_MODELS.map(model => (
                                         <button key={model.id} onClick={() => { setSelectedModel(model.id); setShowModelSelector(false); }} className={`w-full text-left px-4 py-3 rounded-xl text-xs flex items-center justify-between transition-all ${selectedModel === model.id ? 'bg-[#d3bc8e]/20 text-[#d3bc8e] font-black' : 'hover:bg-white/5 text-gray-400'}`}>
@@ -395,12 +401,17 @@ const App: React.FC = () => {
                         )}
                     </div>
                )}
-               <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="p-2 -mr-2 rounded-full hover:bg-white/5 transition-colors"><History /></button>
+               <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="p-2 -mr-1 sm:-mr-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0"><History className="w-5 h-5 sm:w-6 h-6" /></button>
            </div>
         </header>
-        <section className="flex-1 overflow-hidden relative z-10">
+        
+        <section className="flex-1 overflow-hidden relative z-10 flex flex-col w-full">
           <ErrorBoundary>
-             <Suspense fallback={<div className="flex h-full items-center justify-center text-amber-500"><Loader2 className="animate-spin" /></div>}>{activeContent}</Suspense>
+             <Suspense fallback={<div className="flex h-full items-center justify-center text-amber-500"><Loader2 className="animate-spin w-8 h-8 sm:w-10 h-10" /></div>}>
+                <div className="flex-1 overflow-hidden h-full w-full">
+                    {activeContent}
+                </div>
+             </Suspense>
           </ErrorBoundary>
         </section>
       </main>
