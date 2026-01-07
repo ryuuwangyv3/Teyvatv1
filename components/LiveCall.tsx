@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { Persona, VoiceConfig, Message } from '../types';
 import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
-import { getSystemCredentials } from '../services/credentials';
 import { fetchChatHistory } from '../services/supabaseService';
 import { APP_KNOWLEDGE_BASE } from '../data';
 
@@ -104,8 +103,8 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   };
 
   const startCall = async () => {
-    const creds = getSystemCredentials();
-    const apiKey = creds.google || (process as any).env.API_KEY;
+    // Logic updated to fetch directly from process.env as requested
+    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
     if (!apiKey) {
         alert("Celestial error: API Key missing.");
@@ -129,7 +128,6 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
       const outputCtx = new AudioContext({ sampleRate: 24000 });
       audioContextRef.current = outputCtx;
 
-      // 🛡️ Optimized System Instruction for payload stability
       const finalSystemInstruction = `
         [IDENTITY: ${currentPersona.name}]
         ${currentPersona.systemInstruction}
@@ -143,7 +141,7 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
       `;
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
           onopen: () => {
             setStatus('active');

@@ -23,7 +23,6 @@ import {
   getCurrentSession, signInWithGoogle, listenToAuthChanges, checkDbConnection, mapUserToProfile, getSessionId
 } from './services/supabaseService';
 import { enableRuntimeProtection } from './services/securityService';
-import { getSystemCredentials } from './services/credentials';
 import { setServiceKeys } from './services/geminiService';
 import { syncGithubRepo, DEFAULT_GITHUB_CONFIG } from './services/githubService';
 

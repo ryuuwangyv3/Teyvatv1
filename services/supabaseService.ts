@@ -5,7 +5,6 @@ import {
   SystemLog, GlobalStats, DriveItem, Donator, SupabaseConfig
 } from '../types';
 import { encryptData, decryptData, SecureStorage } from './securityService';
-import { getSystemCredentials } from './credentials';
 import { INITIAL_USER_PROFILE } from '../constants';
 
 const isBrowser = typeof window !== 'undefined';
@@ -38,7 +37,6 @@ let currentUserId = 'guest';
 
 export const getSessionId = () => currentUserId;
 
-// Add missing getSupabaseConfig export to resolve import error in AdminConsole.tsx
 export const getSupabaseConfig = () => {
     return SecureStorage.getItem('supabase_config');
 };
@@ -46,9 +44,9 @@ export const getSupabaseConfig = () => {
 export const initSupabase = (): boolean => {
   if (supabaseInstance) return true;
   
-  const creds = getSystemCredentials();
-  const envUrl = creds.supabase.url;
-  const envKey = creds.supabase.key;
+  // Directly process from process.env as requested
+  const envUrl = process.env.SUPABASE_URL;
+  const envKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
 
   // Prioritaskan .env untuk Auto-Koneksi
   if (envUrl && envKey && envUrl.startsWith('http')) {
@@ -318,7 +316,6 @@ export const subscribeToTable = (tableName: string, callback: (payload: any) => 
 
 export const fetchSystemLogs = async (): Promise<SystemLog[]> => {
     if (!supabaseInstance) return [];
-    // Fix: Added missing select() before order()
     const { data } = await supabaseInstance.from('system_logs').select('*').order('created_at', { ascending: false }).limit(50);
     return data || [];
 };
@@ -387,7 +384,6 @@ export const mapUserToProfile = (user: User): UserProfile => ({
 
 export const fetchForumPosts = async (type: string = 'latest'): Promise<ForumPost[]> => {
     if (!supabaseInstance) return [];
-    // Fix: Query builder was missing explicit select() in branching logic
     let q = supabaseInstance.from('forum_posts').select('*');
     if (type === 'trending') q = q.order('likes', { ascending: false });
     else q = q.order('created_at', { ascending: false });

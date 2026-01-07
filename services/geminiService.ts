@@ -3,7 +3,6 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { APP_KNOWLEDGE_BASE, QUALITY_TAGS, AI_MODELS, IMAGE_GEN_MODELS, VIDEO_GEN_MODELS, ASPECT_RATIOS } from '../data';
 import { VoiceConfig, ApiKeyData } from '../types';
 import { addWavHeader } from '../utils/audioUtils';
-import { getSystemCredentials } from './credentials';
 import { sanitizeInput } from './securityService';
 
 // Define ImageAttachment interface used by Terminal.tsx
@@ -61,14 +60,16 @@ export const setServiceKeys = (keys: ApiKeyData[]) => { activeUserKeys = keys; }
 
 const getApiKeyForProvider = (provider: string): string => {
     const p = provider.toLowerCase();
-    const creds = getSystemCredentials();
     let envKey = '';
+    
+    // Logic updated to fetch directly from process.env as requested
     switch(p) {
-        case 'google': envKey = creds.google || process.env.API_KEY || ''; break;
-        case 'openai': envKey = creds.openai || process.env.OPENAI_API_KEY || ''; break;
-        case 'openrouter': envKey = creds.openrouter || process.env.OPENROUTER_API_KEY || ''; break;
-        case 'pollinations': envKey = creds.pollinations || ''; break;
+        case 'google': envKey = process.env.API_KEY || process.env.GEMINI_API_KEY || ''; break;
+        case 'openai': envKey = process.env.OPENAI_API_KEY || ''; break;
+        case 'openrouter': envKey = process.env.OPENROUTER_API_KEY || ''; break;
+        case 'pollinations': envKey = process.env.POLLINATIONS_API_KEY || ''; break;
     }
+    
     if (envKey) return envKey;
     
     const userKey = activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key;
@@ -231,7 +232,7 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
                     return null;
                 })
                 .filter(Boolean);
-              if (links.length > 0) {
+              if (links.join("\n").length > 0) {
                 textOutput += "\n\n**Fragments found in Irminsul:**\n" + links.join("\n");
               }
           }
@@ -310,7 +311,8 @@ export const generateImage = async (
 
 export const generateVideo = async (prompt: string, base64Input?: string, model: string = 'veo-3.1-fast-generate-preview'): Promise<string | null> => {
   checkRateLimit();
-  const ai = getAI();
+  const apiKey = getApiKeyForProvider('google');
+  const ai = new GoogleGenAI({ apiKey });
   try {
     let imageInput: any = undefined;
     if (base64Input) {
@@ -329,7 +331,7 @@ export const generateVideo = async (prompt: string, base64Input?: string, model:
     }
     const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
     if (videoUri) {
-      const response = await fetch(`${videoUri}&key=${getApiKeyForProvider('google')}`);
+      const response = await fetch(`${videoUri}&key=${apiKey}`);
       return URL.createObjectURL(await response.blob());
     }
   } catch (e) { throw e; }
