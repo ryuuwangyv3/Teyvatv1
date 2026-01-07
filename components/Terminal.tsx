@@ -258,7 +258,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0b0e14] relative overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[#0b0e14] relative overflow-hidden min-h-0">
       {lightboxImage && (
         <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in" onClick={() => setLightboxImage(null)}>
            <div className="max-w-4xl w-full flex flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
@@ -293,7 +293,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         </div>
       )}
       
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 custom-scrollbar scroll-smooth relative message-container">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 md:p-10 custom-scrollbar scroll-smooth relative message-container">
         {loadingHistory && <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#d3bc8e]" /></div>}
         
         {!loadingHistory && messages.length > 0 && (
@@ -348,7 +348,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 md:p-8 bg-[#0b0e14]/95 backdrop-blur-xl border-t border-white/5 relative z-20 safe-area-bottom">
+      <div className="p-4 sm:p-6 md:p-8 bg-[#0b0e14]/95 backdrop-blur-xl border-t border-white/5 relative z-20 shrink-0 safe-area-bottom">
         <div className="max-w-4xl mx-auto">
             {replyTo && (
                <div className="flex items-center justify-between bg-[#3d447a]/20 border border-[#3d447a]/40 p-3 sm:p-4 rounded-t-2xl mb-0 animate-in slide-in-from-bottom-2">
@@ -362,8 +362,8 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
             
             <div className={`flex items-end gap-2 sm:gap-3 bg-[#131823] p-2 sm:p-3 md:p-4 rounded-3xl border ${replyTo ? 'rounded-t-none' : ''} border-white/10 shadow-2xl focus-within:border-[#d3bc8e]/40 transition-all`}>
                 <div className="flex items-center">
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 sm:p-3 text-gray-500 hover:text-[#d3bc8e] transition-colors rounded-full hover:bg-white/5"><Paperclip className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-                    <button onClick={() => setIsRecording(!isRecording)} className={`p-2 sm:p-3 transition-colors rounded-full hover:bg-white/5 ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-500 hover:text-[#d3bc8e]'}`}>{isRecording ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}</button>
+                    <button onClick={() => fileInputRef.current?.click()} className="p-2 sm:p-3 text-gray-500 hover:text-[#d3bc8e] transition-colors rounded-full hover:bg-white/5"><Paperclip className="w-5 h-5 sm:w-6 h-6" /></button>
+                    <button onClick={() => setIsRecording(!isRecording)} className={`p-2 sm:p-3 transition-colors rounded-full hover:bg-white/5 ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-500 hover:text-[#d3bc8e]'}`}>{isRecording ? <MicOff className="w-5 h-5 sm:w-6 h-6" /> : <Mic className="w-5 h-5 sm:w-6 h-6" />}</button>
                 </div>
                 
                 <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => { if(e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} multiple />
@@ -378,7 +378,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
                 />
                 
                 <button onClick={handleSend} disabled={(!inputValue.trim() && files.length === 0) || isTyping} className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-2xl genshin-button disabled:opacity-50 disabled:grayscale transition-all shadow-xl shrink-0">
-                    {isTyping ? <StopCircle className="w-5 h-5 sm:w-6 sm:h-6 animate-pulse" /> : <Send className="w-5 h-5 sm:w-6 sm:h-6" />}
+                    {isTyping ? <StopCircle className="w-5 h-5 sm:w-6 h-6 animate-pulse" /> : <Send className="w-5 h-5 sm:w-6 h-6" />}
                 </button>
             </div>
         </div>

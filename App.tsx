@@ -99,7 +99,6 @@ const App: React.FC = () => {
     enableRuntimeProtection(); 
     initializeSystem();
     const handleResize = () => {
-       // Only auto-close sidebar on window resize if crossing the threshold
        if (window.innerWidth < 1024) setIsSidebarOpen(false);
        else setIsSidebarOpen(true);
     };
@@ -314,7 +313,6 @@ const App: React.FC = () => {
       {showAuthModal && <AuthModal onLogin={async () => { setIsAuthLoading(true); const r = await signInWithGoogle(); setIsAuthLoading(false); return r; }} onGuest={() => { setShowAuthModal(false); localStorage.setItem('has_seen_auth_v2', 'true'); }} isLoading={isAuthLoading} />}
       {showDbSetupModal && <DatabaseSetupModal onClose={() => setShowDbSetupModal(false)} />}
 
-      {/* Mobile Sidebar Backdrop - Improved interaction */}
       {isSidebarOpen && window.innerWidth < 1024 && (
         <div 
           className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[65] transition-all duration-300 ease-in-out cursor-pointer"
@@ -369,7 +367,7 @@ const App: React.FC = () => {
           </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden w-full">
+      <main className="flex-1 flex flex-col min-h-0 relative overflow-hidden w-full">
         <header className="h-14 sm:h-16 border-b border-white/10 flex items-center justify-between px-4 sm:px-6 bg-[#0b0e14]/90 backdrop-blur-md z-30 shrink-0">
            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-1 sm:-ml-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0"><Menu className="w-5 h-5 sm:w-6 h-6" /></button>
@@ -405,10 +403,10 @@ const App: React.FC = () => {
            </div>
         </header>
         
-        <section className="flex-1 overflow-hidden relative z-10 flex flex-col w-full">
+        <section className="flex-1 min-h-0 relative z-10 flex flex-col w-full overflow-hidden">
           <ErrorBoundary>
              <Suspense fallback={<div className="flex h-full items-center justify-center text-amber-500"><Loader2 className="animate-spin w-8 h-8 sm:w-10 h-10" /></div>}>
-                <div className="flex-1 overflow-hidden h-full w-full">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
                     {activeContent}
                 </div>
              </Suspense>
