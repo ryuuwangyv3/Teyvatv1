@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { APP_KNOWLEDGE_BASE, QUALITY_TAGS, AI_MODELS, IMAGE_GEN_MODELS, VIDEO_GEN_MODELS, ASPECT_RATIOS } from '../data';
 import { VoiceConfig, ApiKeyData } from '../types';
@@ -60,24 +59,16 @@ export const setServiceKeys = (keys: ApiKeyData[]) => { activeUserKeys = keys; }
 
 const getApiKeyForProvider = (provider: string): string => {
     const p = provider.toLowerCase();
-    let envKey = '';
     
-    // Logic updated to fetch directly from process.env as requested
-    switch(p) {
-        case 'google': envKey = process.env.API_KEY || process.env.GEMINI_API_KEY || ''; break;
-        case 'openai': envKey = process.env.OPENAI_API_KEY || ''; break;
-        case 'openrouter': envKey = process.env.OPENROUTER_API_KEY || ''; break;
-        case 'pollinations': envKey = process.env.POLLINATIONS_API_KEY || ''; break;
-    }
+    // MENGAMBIL LANGSUNG DARI process.env (Prioritas Utama)
+    if (p === 'google') return process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+    if (p === 'openai') return process.env.OPENAI_API_KEY || '';
+    if (p === 'openrouter') return process.env.OPENROUTER_API_KEY || '';
+    if (p === 'pollinations') return process.env.POLLINATIONS_API_KEY || POLLINATIONS_PUBLIC_KEY;
     
-    if (envKey) return envKey;
-    
+    // Fallback ke kunci yang diinput di Admin Console jika .env kosong
     const userKey = activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key;
-    if (userKey) return userKey;
-
-    if (p === 'pollinations') return POLLINATIONS_PUBLIC_KEY;
-    
-    return '';
+    return userKey || '';
 };
 
 const requestLogs: number[] = [];
@@ -88,9 +79,10 @@ const checkRateLimit = () => {
     requestLogs.push(now);
 };
 
-const getAI = (customKey?: string) => {
-  const key = customKey || getApiKeyForProvider('google');
-  if (!key) throw new Error("Irminsul Error: Google API Key missing. Please configure it in Admin Console.");
+const getAI = () => {
+  // MENGAMBIL LANGSUNG process.env.API_KEY sesuai instruksi SDK Gemini
+  const key = process.env.API_KEY;
+  if (!key) throw new Error("Irminsul Error: API_KEY missing in .env. Please check your localhost setup.");
   return new GoogleGenAI({ apiKey: key });
 };
 
@@ -140,7 +132,6 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
 
   const safeMessage = sanitizeInput(message);
   
-  // Inject Vision Intelligence if images are present
   let visionSummary = "";
   if (images.length > 0 && !isRetry) {
       visionSummary = await analyzeImageVision(images);
@@ -156,11 +147,13 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
   const modelConfig = AI_MODELS.find(m => m.id === modelName);
   const provider = modelConfig?.provider || 'google';
 
+  // LOGIKA PROVIDER NON-GOOGLE
   if (['pollinations', 'openrouter', 'openai'].includes(provider)) {
       const apiKey = getApiKeyForProvider(provider);
+      
+      // Jika apikey provider tidak ada, kita tidak boleh langsung lempar error Gemini
       if (!apiKey && provider !== 'pollinations') {
-          if (isRetry) return "Neural connection lost. All providers failed.";
-          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images, true);
+          return `Error: API Key untuk ${provider} tidak ditemukan di .env.`;
       }
 
       const endpoint = provider === 'pollinations' ? "https://text.pollinations.ai/v1/chat/completions" : 
@@ -186,102 +179,57 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
           });
 
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
           const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
-          
-          if (!content) {
-              if (isRetry) return "Neural feedback empty from all nodes.";
-              return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images, true);
-          }
-          return content;
+          return data.choices?.[0]?.message?.content || "Neural feedback empty.";
       } catch (e) { 
-          if (isRetry) return "Celestial signal lost. Check your internet or API Key.";
-          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, message, systemInstruction, userContext, images, true); 
+          return `Resonance Error (${provider}): Koneksi gagal. Periksa API Key di .env.`;
       }
   } else {
-      // Google Gemini Logic
+      // LOGIKA GOOGLE GEMINI
       try {
           const ai = getAI(); 
           const canUseTools = modelName.includes('gemini-3');
           
-          const executeRequest = async (useTools: boolean) => {
-            return await ai.models.generateContent({
-                model: modelName, 
-                contents: [...history, { role: 'user', parts: [...images, { text: safeMessage }] }],
-                config: { 
-                    systemInstruction: finalInstruction, 
-                    temperature: 1.0, 
-                    ...(useTools ? { tools: [{ googleSearch: {} }] } : {}) 
-                }
-              });
-          };
+          const response = await ai.models.generateContent({
+              model: modelName, 
+              contents: [...history, { role: 'user', parts: [...images, { text: safeMessage }] }],
+              config: { 
+                  systemInstruction: finalInstruction, 
+                  temperature: 1.0, 
+                  ...(canUseTools ? { tools: [{ googleSearch: {} }] } : {}) 
+              }
+          });
 
-          let response = await executeRequest(canUseTools);
           let textOutput = response.text || "";
-          
-          if (!textOutput && !isRetry) {
-              return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images, true);
-          }
-          
           const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
           if (grounding && grounding.length > 0) {
-              const links = grounding
-                .map((c: any) => {
-                    if (c.web?.uri) return `- [${c.web.title || 'Celestial Source'}](${c.web.uri})`;
-                    return null;
-                })
-                .filter(Boolean);
-              if (links.join("\n").length > 0) {
-                textOutput += "\n\n**Fragments found in Irminsul:**\n" + links.join("\n");
-              }
+              const links = grounding.map((c: any) => c.web?.uri ? `- [${c.web.title || 'Source'}](${c.web.uri})` : null).filter(Boolean);
+              if (links.length > 0) textOutput += "\n\n**Fragments found in Irminsul:**\n" + links.join("\n");
           }
           return textOutput || "Resonance achieved, but no data returned.";
       } catch (e: any) { 
           console.error("Gemini Error:", e);
-          if (isRetry) return `Irminsul Error: ${e.message || "Celestial Anomaly"}`;
-          return chatWithAI(FALLBACK_GOOGLE_MODEL, history, safeMessage, systemInstruction, userContext, images, true); 
+          return `Irminsul Error: API_KEY tidak valid atau limit tercapai.`;
       }
   }
 };
 
-export const generateImage = async (
-    prompt: string, 
-    personaVisuals: string = "", 
-    base64Inputs?: string | string[], 
-    referenceImageUrl?: string, 
-    preferredModel: string = 'zimage',
-    ratioId: string = "1:1",
-    stylePrompt: string = "",
-    negativePrompt: string = ""
-): Promise<string | null> => {
-  try {
-      checkRateLimit();
-  } catch(e) {
-      return null;
-  }
-  
+export const generateImage = async (prompt: string, personaVisuals: string = "", base64Inputs?: string | string[], referenceImageUrl?: string, preferredModel: string = 'zimage', ratioId: string = "1:1", stylePrompt: string = "", negativePrompt: string = ""): Promise<string | null> => {
+  try { checkRateLimit(); } catch(e) { return null; }
   const context = getDynamicVisualContext(prompt);
   const ratio = ASPECT_RATIOS.find(r => r.id === ratioId) || ASPECT_RATIOS[0];
-  
   const finalPrompt = `[STYLE: ${stylePrompt}] [PERSONA: ${personaVisuals}] [CONTEXT: ${context.state}, ${context.outfitType}] Action: ${prompt}. Quality: ${QUALITY_TAGS}. Neg: ${negativePrompt}`;
 
-  const tryPollinations = async () => {
-    const seed = Math.floor(Math.random() * 1000000);
+  try {
     const key = getApiKeyForProvider('pollinations');
+    const seed = Math.floor(Math.random() * 1000000);
     const url = `https://gen.pollinations.ai/image/prompt/${encodeURIComponent(finalPrompt)}?model=${preferredModel}&width=${ratio.width}&height=${ratio.height}&seed=${seed}&nologo=true`;
-    
-    const res = await fetch(url, {
-        headers: key ? { "Authorization": `Bearer ${key}` } : {}
-    });
-    if (!res.ok) throw new Error("Pollinations Down");
-    return url;
-  };
+    const res = await fetch(url, { headers: key ? { "Authorization": `Bearer ${key}` } : {} });
+    if (res.ok) return url;
+  } catch (e) { console.warn("Pollinations failed, trying Google..."); }
 
-  const tryGoogle = async () => {
-    const key = getApiKeyForProvider('google');
-    if (!key) throw new Error("No Google Key");
-    const ai = new GoogleGenAI({ apiKey: key });
+  try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [{ text: finalPrompt }] },
@@ -290,28 +238,14 @@ export const generateImage = async (
     for (const part of response.candidates?.[0]?.content?.parts || []) {
         if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-    throw new Error("Google Empty");
-  };
-
-  const chain = [
-    { name: 'Pollinations', fn: tryPollinations },
-    { name: 'Google', fn: tryGoogle }
-  ];
-
-  for (const provider of chain) {
-    try {
-      const result = await provider.fn();
-      if (result) return result;
-    } catch (e) {
-      console.warn(`Fallback: ${provider.name} failed.`);
-    }
-  }
+  } catch (e) { console.error("Visual Alchemy failed completely."); }
   return null;
 };
 
 export const generateVideo = async (prompt: string, base64Input?: string, model: string = 'veo-3.1-fast-generate-preview'): Promise<string | null> => {
   checkRateLimit();
-  const apiKey = getApiKeyForProvider('google');
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return null;
   const ai = new GoogleGenAI({ apiKey });
   try {
     let imageInput: any = undefined;
@@ -339,10 +273,10 @@ export const generateVideo = async (prompt: string, base64Input?: string, model:
 };
 
 export const generateTTS = async (text: string, voiceName: string, voiceConfig?: VoiceConfig) => {
-  const ai = getAI();
-  const cleanText = text.replace(/\|\|GEN_IMG:.*?\|\|/g, '').replace(/(https?:\/\/[^\s]+)/g, '').replace(/[*#`_~]/g, '').trim();
-  if (!cleanText) return null;
   try {
+    const ai = getAI();
+    const cleanText = text.replace(/\|\|GEN_IMG:.*?\|\|/g, '').replace(/(https?:\/\/[^\s]+)/g, '').replace(/[*#`_~]/g, '').trim();
+    if (!cleanText) return null;
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: cleanText.substring(0, 2000) }] }],
@@ -355,13 +289,15 @@ export const generateTTS = async (text: string, voiceName: string, voiceConfig?:
 };
 
 export const translateText = async (text: string, targetLang: string = "Indonesian") => {
-  const ai = getAI(); 
-  const response = await ai.models.generateContent({
-      model: FALLBACK_GOOGLE_MODEL, 
-      contents: `Translate to ${targetLang}: "${text}"`,
-      config: { systemInstruction: "Output ONLY translated text.", temperature: 1.0 }
-    });
-  return response.text?.trim() || text;
+  try {
+    const ai = getAI(); 
+    const response = await ai.models.generateContent({
+        model: FALLBACK_GOOGLE_MODEL, 
+        contents: `Translate to ${targetLang}: "${text}"`,
+        config: { systemInstruction: "Output ONLY translated text.", temperature: 1.0 }
+      });
+    return response.text?.trim() || text;
+  } catch(e) { return text; }
 };
 
 export const analyzePersonaFromImage = async (base64WithHeader: string) => {

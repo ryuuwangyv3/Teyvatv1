@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   PhoneOff, Mic, MicOff, Volume2, PhoneCall, Loader2, Play, Activity, 
@@ -76,7 +75,6 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
     setStatus('idle');
   }, []);
 
-  // 🛠️ REFINED DIMENSIONAL SYNC TOOLS (Strict Type Schema)
   const projectToTerminalTool: FunctionDeclaration = {
     name: 'project_to_terminal',
     parameters: {
@@ -103,11 +101,11 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   };
 
   const startCall = async () => {
-    // Logic updated to fetch directly from process.env as requested
-    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    // MENGAMBIL LANGSUNG process.env.API_KEY
+    const apiKey = process.env.API_KEY;
 
     if (!apiKey) {
-        alert("Celestial error: API Key missing.");
+        alert("Celestial error: API_KEY missing in .env. Cannot start Live Resonance.");
         return;
     }
 
@@ -131,10 +129,8 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
       const finalSystemInstruction = `
         [IDENTITY: ${currentPersona.name}]
         ${currentPersona.systemInstruction}
-        
         [CONTEXT]
         Recent memory: ${recentContext}
-        
         [LIVE PROTOCOL]
         - Use 'project_to_terminal' for images/code.
         - Be natural and concise.

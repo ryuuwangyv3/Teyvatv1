@@ -282,7 +282,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0b0e14] relative overflow-hidden min-h-0">
+    <div className="flex-1 flex flex-col bg-[#0b0e14] relative overflow-hidden h-full max-h-full">
       {lightboxImage && (
         <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in" onClick={() => setLightboxImage(null)}>
            <div className="max-w-4xl w-full flex flex-col items-center gap-4 sm:gap-6" onClick={(e) => e.stopPropagation()}>
@@ -317,7 +317,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         </div>
       )}
       
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 md:p-10 custom-scrollbar scroll-smooth relative message-container">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 md:p-10 custom-scrollbar scroll-smooth relative message-container overflow-x-hidden">
         {loadingHistory && <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 sm:w-10 sm:h-10 animate-spin text-[#d3bc8e]" /></div>}
         
         {!loadingHistory && messages.length > 0 && (
@@ -372,54 +372,54 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
         </div>
       </div>
 
-      <div className="p-2 sm:p-6 md:p-8 bg-[#0b0e14]/95 backdrop-blur-xl border-t border-white/5 relative z-20 shrink-0 safe-area-bottom">
+      <div className="p-1.5 sm:p-6 md:p-8 bg-[#0b0e14]/95 backdrop-blur-xl border-t border-white/5 relative z-20 shrink-0 safe-area-bottom">
         <div className="max-w-4xl mx-auto">
             {/* ATTACHMENT TRAY */}
             {files.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-black/40 border-x border-t border-white/10 rounded-t-2xl animate-in slide-in-from-bottom-2">
+                <div className="flex flex-wrap gap-2 p-2 sm:p-3 bg-black/40 border-x border-t border-white/10 rounded-t-2xl animate-in slide-in-from-bottom-2">
                     {files.map((file, idx) => (
-                        <div key={idx} className="relative group bg-white/5 border border-white/10 rounded-xl p-2 pr-8 max-w-[150px] sm:max-w-[200px]">
-                            <div className="flex items-center gap-2 overflow-hidden">
+                        <div key={idx} className="relative group bg-white/5 border border-white/10 rounded-xl p-1.5 sm:p-2 pr-6 sm:pr-8 max-w-[120px] sm:max-w-[200px]">
+                            <div className="flex items-center gap-1.5 sm:gap-2 overflow-hidden">
                                 {file.type.startsWith('image/') ? (
-                                    <img src={URL.createObjectURL(file)} className="w-8 h-8 rounded-lg object-cover border border-white/10" alt="p" />
+                                    <img src={URL.createObjectURL(file)} className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg object-cover border border-white/10" alt="p" />
                                 ) : (
-                                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                                        <FileIcon className="w-4 h-4 text-blue-400" />
+                                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                                        <FileIcon className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
                                     </div>
                                 )}
                                 <div className="flex flex-col min-w-0">
-                                    <span className="text-[10px] font-bold text-gray-200 truncate">{file.name}</span>
-                                    <span className="text-[8px] text-gray-500 uppercase">{(file.size / 1024).toFixed(1)} KB</span>
+                                    <span className="text-[9px] sm:text-[10px] font-bold text-gray-200 truncate">{file.name}</span>
+                                    <span className="text-[7px] sm:text-[8px] text-gray-500 uppercase">{(file.size / 1024).toFixed(1)} KB</span>
                                 </div>
                             </div>
-                            <button onClick={() => removeFile(idx)} className="absolute top-1/2 -translate-y-1/2 right-1.5 p-1 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-md transition-all">
-                                <X className="w-3 h-3" />
+                            <button onClick={() => removeFile(idx)} className="absolute top-1/2 -translate-y-1/2 right-1 p-0.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-md transition-all">
+                                <X className="w-2.5 h-2.5" />
                             </button>
                         </div>
                     ))}
                     <button 
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center justify-center w-12 h-12 rounded-xl border border-dashed border-white/20 text-gray-500 hover:border-amber-500 hover:text-amber-500 transition-all"
+                        className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl border border-dashed border-white/20 text-gray-600 hover:border-amber-500 hover:text-amber-500 transition-all"
                     >
-                        <Paperclip className="w-5 h-5" />
+                        <Paperclip className="w-4 h-4 sm:w-5 h-5" />
                     </button>
                 </div>
             )}
 
             {replyTo && (
                <div className={`flex items-center justify-between bg-[#3d447a]/20 border-x border-t border-[#3d447a]/40 p-2 sm:p-4 ${files.length > 0 ? '' : 'rounded-t-2xl'} mb-0 animate-in slide-in-from-bottom-2`}>
-                  <div className="flex flex-col text-[8px] sm:text-xs">
+                  <div className="flex flex-col text-[8px] sm:text-xs min-w-0">
                       <span className="font-black text-[#d3bc8e] uppercase tracking-widest mb-0.5 flex items-center gap-2"><Zap className="w-2 h-2 sm:w-3 h-3" /> Resonating Thought</span>
-                      <span className="text-gray-400 truncate max-w-[180px] sm:max-w-md italic">"{replyTo.text}"</span>
+                      <span className="text-gray-400 truncate italic">"{replyTo.text}"</span>
                   </div>
-                  <button onClick={() => setReplyTo(null)} className="p-1 hover:bg-white/10 rounded-full text-gray-500"><X className="w-3.5 h-3.5 sm:w-4 h-4" /></button>
+                  <button onClick={() => setReplyTo(null)} className="p-1 hover:bg-white/10 rounded-full text-gray-500 shrink-0 ml-2"><X className="w-3.5 h-3.5 sm:w-4 h-4" /></button>
                </div>
             )}
             
-            <div className={`flex items-end gap-1.5 sm:gap-3 bg-[#131823] p-1.5 sm:p-3 md:p-4 rounded-2xl sm:rounded-3xl border ${(replyTo || files.length > 0) ? 'rounded-t-none' : ''} border-white/10 shadow-2xl focus-within:border-[#d3bc8e]/40 transition-all`}>
+            <div className={`flex items-end gap-1 sm:gap-3 bg-[#131823] p-1.5 sm:p-3 md:p-4 rounded-2xl sm:rounded-3xl border ${(replyTo || files.length > 0) ? 'rounded-t-none' : ''} border-white/10 shadow-2xl focus-within:border-[#d3bc8e]/40 transition-all`}>
                 <div className="flex items-center">
-                    <button onClick={() => fileInputRef.current?.click()} className="p-2 sm:p-3 text-gray-500 hover:text-[#d3bc8e] transition-colors rounded-full hover:bg-white/5"><Paperclip className="w-4 h-4 sm:w-6 h-6" /></button>
-                    <button onClick={() => setIsRecording(!isRecording)} className={`p-2 sm:p-3 transition-colors rounded-full hover:bg-white/5 ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-500 hover:text-[#d3bc8e]'}`}>{isRecording ? <MicOff className="w-4 h-4 sm:w-6 h-6" /> : <Mic className="w-4 h-4 sm:w-6 h-6" />}</button>
+                    <button onClick={() => fileInputRef.current?.click()} className="p-1.5 sm:p-3 text-gray-500 hover:text-[#d3bc8e] transition-colors rounded-full hover:bg-white/5"><Paperclip className="w-4 h-4 sm:w-6 h-6" /></button>
+                    <button onClick={() => setIsRecording(!isRecording)} className={`p-1.5 sm:p-3 transition-colors rounded-full hover:bg-white/5 ${isRecording ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-500 hover:text-[#d3bc8e]'}`}>{isRecording ? <MicOff className="w-4 h-4 sm:w-6 h-6" /> : <Mic className="w-4 h-4 sm:w-6 h-6" />}</button>
                 </div>
                 
                 <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => { if(e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} multiple />
@@ -429,7 +429,7 @@ const Terminal: React.FC<TerminalProps> = ({ currentPersona, userProfile, curren
                     onChange={e => setInputValue(e.target.value)} 
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 1024) { e.preventDefault(); handleSend(); } }} 
                     placeholder={`Speak...`} 
-                    className="flex-1 bg-transparent py-2 px-1 outline-none resize-none text-white h-9 max-h-32 sm:h-10 sm:max-h-40 custom-scrollbar text-sm sm:text-[15px] placeholder:text-gray-600 font-medium select-text" 
+                    className="flex-1 bg-transparent py-2 px-1 outline-none resize-none text-white h-9 max-h-24 sm:max-h-40 custom-scrollbar text-sm sm:text-[15px] placeholder:text-gray-700 font-medium select-text" 
                     rows={1} 
                 />
                 

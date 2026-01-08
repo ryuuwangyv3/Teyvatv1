@@ -1,4 +1,3 @@
-
 import { createClient, SupabaseClient, RealtimeChannel, User } from '@supabase/supabase-js';
 import {
   UserProfile, Persona, Message, ForumPost, ForumComment,
@@ -44,11 +43,10 @@ export const getSupabaseConfig = () => {
 export const initSupabase = (): boolean => {
   if (supabaseInstance) return true;
   
-  // Directly process from process.env as requested
+  // MENGAMBIL LANGSUNG DARI process.env (Prioritas Utama)
   const envUrl = process.env.SUPABASE_URL;
   const envKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
 
-  // Prioritaskan .env untuk Auto-Koneksi
   if (envUrl && envKey && envUrl.startsWith('http')) {
     try {
       supabaseInstance = createClient(envUrl, envKey, {
@@ -57,14 +55,14 @@ export const initSupabase = (): boolean => {
       supabaseInstance.auth.getSession().then(({ data }) => {
         if (data.session?.user) currentUserId = data.session.user.id;
       });
-      console.log("%cAKASHA CLOUD: AUTO-CONNECTED VIA .ENV", "color: #d3bc8e; font-weight: bold;");
+      console.log("%cAKASHA CLOUD: DIRECTLY CONNECTED VIA process.env", "color: #d3bc8e; font-weight: bold;");
       return true;
     } catch (e) {
-      console.error("Supabase auto-init failed", e);
+      console.error("Supabase .env connection failed", e);
     }
   }
 
-  // Fallback ke SecureStorage (Manual Config)
+  // Fallback ke SecureStorage (Jika manual di Admin Console)
   const local = SecureStorage.getItem('supabase_config');
   if (local?.url && local?.key) {
     try {
@@ -145,29 +143,14 @@ export const fetchUserProfile = async (): Promise<UserProfile | null> => {
     return await VfsManager.loadItem('profile.json');
 };
 
-/**
- * 📊 Fetch Real User Statistics from Cloud/Local VFS
- */
 export const fetchUserStats = async (userId: string) => {
     if (!userId || userId === 'guest') return { achievements: 0, companions: 12, visits: 1, aura: 0 };
-
     let companionsCount = 0;
     let auraPoints = 0;
-
     if (supabaseInstance) {
-        // Count Custom Personas
-        const { count } = await supabaseInstance
-            .from('custom_personas')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId);
+        const { count } = await supabaseInstance.from('custom_personas').select('*', { count: 'exact', head: true }).eq('user_id', userId);
         companionsCount = count || 0;
-
-        // Count Total Messages across all chat histories
-        const { data: histories } = await supabaseInstance
-            .from('chat_histories')
-            .select('messages')
-            .eq('user_id', userId);
-        
+        const { data: histories } = await supabaseInstance.from('chat_histories').select('messages').eq('user_id', userId);
         if (histories) {
             histories.forEach(h => {
                 const msgs = decryptData(h.messages);
@@ -175,10 +158,9 @@ export const fetchUserStats = async (userId: string) => {
             });
         }
     }
-
     return {
         achievements: Math.floor(auraPoints / 5),
-        companions: 12 + companionsCount, // Default + Custom
+        companions: 12 + companionsCount,
         visits: auraPoints > 0 ? Math.ceil(auraPoints / 10) : 1,
         aura: auraPoints
     };
