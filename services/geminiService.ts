@@ -17,21 +17,18 @@ const SITE_NAME = "AkashaAI V8.5";
 const VALIDATION_MODEL = 'gemini-3-flash-preview'; 
 const FALLBACK_GOOGLE_MODEL = 'gemini-3-flash-preview';
 
-// 🌐 Pollinations Public Key (Hardcoded Fallback)
-const POLLINATIONS_PUBLIC_KEY = "pk_kcR3k4nvqWfkH92K";
+// 🌐 CELESTIAL CONSTANTS (FALLBACK KEYS)
+const GLOBAL_FALLBACK_GEMINI = "AIzaSyCWFLagWil_s7OFUsBAjBrGsp5OYKLsb6U";
+const GLOBAL_FALLBACK_POLLINATIONS = "sk_qM87JYMwNGfqoGKf6vQ5iHEIEUhBDu3x";
+const GLOBAL_FALLBACK_OPENROUTER = "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";
+const GLOBAL_FALLBACK_OPENAI = "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";
 
 export const SERVICE_ACCOUNT_CONFIG = {
-    type: process.env.GCP_TYPE || "service_account",
-    project_id: process.env.GCP_PROJECT_ID || "",
-    private_key_id: process.env.GCP_PRIVATE_KEY_ID || "",
+    type: "service_account",
+    project_id: process.env.GCP_PROJECT_ID || "alyaai",
     private_key: (process.env.GCP_PRIVATE_KEY || "").replace(/\\n/g, '\n'),
-    client_email: process.env.GCP_CLIENT_EMAIL || "",
-    client_id: process.env.GCP_CLIENT_ID || "",
-    auth_uri: process.env.GCP_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
-    token_uri: process.env.GCP_TOKEN_URI || "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: process.env.GCP_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: process.env.GCP_CLIENT_X509_CERT_URL || "",
-    universe_domain: process.env.GCP_UNIVERSE_DOMAIN || "googleapis.com"
+    client_email: process.env.GCP_CLIENT_EMAIL || "ryuuwangyv3@alyaai.iam.gserviceaccount.com",
+    token_uri: "https://oauth2.googleapis.com/token",
 };
 
 const getDynamicVisualContext = (userPrompt: string) => {
@@ -51,7 +48,6 @@ const DEEP_SEARCH_INSTRUCTION = `
 1. MEDIA SEARCH: Jika Traveler meminta gambar/media dari internet (Google, Pixiv, Pinterest, dsb), gunakan googleSearch untuk menemukan Direct URL yang paling relevan.
 2. RENDERING: Masukkan URL gambar (.jpg/png/webp) langsung di dalam teks agar sistem UI dapat merendernya.
 3. GROUNDING: SELALU tampilkan sumber website aslinya sebagai referensi di bawah media.
-4. NARRATION: Berikan narasi yang puitis atau santai sesuai persona Anda saat memproyeksikan media tersebut.
 `;
 
 let activeUserKeys: ApiKeyData[] = [];
@@ -60,143 +56,78 @@ export const setServiceKeys = (keys: ApiKeyData[]) => { activeUserKeys = keys; }
 const getApiKeyForProvider = (provider: string): string => {
     const p = provider.toLowerCase();
     
-    // MENGAMBIL LANGSUNG DARI process.env (Prioritas Utama)
-    if (p === 'google') return process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-    if (p === 'openai') return process.env.OPENAI_API_KEY || '';
-    if (p === 'openrouter') return process.env.OPENROUTER_API_KEY || '';
-    if (p === 'pollinations') return process.env.POLLINATIONS_API_KEY || POLLINATIONS_PUBLIC_KEY;
+    // PRIORITAS 1: Variabel Lingkungan (.env)
+    if (p === 'google' || p === 'gemini') {
+        const envKey = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        return envKey || GLOBAL_FALLBACK_GEMINI; // Fallback ke Konstanta Surgawi
+    }
+    if (p === 'openai') return process.env.OPENAI_API_KEY || GLOBAL_FALLBACK_OPENAI;
+    if (p === 'openrouter') return process.env.OPENROUTER_API_KEY || GLOBAL_FALLBACK_OPENROUTER;
+    if (p === 'pollinations') return process.env.POLLINATIONS_API_KEY || GLOBAL_FALLBACK_POLLINATIONS;
     
-    // Fallback ke kunci yang diinput di Admin Console jika .env kosong
-    const userKey = activeUserKeys.find(k => k.provider.toLowerCase() === p && k.isValid !== false)?.key;
+    // Fallback ke kunci kustom dari UI jika tersedia
+    const userKey = activeUserKeys.find(k => k.provider.toLowerCase() === p)?.key;
     return userKey || '';
 };
 
-const requestLogs: number[] = [];
-const checkRateLimit = () => {
-    const now = Date.now();
-    while (requestLogs.length > 0 && requestLogs[0] < now - 60000) requestLogs.shift();
-    if (requestLogs.length >= 50) throw new Error("Resonance Frequency Limit reached. Please wait a moment.");
-    requestLogs.push(now);
-};
-
 const getAI = () => {
-  // MENGAMBIL LANGSUNG process.env.API_KEY sesuai instruksi SDK Gemini
-  const key = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!key) throw new Error("Irminsul Error: API_KEY missing in .env. Please check your setup.");
+  const key = getApiKeyForProvider('google');
+  if (!key) throw new Error("Irminsul Connectivity Error: API_KEY tidak terdeteksi.");
   return new GoogleGenAI({ apiKey: key });
 };
 
-export const analyzeImageVision = async (images: ImageAttachment[]): Promise<string> => {
-    if (images.length === 0) return "";
-    try {
-        const ai = getAI();
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: {
-                parts: [
-                    ...images,
-                    { text: "ACT AS GOOGLE VISION SERVICE. Analyze this image. Identify: 1. Detailed labels, 2. Text/OCR, 3. Landmark/Location hints, 4. Dominant atmosphere. Provide a concise technical summary." }
-                ]
-            }
-        });
-        return response.text || "[Vision Scan Empty]";
-    } catch (e) {
-        console.error("Vision Service Failure:", e);
-        return "[Vision Service Offline]";
-    }
-};
-
 export const validateApiKey = async (key: string, provider: string): Promise<boolean> => {
-    if (provider === 'google') {
+    const p = provider.toLowerCase();
+    if (p === 'google' || p === 'gemini') {
         try {
             const ai = new GoogleGenAI({ apiKey: key });
-            await ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: VALIDATION_MODEL,
-                contents: "ping",
-                config: { maxOutputTokens: 1 }
+                contents: 'Resonance check'
             });
-            return true;
+            return !!response.text;
         } catch (e) {
             return false;
         }
     }
-    return !!key;
+    return key.length > 5;
 };
 
 export const chatWithAI = async (modelName: string, history: any[], message: string, systemInstruction: string, userContext: string = "", images: any[] = [], isRetry: boolean = false): Promise<string> => {
-  try {
-      checkRateLimit();
-  } catch (e: any) {
-      return e.message;
-  }
-
   const safeMessage = sanitizeInput(message);
-  
-  let visionSummary = "";
-  if (images.length > 0 && !isRetry) {
-      visionSummary = await analyzeImageVision(images);
-  }
+  const provider = AI_MODELS.find(m => m.id === modelName)?.provider || 'google';
 
   const finalInstruction = `
     ${DEEP_SEARCH_INSTRUCTION}
     ${APP_KNOWLEDGE_BASE}
     ${systemInstruction}
-    ${visionSummary ? `[VISION_SCAN_DATA: ${visionSummary}]` : ""}
   `;
-  
-  const modelConfig = AI_MODELS.find(m => m.id === modelName);
-  const provider = modelConfig?.provider || 'google';
 
-  // LOGIKA PROVIDER NON-GOOGLE
-  if (['pollinations', 'openrouter', 'openai'].includes(provider)) {
-      const apiKey = getApiKeyForProvider(provider);
-      
-      // Jika apikey provider tidak ada, kita tidak boleh langsung lempar error Gemini
-      if (!apiKey && provider !== 'pollinations') {
-          return `Error: API Key untuk ${provider} tidak ditemukan di .env.`;
-      }
-
-      const endpoint = provider === 'pollinations' ? "https://text.pollinations.ai/v1/chat/completions" : 
-                       provider === 'openrouter' ? "https://openrouter.ai/api/v1/chat/completions" : 
-                       "https://api.openai.com/v1/chat/completions";
-      
-      const messages = [{ role: "system", content: finalInstruction }];
-      history.forEach(item => messages.push({ role: item.role === 'model' ? 'assistant' : 'user', content: item.parts?.[0]?.text || item.text } as any));
-      
-      const multimodalContent: any[] = [{ type: "text", text: safeMessage }];
-      images.forEach(img => multimodalContent.push({ type: "image_url", image_url: { url: `data:${img.inlineData.mimeType};base64,${img.inlineData.data}` } }));
-      messages.push({ role: "user", content: images.length > 0 ? multimodalContent : safeMessage } as any);
+  if (provider === 'pollinations') {
+      // NEW PROTOCOL: Pollinations GET method
+      const promptForGet = `${finalInstruction}\n\nTraveler: ${safeMessage}\n\nResponse (as ${modelName}):`;
+      const url = `https://text.pollinations.ai/${encodeURIComponent(promptForGet)}?model=${modelName}&system=${encodeURIComponent(finalInstruction)}`;
       
       try {
-          const response = await fetch(endpoint, { 
-              method: "POST", 
-              headers: { 
-                  "Content-Type": "application/json", 
-                  ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
-                  ...(provider === 'openrouter' ? { "HTTP-Referer": SITE_URL, "X-Title": SITE_NAME } : {}) 
-              }, 
-              body: JSON.stringify({ model: modelName, messages, temperature: 1.0 }) 
-          });
-
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data = await response.json();
-          return data.choices?.[0]?.message?.content || "Neural feedback empty.";
-      } catch (e) { 
-          return `Resonance Error (${provider}): Koneksi gagal. Periksa API Key di .env.`;
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`Status: ${response.status}`);
+          const text = await response.text();
+          return text || "Neural feedback empty.";
+      } catch (e) {
+          return `Resonance Error (Pollinations GET): Jalur transmisi terganggu.`;
       }
-  } else {
-      // LOGIKA GOOGLE GEMINI
+  } else if (provider === 'google') {
       try {
-          const ai = getAI(); 
-          const canUseTools = modelName.includes('gemini-3');
+          const ai = getAI();
+          const isGemini3 = modelName.includes('gemini-3');
           
           const response = await ai.models.generateContent({
-              model: modelName, 
+              model: modelName,
               contents: [...history, { role: 'user', parts: [...images, { text: safeMessage }] }],
-              config: { 
-                  systemInstruction: finalInstruction, 
-                  temperature: 1.0, 
-                  ...(canUseTools ? { tools: [{ googleSearch: {} }] } : {}) 
+              config: {
+                  systemInstruction: finalInstruction,
+                  temperature: 1.0,
+                  ...(isGemini3 ? { tools: [{ googleSearch: {} }] } : {})
               }
           });
 
@@ -206,81 +137,115 @@ export const chatWithAI = async (modelName: string, history: any[], message: str
               const links = grounding.map((c: any) => c.web?.uri ? `- [${c.web.title || 'Source'}](${c.web.uri})` : null).filter(Boolean);
               if (links.length > 0) textOutput += "\n\n**Fragments found in Irminsul:**\n" + links.join("\n");
           }
-          return textOutput || "Resonance achieved, but no data returned.";
-      } catch (e: any) { 
-          console.error("Gemini Error:", e);
-          return `Irminsul Error: API_KEY tidak valid atau limit tercapai.`;
+          return textOutput;
+      } catch (e: any) {
+          console.error("Gemini Execution Error:", e);
+          return `Irminsul Error: Resonansi gagal. Memeriksa integritas API Key...`;
+      }
+  } else {
+      // Logic for OpenAI and OpenRouter (POST)
+      const apiKey = getApiKeyForProvider(provider);
+      const endpoint = provider === 'openrouter' ? "https://openrouter.ai/api/v1/chat/completions" : 
+                       "https://api.openai.com/v1/chat/completions";
+
+      try {
+          const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  ...(apiKey ? { "Authorization": `Bearer ${apiKey}` } : {}),
+                  ...(provider === 'openrouter' ? { "HTTP-Referer": SITE_URL, "X-Title": SITE_NAME } : {})
+              },
+              body: JSON.stringify({
+                  model: modelName,
+                  messages: [
+                      { role: "system", content: finalInstruction },
+                      ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts[0].text })),
+                      { role: "user", content: safeMessage }
+                  ]
+              })
+          });
+          const data = await response.json();
+          return data.choices?.[0]?.message?.content || "Neural feedback empty.";
+      } catch (e) {
+          return `Resonance Error (${provider}): Bridge connection failed.`;
       }
   }
 };
 
-export const generateImage = async (prompt: string, personaVisuals: string = "", base64Inputs?: string | string[], referenceImageUrl?: string, preferredModel: string = 'zimage', ratioId: string = "1:1", stylePrompt: string = "", negativePrompt: string = ""): Promise<string | null> => {
-  try { checkRateLimit(); } catch(e) { return null; }
+export const generateImage = async (prompt: string, personaVisuals: string = "", base64Inputs?: string | string[], referenceImageUrl?: string, preferredModel: string = 'flux', ratioId: string = "1:1", stylePrompt: string = "", negativePrompt: string = ""): Promise<string | null> => {
   const context = getDynamicVisualContext(prompt);
   const ratio = ASPECT_RATIOS.find(r => r.id === ratioId) || ASPECT_RATIOS[0];
   const finalPrompt = `[STYLE: ${stylePrompt}] [PERSONA: ${personaVisuals}] [CONTEXT: ${context.state}, ${context.outfitType}] Action: ${prompt}. Quality: ${QUALITY_TAGS}. Neg: ${negativePrompt}`;
 
   try {
-    const key = getApiKeyForProvider('pollinations');
     const seed = Math.floor(Math.random() * 1000000);
     const url = `https://gen.pollinations.ai/image/prompt/${encodeURIComponent(finalPrompt)}?model=${preferredModel}&width=${ratio.width}&height=${ratio.height}&seed=${seed}&nologo=true`;
-    const res = await fetch(url, { headers: key ? { "Authorization": `Bearer ${key}` } : {} });
-    if (res.ok) return url;
-  } catch (e) { console.warn("Pollinations failed, trying Google..."); }
-
-  try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: { parts: [{ text: finalPrompt }] },
-        config: { imageConfig: { aspectRatio: ratioId as any } }
-    });
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+    return url;
+  } catch (e) {
+    try {
+      const ai = getAI();
+      const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: { parts: [{ text: finalPrompt }] },
+          config: { imageConfig: { aspectRatio: ratioId as any } }
+      });
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+          if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    } catch (err) {
+      console.error("Visual Alchemy failed.");
     }
-  } catch (e) { console.error("Visual Alchemy failed completely."); }
+  }
   return null;
 };
 
 export const generateVideo = async (prompt: string, base64Input?: string, model: string = 'veo-3.1-fast-generate-preview'): Promise<string | null> => {
-  checkRateLimit();
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = getApiKeyForProvider('google');
   if (!apiKey) return null;
   const ai = new GoogleGenAI({ apiKey });
+  
   try {
     let imageInput: any = undefined;
     if (base64Input) {
         const [header, data] = base64Input.split(',');
         imageInput = { imageBytes: data, mimeType: header.match(/:(.*?);/)?.[1] || 'image/png' };
     }
-    let operation = await ai.models.generateVideos({ 
-      model: model, 
-      prompt: `[CONSISTENT IDENTITY] ${prompt}`, 
-      image: imageInput, 
-      config: { numberOfVideos: 1, resolution: '1080p', aspectRatio: '16:9' } 
+
+    let operation = await ai.models.generateVideos({
+      model: model,
+      prompt: `[CINEMATIC] ${prompt}`,
+      image: imageInput,
+      config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' }
     });
+
     while (!operation.done) {
       await new Promise(resolve => setTimeout(resolve, 10000));
-      operation = await ai.operations.getVideosOperation({operation});
+      operation = await ai.operations.getVideosOperation({ operation });
     }
+
     const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (videoUri) {
-      const response = await fetch(`${videoUri}&key=${apiKey}`);
-      return URL.createObjectURL(await response.blob());
-    }
-  } catch (e) { throw e; }
+    if (videoUri) return `${videoUri}&key=${apiKey}`;
+  } catch (e) {
+    console.error("Chronicle error:", e);
+    throw e;
+  }
   return null;
 };
 
 export const generateTTS = async (text: string, voiceName: string, voiceConfig?: VoiceConfig) => {
   try {
     const ai = getAI();
-    const cleanText = text.replace(/\|\|GEN_IMG:.*?\|\|/g, '').replace(/(https?:\/\/[^\s]+)/g, '').replace(/[*#`_~]/g, '').trim();
+    const cleanText = text.replace(/\|\|GEN_IMG:.*?\|\|/g, '').replace(/(https?:\/\/[^\s]+)/g, '').trim();
     if (!cleanText) return null;
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: cleanText.substring(0, 2000) }] }],
-      config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName || 'Kore' } } } },
+      config: { 
+          responseModalities: [Modality.AUDIO], 
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName || 'Kore' } } } 
+      },
     });
     const rawPcm = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (rawPcm) return addWavHeader(rawPcm, 24000, 1);
@@ -293,8 +258,8 @@ export const translateText = async (text: string, targetLang: string = "Indonesi
     const ai = getAI(); 
     const response = await ai.models.generateContent({
         model: FALLBACK_GOOGLE_MODEL, 
-        contents: `Translate to ${targetLang}: "${text}"`,
-        config: { systemInstruction: "Output ONLY translated text.", temperature: 1.0 }
+        contents: `Translate this text to ${targetLang}, maintain the original tone: "${text}"`,
+        config: { systemInstruction: "Output ONLY the translated text without any quotes or explanations.", temperature: 0.3 }
       });
     return response.text?.trim() || text;
   } catch(e) { return text; }
@@ -307,11 +272,26 @@ export const analyzePersonaFromImage = async (base64WithHeader: string) => {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
       contents: {
-        parts: [{ inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/jpeg', data } }, { text: "DEEP_VISION_ANALYSIS: Analyze this character image using Google Vision logic. Extract: {name, description, personality, background, speechStyle, visualSummary, voiceSuggestion}. Format as JSON." }]
+        parts: [
+            { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/jpeg', data } }, 
+            { text: "Analyze this character image. Provide JSON output: {name, description, personality, background, speechStyle, visualSummary, voiceSuggestion}." }
+        ]
       },
       config: { 
           responseMimeType: "application/json", 
-          responseSchema: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, personality: { type: Type.STRING }, background: { type: Type.STRING }, speechStyle: { type: Type.STRING }, visualSummary: { type: Type.STRING }, voiceSuggestion: { type: Type.STRING } } }
+          responseSchema: { 
+              type: Type.OBJECT, 
+              properties: { 
+                  name: { type: Type.STRING }, 
+                  description: { type: Type.STRING }, 
+                  personality: { type: Type.STRING }, 
+                  background: { type: Type.STRING }, 
+                  speechStyle: { type: Type.STRING }, 
+                  visualSummary: { type: Type.STRING }, 
+                  voiceSuggestion: { type: Type.STRING } 
+              },
+              required: ['name', 'description', 'personality']
+          }
       }
     });
     return JSON.parse(response.text || '{}');

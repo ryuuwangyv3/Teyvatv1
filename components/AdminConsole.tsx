@@ -1,9 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { Key, Database, ShieldAlert, Trash2, Save, Loader2, Plus, RefreshCw, Wifi, WifiOff, Cloud, Code, X, Copy, Check, Terminal, Info, Zap, ShieldCheck, Globe, ChevronDown, ChevronUp } from 'lucide-react';
 import { ApiKeyData, UserProfile } from '../types';
 import { validateApiKey } from '../services/geminiService';
 import { checkDbConnection, updateSupabaseCredentials, getSupabaseConfig } from '../services/supabaseService';
+
+// 🌐 CELESTIAL CONSTANTS (Provided by Traveler)
+const FALLBACK_URL = "https://nrnuuufpyhhwhiqmzgub.supabase.co";
+const FALLBACK_KEY = "sb_secret_ndbyZ2XztVkI7XRaft-lug_V0SVpOr2";
+const FALLBACK_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ybnV1dWZweWhod2hpcW16Z3ViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyMjQ4MjEsImV4cCI6MjA4MTgwMDgyMX0.BBFIO9DXqFUrluCe_bs562JqZb_bh4Yknn1HKXgDhm4";
 
 const SQL_SCRIPT = `-- AKASHA TERMINAL CORE SCHEMA V8.0
 -- ENABLE EXTENSIONS
@@ -172,8 +176,9 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
     const [keyProvider, setKeyProvider] = useState<'google' | 'openai' | 'openrouter' | 'pollinations'>('google');
     const [isAddingKey, setIsAddingKey] = useState(false);
     
-    const [dbUrl, setDbUrl] = useState('');
-    const [dbKey, setDbKey] = useState('');
+    // PRE-FILL WITH FALLBACKS
+    const [dbUrl, setDbUrl] = useState(FALLBACK_URL);
+    const [dbKey, setDbKey] = useState(FALLBACK_KEY);
     const [dbStatus, setDbStatus] = useState<'unknown' | 'connected' | 'error' | 'checking' | 'tables_missing'>('unknown');
     const [latency, setLatency] = useState<number | null>(null);
     const [showSqlModal, setShowSqlModal] = useState(false);
@@ -185,9 +190,9 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
 
     useEffect(() => {
         const config = getSupabaseConfig();
-        if (config) {
-            setDbUrl(config.url || '');
-            setDbKey(config.key || '');
+        if (config && config.url) {
+            setDbUrl(config.url);
+            setDbKey(config.key);
         }
         checkDb();
     }, []);
@@ -225,21 +230,25 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
         }
     };
 
-    const handleAddKey = async () => {
-        if (!newKey.trim()) return;
+    const handleAddKey = async (forcedKey?: string, forcedProvider?: any) => {
+        const targetKey = forcedKey || newKey.trim();
+        const targetProvider = forcedProvider || keyProvider;
+        if (!targetKey) return;
+
         setIsAddingKey(true);
         try {
-            const isValid = await validateApiKey(newKey.trim(), keyProvider);
+            const isValid = await validateApiKey(targetKey, targetProvider);
             if (isValid) {
                 const updatedKeys = [...apiKeys, { 
-                    key: newKey.trim(), 
-                    provider: keyProvider, 
+                    key: targetKey, 
+                    provider: targetProvider, 
                     isValid: true, 
                     lastChecked: Date.now(), 
                     label: `Node ${apiKeys.length + 1}` 
                 }];
                 setApiKeys(updatedKeys);
-                setNewKey('');
+                if (!forcedKey) setNewKey('');
+                alert(`Celestial Key (${targetProvider}) Activated.`);
             } else { alert("Neural verification failed."); }
         } catch (e) { alert("Core disturbance detected."); } finally { setIsAddingKey(false); }
     };
@@ -308,15 +317,16 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                         </div>
                         <div className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Archive URL</label>
-                                <input type="text" value={dbUrl} onChange={(e) => setDbUrl(e.target.value)} placeholder="https://nrnuuufpyhhwhiqmzgub.supabase.co" className="w-full bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white focus:border-blue-500 font-mono outline-none select-text" />
+                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Archive URL (Supabase URL)</label>
+                                <input type="text" value={dbUrl} onChange={(e) => setDbUrl(e.target.value)} placeholder="https://your-id.supabase.co" className="w-full bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white focus:border-blue-500 font-mono outline-none select-text" />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Signature Key</label>
-                                <input type="password" value={dbKey} onChange={(e) => setDbKey(e.target.value)} placeholder="sb_secret_ndbyZ2XztVkI7XRaft-lug_V0SVpOr2" className="w-full bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white focus:border-blue-500 font-mono outline-none select-text" />
+                                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Signature Key (Supabase Service Role/Anon Key)</label>
+                                <input type="password" value={dbKey} onChange={(e) => setDbKey(e.target.value)} placeholder="Celestial Signature..." className="w-full bg-black/60 border border-white/5 rounded-2xl px-6 py-5 text-sm text-white focus:border-blue-500 font-mono outline-none select-text" />
                             </div>
                             <div className="pt-4 flex flex-col sm:flex-row gap-4">
                                 <button onClick={handleUpdateDb} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-5 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl">Synchronize Link</button>
+                                <button onClick={() => { setDbUrl(FALLBACK_URL); setDbKey(FALLBACK_ANON); }} className="w-full sm:w-auto px-6 py-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-xs font-bold text-gray-400">Restore Constant</button>
                                 <button onClick={checkDb} className="w-full sm:w-auto px-6 py-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all flex justify-center"><RefreshCw className={`w-5 h-5 text-gray-400 ${dbStatus === 'checking' ? 'animate-spin text-blue-400' : ''}`} /></button>
                             </div>
                         </div>
@@ -329,7 +339,7 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                           <button 
                             onClick={() => setShowPollinationsInfo(!showPollinationsInfo)}
                             className={`p-2 rounded-lg transition-all ${showPollinationsInfo ? 'bg-amber-500/20 text-amber-500' : 'bg-white/5 text-gray-500 hover:text-white'}`}
-                            title={showPollinationsInfo ? "Hide Pollinations Help" : "Show Pollinations Help"}
+                            title={showPollinationsInfo ? "Hide Help" : "Show Help"}
                           >
                             {showPollinationsInfo ? <ChevronUp className="w-4 h-4" /> : <Info className="w-4 h-4" />}
                           </button>
@@ -340,20 +350,16 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                               <button onClick={() => setShowPollinationsInfo(false)} className="absolute top-2 right-2 text-amber-500/40 hover:text-amber-500"><X className="w-3.5 h-3.5" /></button>
                               <div className="flex items-center gap-2 mb-3">
                                   <Globe className="w-4 h-4 text-amber-500" />
-                                  <span className="text-[10px] sm:text-xs font-black text-amber-400 uppercase tracking-widest">🌐 Kunci Publik Apikey (Pollinations)</span>
+                                  <span className="text-[10px] sm:text-xs font-black text-amber-400 uppercase tracking-widest">🌐 Jalur Pengisian Akasha Surgawi</span>
                               </div>
                               <div className="space-y-2">
                                   <div className="flex items-start gap-2">
-                                      <Info className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
-                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Selalu terlihat di dasbor Anda sebagai referensi cepat.</p>
+                                      <Zap className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
+                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Sistem menggunakan endpoint GET untuk kestabilan transmisi data ke engine Pollinations.</p>
                                   </div>
                                   <div className="flex items-start gap-2">
                                       <ShieldCheck className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
-                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Aman digunakan dalam kode sisi klien.</p>
-                                  </div>
-                                  <div className="flex items-start gap-2">
-                                      <Zap className="w-3 h-3 text-amber-500/60 mt-0.5 shrink-0" />
-                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Pembatasan laju: 1 per jam pengisian ulang per IP+kunci.</p>
+                                      <p className="text-[9px] sm:text-[10px] text-gray-400 leading-tight font-medium">Kunci fallback surgawi diaktifkan otomatis jika kunci .env tidak valid.</p>
                                   </div>
                               </div>
                           </div>
@@ -369,9 +375,20 @@ const AdminConsole: React.FC<AdminConsoleProps> = ({ apiKeys, setApiKeys, userPr
                                     <option value="pollinations">Pollinations</option>
                                 </select>
                             </div>
-                            <button onClick={handleAddKey} disabled={isAddingKey || !newKey} className="w-full bg-amber-500 text-black py-5 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:bg-white hover:scale-105 transition-all shadow-xl disabled:opacity-50 flex items-center justify-center gap-2">
-                                {isAddingKey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />} Manifest Secret
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleAddKey()} disabled={isAddingKey || !newKey} className="flex-1 bg-amber-500 text-black py-5 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:bg-white hover:scale-105 transition-all shadow-xl disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {isAddingKey ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />} Manifest Secret
+                                </button>
+                                <button onClick={() => { 
+                                    const c = confirm("Inject all Global Celestial Constants?"); 
+                                    if(c) {
+                                        handleAddKey("AIzaSyCWFLagWil_s7OFUsBAjBrGsp5OYKLsb6U", "google");
+                                        handleAddKey("sk_qM87JYMwNGfqoGKf6vQ5iHEIEUhBDu3x", "pollinations");
+                                        handleAddKey("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", "openrouter");
+                                        handleAddKey("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", "openai");
+                                    }
+                                }} className="bg-white/5 border border-white/10 px-4 rounded-2xl text-[8px] font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Mass Inject</button>
+                            </div>
                         </div>
                         <div className="space-y-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-2">
                             {apiKeys.length === 0 ? (

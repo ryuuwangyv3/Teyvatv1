@@ -4,7 +4,8 @@ import {
   Send, Mic, MicOff, Paperclip, Terminal as TerminalIcon, X, ArrowUp, ArrowDown, Loader2, StopCircle, Box, CloudLightning, Eraser, ChevronDown, Zap, Download, Trash2, Eye, FileText, File as FileIcon
 } from 'lucide-react';
 import { Persona, UserProfile, Message, Attachment, Language, VoiceConfig } from '../types';
-import { chatWithAI, generateTTS, generateImage, translateText, ImageAttachment, analyzeImageVision } from '../services/geminiService';
+// Removed analyzeImageVision from imports as it is not exported by geminiService and not used in this component.
+import { chatWithAI, generateTTS, generateImage, translateText, ImageAttachment } from '../services/geminiService';
 import { fetchChatHistory, syncChatHistory, clearChatHistory } from '../services/supabaseService';
 import MessageItem from './MessageItem';
 import { AI_MODELS } from '../data';
