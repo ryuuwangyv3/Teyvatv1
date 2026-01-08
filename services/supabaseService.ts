@@ -44,6 +44,7 @@ export const initSupabase = (): boolean => {
   if (supabaseInstance) return true;
   
   // MENGAMBIL LANGSUNG DARI process.env (Prioritas Utama)
+  // user provides: SERVER_URL, SUPABASE_URL, SUPABASE_KEY, SUPABASE_ANON_KEY
   const envUrl = process.env.SUPABASE_URL;
   const envKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
 
@@ -55,7 +56,7 @@ export const initSupabase = (): boolean => {
       supabaseInstance.auth.getSession().then(({ data }) => {
         if (data.session?.user) currentUserId = data.session.user.id;
       });
-      console.log("%cAKASHA CLOUD: DIRECTLY CONNECTED VIA process.env", "color: #d3bc8e; font-weight: bold;");
+      console.log("%cAKASHA CLOUD: CONNECTED TO Irminsul Database", "color: #d3bc8e; font-weight: bold;");
       return true;
     } catch (e) {
       console.error("Supabase .env connection failed", e);

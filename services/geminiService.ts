@@ -61,7 +61,7 @@ const getApiKeyForProvider = (provider: string): string => {
     const p = provider.toLowerCase();
     
     // MENGAMBIL LANGSUNG DARI process.env (Prioritas Utama)
-    if (p === 'google') return process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+    if (p === 'google') return process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
     if (p === 'openai') return process.env.OPENAI_API_KEY || '';
     if (p === 'openrouter') return process.env.OPENROUTER_API_KEY || '';
     if (p === 'pollinations') return process.env.POLLINATIONS_API_KEY || POLLINATIONS_PUBLIC_KEY;
@@ -81,8 +81,8 @@ const checkRateLimit = () => {
 
 const getAI = () => {
   // MENGAMBIL LANGSUNG process.env.API_KEY sesuai instruksi SDK Gemini
-  const key = process.env.API_KEY;
-  if (!key) throw new Error("Irminsul Error: API_KEY missing in .env. Please check your localhost setup.");
+  const key = process.env.API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!key) throw new Error("Irminsul Error: API_KEY missing in .env. Please check your setup.");
   return new GoogleGenAI({ apiKey: key });
 };
 
@@ -244,7 +244,7 @@ export const generateImage = async (prompt: string, personaVisuals: string = "",
 
 export const generateVideo = async (prompt: string, base64Input?: string, model: string = 'veo-3.1-fast-generate-preview'): Promise<string | null> => {
   checkRateLimit();
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
   const ai = new GoogleGenAI({ apiKey });
   try {

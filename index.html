@@ -28,7 +28,7 @@
             --genshin-accent: #f4d06f;
             --genshin-white: #ece5d8;
             /* Fluid font size optimized for 360DPI devices */
-            font-size: clamp(12px, 0.8vw + 10px, 18px);
+            font-size: clamp(12px, 2vw, 16px);
         }
         
         * {
@@ -42,7 +42,7 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: #000; /* Outer background */
+            background-color: #000;
         }
 
         body {
@@ -52,47 +52,55 @@
             overscroll-behavior-y: none;
             text-rendering: optimizeLegibility;
             -webkit-font-smoothing: antialiased;
-            user-select: none;
-            -webkit-user-select: none;
             display: flex;
             justify-content: center;
             align-items: center;
+            background-image: url('https://cdn.pixabay.com/photo/2023/12/15/15/51/ai-generated-8451159_1280.jpg');
+            background-size: cover;
+            background-position: center;
         }
 
-        /* 9:16 Aspect Ratio Container for Desktop */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(40px);
+            z-index: 0;
+        }
+
+        /* Fixed 9:16 Aspect Ratio Container */
         #root {
+            position: relative;
+            z-index: 1;
             width: 100%;
             height: 100%;
-            position: relative;
             background-color: var(--genshin-dark);
             background-image: 
                 radial-gradient(circle at 20% 30%, rgba(61, 68, 122, 0.15) 0%, transparent 50%),
                 radial-gradient(circle at 80% 70%, rgba(211, 188, 142, 0.05) 0%, transparent 50%),
                 linear-gradient(to bottom, #0b0e14, #121620);
             overflow: hidden;
-            box-shadow: 0 0 100px rgba(0,0,0,0.5);
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        @media (min-width: 600px) {
+        @media (min-width: 640px) {
             #root {
-                width: min(100vw, 56.25vh); /* 9/16 of the height */
-                height: min(100vh, 177.78vw); /* 16/9 of the width */
-                max-height: 100vh;
-                border-left: 1px solid rgba(211, 188, 142, 0.1);
-                border-right: 1px solid rgba(211, 188, 142, 0.1);
-                border-radius: 20px; /* Luxury curved edges for desktop frame */
-                margin: auto;
+                width: min(90vw, 420px);
+                height: min(90vh, 746px); /* 16/9 aspect */
+                border: 2px solid rgba(211, 188, 142, 0.3);
+                border-radius: 42px;
+                box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 40px rgba(211, 188, 142, 0.1);
             }
-            body::before {
+            /* Subtle reflection on the frame */
+            #root::after {
                 content: '';
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: url('https://cdn.pixabay.com/photo/2023/12/15/15/51/ai-generated-8451159_1280.jpg') center/cover no-repeat;
-                filter: blur(40px) brightness(0.3);
-                z-index: -1;
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                border-radius: 40px;
+                pointer-events: none;
+                box-shadow: inset 0 2px 10px rgba(255,255,255,0.05);
+                z-index: 1000;
             }
         }
 
@@ -143,7 +151,7 @@
             transform: scale(0.98);
         }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; height: 3px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { 
             background: rgba(211, 188, 142, 0.2); 
@@ -151,11 +159,11 @@
         }
 
         .safe-area-bottom {
-            padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+            padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
         }
         
         .safe-area-top {
-            padding-top: env(safe-area-inset-top);
+            padding-top: max(env(safe-area-inset-top), 1rem);
         }
 
         @keyframes float {
@@ -173,13 +181,6 @@
             border-left: 3px solid var(--genshin-gold);
             border-radius: 0 1rem 1rem 0;
             box-shadow: 5px 5px 20px rgba(0,0,0,0.2);
-        }
-
-        /* Fix for smaller device ratios */
-        @media (max-width: 400px) {
-            .genshin-panel {
-                border-radius: 1rem;
-            }
         }
     </style>
 <script type="importmap">
