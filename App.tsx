@@ -55,7 +55,8 @@ const getHashFromMenu = (menu: MenuType): string => {
 
 const App: React.FC = () => {
   const [activeMenu, setActiveMenu] = useState<MenuType>(() => getMenuFromHash());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
+  // For strictly mobile 9:16 layout, sidebar should usually be hidden by default regardless of width
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [globalErrorLog, setGlobalErrorLog] = useState<string | null>(null);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
@@ -97,11 +98,6 @@ const App: React.FC = () => {
   useEffect(() => {
     enableRuntimeProtection(); 
     initializeSystem();
-    const handleResize = () => {
-       if (window.innerWidth < 1024) setIsSidebarOpen(false);
-       else setIsSidebarOpen(true);
-    };
-    window.addEventListener('resize', handleResize);
     
     const syncInterval = setInterval(() => {
         const ghConfig = userProfile.githubConfig || DEFAULT_GITHUB_CONFIG;
@@ -111,7 +107,6 @@ const App: React.FC = () => {
     }, 600000);
 
     return () => {
-        window.removeEventListener('resize', handleResize);
         clearInterval(syncInterval);
     };
   }, [userProfile.githubConfig]);
@@ -252,7 +247,7 @@ const App: React.FC = () => {
     setCurrentPersona(persona);
     localStorage.setItem('active_persona_id', persona.id);
     setActiveMenu(MenuType.TERMINAL);
-    if (window.innerWidth < 1024) setIsSidebarOpen(false); 
+    setIsSidebarOpen(false); 
   };
 
   const activeContent = useMemo(() => {
@@ -277,7 +272,7 @@ const App: React.FC = () => {
 
   if (!isDataLoaded) {
       return (
-        <div className="h-screen w-screen bg-[#0b0e14] flex flex-col items-center justify-center overflow-hidden text-[#ece5d8]">
+        <div className="h-full w-full bg-[#0b0e14] flex flex-col items-center justify-center overflow-hidden text-[#ece5d8]">
             <div className="relative w-32 h-32 sm:w-64 sm:h-64 flex items-center justify-center mb-8">
                 <div className="absolute inset-0 rounded-full border border-dashed border-amber-500/20 akasha-loader-ring"></div>
                 <div className="absolute inset-8 sm:inset-16 rounded-full bg-black/40 backdrop-blur-sm akasha-pulse flex items-center justify-center">
@@ -308,91 +303,95 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="flex h-screen w-full bg-[#0b0e14] text-[#ece5d8] overflow-hidden relative font-sans">
+    <div className="flex h-full w-full bg-[#0b0e14] text-[#ece5d8] overflow-hidden relative font-sans">
       {showAuthModal && <AuthModal onLogin={async () => { setIsAuthLoading(true); const r = await signInWithGoogle(); setIsAuthLoading(false); return r; }} onGuest={() => { setShowAuthModal(false); localStorage.setItem('has_seen_auth_v2', 'true'); }} isLoading={isAuthLoading} />}
       {showDbSetupModal && <DatabaseSetupModal onClose={() => setShowDbSetupModal(false)} />}
 
-      {isSidebarOpen && window.innerWidth < 1024 && (
+      {/* Background Mask for drawer */}
+      {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[65] transition-all duration-300 ease-in-out cursor-pointer"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110] transition-all duration-300 ease-in-out cursor-pointer"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-[70] h-full genshin-panel border-r border-white/10 transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 flex flex-col ${isSidebarOpen ? 'translate-x-0 w-full sm:w-80 lg:w-72 shadow-[20px_0_50px_rgba(0,0,0,0.8)]' : '-translate-x-full lg:w-20'}`}>
-          <div className="p-5 sm:p-6 flex items-center justify-between shrink-0">
-              <span className="text-lg sm:text-xl font-bold tracking-widest genshin-gold truncate">{isSidebarOpen ? 'TEYVAT.AI' : 'T.AI'}</span>
-              <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-full hover:bg-white/10 text-amber-500 transition-colors"><X className="w-6 h-6"/></button>
+      {/* Mobile-First Floating Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-[120] h-full genshin-panel border-r border-white/10 transition-all duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0 w-80 shadow-[20px_0_50px_rgba(0,0,0,0.8)]' : '-translate-x-full w-80'}`}>
+          <div className="p-6 flex items-center justify-between shrink-0">
+              <span className="text-xl font-bold tracking-widest genshin-gold truncate">TEYVAT.AI</span>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-white/10 text-amber-500 transition-colors"><X className="w-6 h-6"/></button>
           </div>
-          <nav className="flex-1 overflow-y-auto px-3 space-y-1 custom-scrollbar">
-            <button onClick={() => setIsLiveCallOpen(true)} className={`w-full flex items-center gap-4 p-3 rounded-xl mb-4 transition-all bg-gradient-to-r from-amber-500/20 to-transparent border-l-4 border-amber-500 text-white shadow-lg shadow-amber-900/10 group`}>
+          <nav className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar">
+            <button onClick={() => { setIsLiveCallOpen(true); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl mb-4 transition-all bg-gradient-to-r from-amber-500/20 to-transparent border-l-4 border-amber-500 text-white shadow-lg shadow-amber-900/10 group`}>
               <div className="relative shrink-0">
                 <PhoneCall className="w-6 h-6 text-amber-500 group-hover:scale-110 transition-transform" />
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
               </div>
-              {isSidebarOpen && <span className="font-black uppercase tracking-widest text-[10px] sm:text-xs truncate">Celestial Call</span>}
+              <span className="font-black uppercase tracking-widest text-xs truncate">Celestial Call</span>
             </button>
             {navItems.map((item) => (
-              <button key={item.type} onClick={() => { setActiveMenu(item.type); if (window.innerWidth < 1024) setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${activeMenu === item.type ? 'sidebar-item-active' : 'text-gray-400 hover:bg-white/5'}`} title={item.label}>
-                <item.icon className={`w-5 h-5 sm:w-6 h-6 shrink-0 ${activeMenu === item.type ? 'text-amber-500' : ''}`} />
-                {isSidebarOpen && <span className="font-medium truncate text-sm">{item.label}</span>}
+              <button key={item.type} onClick={() => { setActiveMenu(item.type); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${activeMenu === item.type ? 'bg-amber-500/10 border-l-4 border-amber-500 text-amber-500' : 'text-gray-400 hover:bg-white/5'}`}>
+                <item.icon className={`w-6 h-6 shrink-0 ${activeMenu === item.type ? 'text-amber-500' : ''}`} />
+                <span className="font-bold truncate text-sm">{item.label}</span>
               </button>
             ))}
-            {activeMenu === MenuType.ADMIN_CONSOLE && <button className="w-full flex items-center gap-4 p-3 rounded-xl bg-red-900/20 border-l-4 border-red-500 text-red-400 shrink-0"><Lock className="w-5 h-5 sm:w-6 h-6 shrink-0" />{isSidebarOpen && <span className="font-bold text-sm truncate">ADMIN ROOT</span>}</button>}
+            {activeMenu === MenuType.ADMIN_CONSOLE && <button className="w-full flex items-center gap-4 p-4 rounded-xl bg-red-900/20 border-l-4 border-red-500 text-red-400 shrink-0"><Lock className="w-6 h-6 shrink-0" /><span className="font-bold text-sm truncate">ADMIN ROOT</span></button>}
           </nav>
           
-          <div className="p-4 border-t border-white/10 bg-[#0e121b]/80 backdrop-blur-xl shrink-0">
-              <div className="flex items-center gap-3 p-2 rounded-2xl transition-all hover:bg-white/5 group">
-                  <div className="relative cursor-pointer shrink-0" onClick={() => { setActiveMenu(MenuType.USER_INFO); if(window.innerWidth < 1024) setIsSidebarOpen(false); }}>
-                      <LazyImage src={userProfile.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-white/20 shadow-lg group-hover:border-amber-500/50 transition-colors" alt="User" />
+          <div className="p-6 border-t border-white/10 bg-[#0e121b]/80 backdrop-blur-xl shrink-0">
+              <div className="flex items-center gap-3 p-2 rounded-2xl transition-all hover:bg-white/5 group" onClick={() => { setActiveMenu(MenuType.USER_INFO); setIsSidebarOpen(false); }}>
+                  <div className="relative cursor-pointer shrink-0">
+                      <LazyImage src={userProfile.avatar} className="w-10 h-10 rounded-xl border border-white/20 shadow-lg group-hover:border-amber-500/50 transition-colors" alt="User" />
                       {userProfile.isAuth && (
-                          <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-2 border-[#0e121b] rounded-full flex items-center justify-center shadow-md">
-                              <CheckCircle2 className="w-2 h-2 text-white" />
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0e121b] rounded-full flex items-center justify-center shadow-md">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-white" />
                           </div>
                       )}
                   </div>
-                  {isSidebarOpen && (
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="text-xs sm:text-sm font-bold text-gray-100 truncate flex items-center gap-1.5">
-                              {userProfile.username}
-                              {userProfile.isAuth && <ShieldCheck className="w-3 h-3 text-amber-500" />}
-                          </div>
-                          <div className="text-[8px] sm:text-[9px] text-gray-500 truncate font-mono uppercase tracking-tighter">
-                              {userProfile.isAuth ? (userProfile.email || 'Google Account') : 'Guest Session'}
-                          </div>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="text-sm font-bold text-gray-100 truncate flex items-center gap-1.5">
+                          {userProfile.username}
+                          {userProfile.isAuth && <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />}
                       </div>
-                  )}
+                      <div className="text-[9px] text-gray-500 truncate font-mono uppercase tracking-tighter">
+                          {userProfile.isAuth ? (userProfile.email || 'Google Account') : 'Guest Session'}
+                      </div>
+                  </div>
               </div>
           </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-h-0 relative overflow-hidden w-full">
-        <header className="h-12 sm:h-16 border-b border-white/10 flex items-center justify-between px-3 sm:px-6 bg-[#0b0e14]/90 backdrop-blur-md z-30 shrink-0">
-           <div className="flex items-center gap-1 sm:gap-3 min-w-0">
-               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 -ml-1 sm:-ml-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0"><Menu className="w-5 h-5 sm:w-6 h-6" /></button>
-               <h2 className="text-[10px] sm:text-lg font-medium genshin-gold uppercase tracking-[0.1em] sm:tracking-[0.15em] truncate">{activeMenu.replace('_', ' ')}</h2>
+        <header className="h-14 border-b border-white/10 flex items-center justify-between px-4 bg-[#0b0e14]/95 backdrop-blur-md z-[100] shrink-0">
+           <div className="flex items-center gap-3 min-w-0">
+               <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0">
+                   <Menu className="w-6 h-6" />
+               </button>
+               <h2 className="text-xs sm:text-base font-bold genshin-gold uppercase tracking-[0.15em] truncate">
+                   {activeMenu.replace(/_/g, ' ')}
+               </h2>
            </div>
-           <div className="flex items-center gap-1 sm:gap-4 shrink-0">
+           <div className="flex items-center gap-2 shrink-0">
                {activeMenu === MenuType.TERMINAL && (
                     <div className="relative">
-                        <button onClick={() => setShowModelSelector(!showModelSelector)} className="flex items-center gap-1.5 text-[7px] sm:text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] sm:tracking-[0.2em] hover:text-[#d3bc8e] transition-all bg-white/5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/5 hover:border-[#d3bc8e]/30">
-                            {AI_MODELS.find(m => m.id === selectedModel)?.provider === 'openai' ? <CloudLightning className="w-2.5 h-2.5 sm:w-3 h-3" /> : <Box className="w-2.5 h-2.5 sm:w-3 h-3" />}
-                            <span className="hidden xs:inline truncate max-w-[50px] sm:max-w-[120px]">Engine: {AI_MODELS.find(m => m.id === selectedModel)?.label}</span>
-                            <ChevronDown className={`w-2.5 h-2.5 sm:w-3 h-3 transition-transform shrink-0 ${showModelSelector ? 'rotate-180' : ''}`} />
+                        <button onClick={() => setShowModelSelector(!showModelSelector)} className="flex items-center gap-1.5 text-[8px] font-black text-gray-400 uppercase tracking-[0.1em] hover:text-[#d3bc8e] transition-all bg-white/5 px-3 py-2 rounded-full border border-white/5">
+                            {AI_MODELS.find(m => m.id === selectedModel)?.provider === 'openai' ? <CloudLightning className="w-3 h-3" /> : <Box className="w-3 h-3" />}
+                            <span className="hidden xs:inline truncate max-w-[80px]">Engine</span>
+                            <ChevronDown className={`w-3 h-3 transition-transform shrink-0 ${showModelSelector ? 'rotate-180' : ''}`} />
                         </button>
                         {showModelSelector && (
                             <>
-                                <div className="fixed inset-0 z-40" onClick={() => setShowModelSelector(false)}></div>
-                                <div className="absolute top-full right-0 mt-2 w-48 sm:w-64 bg-[#131823] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in slide-in-from-top-2">
-                                    <div className="text-[8px] sm:text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] p-2 border-b border-white/5 mb-1">Wisdom Core</div>
-                                    <div className="max-h-60 sm:max-h-80 overflow-y-auto custom-scrollbar space-y-0.5">
+                                <div className="fixed inset-0 z-[130]" onClick={() => setShowModelSelector(false)}></div>
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-[#131823] border border-white/10 rounded-2xl shadow-2xl p-2 z-[140] animate-in slide-in-from-top-2">
+                                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] p-2 border-b border-white/5 mb-1">Wisdom Core</div>
+                                    <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-0.5">
                                         {AI_MODELS.map(model => (
-                                            <button key={model.id} onClick={() => { setSelectedModel(model.id); setShowModelSelector(false); }} className={`w-full text-left px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl text-[10px] sm:text-xs flex items-center justify-between transition-all ${selectedModel === model.id ? 'bg-[#d3bc8e]/20 text-[#d3bc8e] font-black' : 'hover:bg-white/5 text-gray-400'}`}>
+                                            <button key={model.id} onClick={() => { setSelectedModel(model.id); setShowModelSelector(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] flex items-center justify-between transition-all ${selectedModel === model.id ? 'bg-[#d3bc8e]/20 text-[#d3bc8e] font-black' : 'hover:bg-white/5 text-gray-400'}`}>
                                                 <div className="flex flex-col">
                                                     <span className="truncate">{model.label}</span>
-                                                    <span className="text-[7px] sm:text-[8px] opacity-60 font-mono">{model.provider.toUpperCase()}</span>
+                                                    <span className="text-[7px] opacity-60 font-mono">{model.provider.toUpperCase()}</span>
                                                 </div>
-                                                {selectedModel === model.id && <Box className="w-2.5 h-2.5 sm:w-3 h-3" />}
+                                                {selectedModel === model.id && <Box className="w-2.5 h-2.5" />}
                                             </button>
                                         ))}
                                     </div>
@@ -401,13 +400,15 @@ const App: React.FC = () => {
                         )}
                     </div>
                )}
-               <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="p-2 -mr-1 sm:-mr-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0"><History className="w-5 h-5 sm:w-6 h-6" /></button>
+               <button onClick={() => setIsHistoryOpen(true)} className="p-2 -mr-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0">
+                   <History className="w-6 h-6" />
+               </button>
            </div>
         </header>
         
         <section className="flex-1 min-h-0 relative z-10 flex flex-col w-full overflow-hidden">
           <ErrorBoundary>
-             <Suspense fallback={<div className="flex h-full items-center justify-center text-amber-500"><Loader2 className="animate-spin w-8 h-8 sm:w-10 h-10" /></div>}>
+             <Suspense fallback={<div className="flex h-full items-center justify-center text-amber-500"><Loader2 className="animate-spin w-10 h-10" /></div>}>
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
                     {activeContent}
                 </div>
