@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Copy, Check, Edit2, Volume2, Languages, Trash2, Loader2, Zap, ExternalLink, Reply, CornerDownRight, Cpu, FileText, Download, FileCode, FileAudio, FileVideo, File as FileIcon, Image, Globe } from 'lucide-react';
 import { Message, UserProfile, Persona, VoiceConfig, Attachment } from '../types';
@@ -14,7 +13,6 @@ interface MessageItemProps {
     copiedId: string | null;
     isTranslating: string | null;
     generatingTTSId: string | null;
-    // Fix: Removed duplicate voiceConfig identifier that was previously here
     onLightbox: (url: string) => void;
     onEditChange: (val: string) => void;
     onSaveEdit: (id: string, text: string, regenerate: boolean) => void;
@@ -64,7 +62,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
             <span key={i} className={isTranslation ? 'font-sans' : ''}>
                 {textSegments.map((segment, j) => {
                     if (segment.match(urlRegex)) {
-                        const url = segment.replace(/[.,!?;:]$/, ''); // Clean trailing punctuation
+                        const url = segment.replace(/[.,!?;:]$/, '').trim(); 
                         const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
                         if (ytMatch && ytMatch[1]) {
                             return (
@@ -78,26 +76,28 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                             );
                         }
                         
-                        const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp)($|\?)/i) || 
+                        // AGGRESSIVE IMAGE DETECTION
+                        const isImageUrl = url.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp|avif)($|\?)/i) || 
                                           url.includes('images.unsplash.com') || 
                                           url.includes('gen.pollinations.ai') ||
                                           url.includes('image.pollinations.ai') ||
                                           url.includes('googleusercontent.com') ||
                                           url.includes('pixiv.net/img-original') ||
-                                          url.includes('pinimg.com/originals');
+                                          url.includes('pinimg.com/originals') ||
+                                          url.includes('fbcdn.net') ||
+                                          url.includes('twimg.com/media');
 
                         if (isImageUrl) {
-                            // Extract domain for source hint
-                            let domain = "Unknown Source";
+                            let domain = "Celestial Archive";
                             try { domain = new URL(url).hostname.replace('www.', ''); } catch(e) {}
 
                             return (
                                 <div key={j} className="my-3 rounded-2xl overflow-hidden border border-[#d3bc8e]/30 cursor-zoom-in select-none bg-black/40 group/omni shadow-2xl transition-all hover:border-[#d3bc8e]/60" onClick={() => onLightbox(url)}>
                                     <div className="relative">
-                                        <LazyImage src={url} alt="Celestial visual" className="w-full h-auto max-h-[350px] sm:max-h-[500px] object-contain transition-transform duration-700 group-hover/omni:scale-[1.03]" />
+                                        <LazyImage src={url} alt="Fragment" className="w-full h-auto max-h-[350px] sm:max-h-[500px] object-contain transition-transform duration-700 group-hover/omni:scale-[1.03]" />
                                         <div className="absolute top-2 left-2 flex gap-1">
                                             <div className="bg-[#0b0e14]/80 backdrop-blur-md px-2 py-1 rounded-lg border border-[#d3bc8e]/20 text-[7px] sm:text-[8px] text-[#d3bc8e] font-black uppercase tracking-widest flex items-center gap-1.5">
-                                                <Zap className="w-2 h-2" /> Fragment
+                                                <Zap className="w-2 h-2" /> Visual Manifest
                                             </div>
                                         </div>
                                         <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between opacity-0 group-hover/omni:opacity-100 transition-opacity">
@@ -107,17 +107,14 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                                                 </div>
                                                 <span className="text-[8px] text-gray-300 font-bold truncate max-w-[150px]">{domain}</span>
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); window.open(url, '_blank'); }} className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors">
-                                                <ExternalLink className="w-3 h-3" />
-                                            </button>
                                         </div>
                                     </div>
                                     <div className="bg-[#13182b] p-2 sm:p-3 border-t border-white/5 flex items-center justify-between">
                                         <span className="text-[8px] sm:text-[10px] font-black text-[#d3bc8e]/80 uppercase tracking-[0.1em] flex items-center gap-2">
-                                            Visual Manifestation
+                                            Resonated Artifact
                                         </span>
                                         <a href={url} target="_blank" rel="noreferrer" className="text-[8px] sm:text-[10px] text-gray-500 hover:text-white font-bold flex items-center gap-1 transition-colors">
-                                            Inspect Source <ExternalLink className="w-2.5 h-2.5" />
+                                            Original Source <ExternalLink className="w-2.5 h-2.5" />
                                         </a>
                                     </div>
                                 </div>
@@ -155,7 +152,6 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
       >
         <div className={`max-w-[95%] sm:max-w-[75%] flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} relative`}>
           
-          {/* Character Nameplate */}
           <div className={`flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <div className="relative">
                 <LazyImage src={msg.role === 'user' ? userProfile.avatar : currentPersona.avatar} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-[#d3bc8e]/40 shadow-xl" alt="avatar" />
@@ -190,7 +186,6 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                </div>
             )}
 
-            {/* ATTACHMENT RENDERING: IMAGES GRID */}
             {images.length > 0 && (
                 <div className={`mb-3 sm:mb-4 grid gap-2 ${images.length === 1 ? 'grid-cols-1' : images.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
                     {images.map((img, idx) => (
@@ -204,7 +199,6 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                 </div>
             )}
 
-            {/* ATTACHMENT RENDERING: OTHER FILES */}
             {otherFiles.length > 0 && (
                 <div className="mb-3 sm:mb-4 space-y-2">
                     {otherFiles.map((file, idx) => (
@@ -224,10 +218,10 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                 </div>
             )}
 
-            {msg.imageUrl && !images.length && (
-                <div className="mb-3 sm:mb-4 rounded-xl overflow-hidden border border-white/10 bg-black/40 cursor-zoom-in relative group/img select-none" onClick={() => onLightbox(msg.imageUrl!)}>
-                    <LazyImage src={msg.imageUrl} className="w-full h-auto max-h-[250px] sm:max-h-[400px] object-cover group-hover/img:scale-105 transition-transform duration-700" alt="Visual" />
-                    <div className="absolute top-2 right-2 bg-black/60 px-1.5 py-0.5 rounded text-[8px] sm:text-[10px] text-white font-bold uppercase tracking-widest border border-white/10 backdrop-blur-md">Akasha Capture</div>
+            {msg.imageUrl && (
+                <div className="mb-3 sm:mb-4 rounded-xl overflow-hidden border border-[#d3bc8e]/40 bg-black/40 cursor-zoom-in relative group/img select-none shadow-xl" onClick={() => onLightbox(msg.imageUrl!)}>
+                    <LazyImage src={msg.imageUrl} className="w-full h-auto max-h-[300px] sm:max-h-[450px] object-contain transition-transform duration-700 group-hover/img:scale-[1.02]" alt="Visual" />
+                    <div className="absolute top-2 right-2 bg-[#d3bc8e] px-2 py-0.5 rounded text-[8px] sm:text-[9px] text-black font-black uppercase tracking-widest border border-white/10 shadow-lg">Manifested</div>
                 </div>
             )}
             
