@@ -29,11 +29,25 @@ export const AI_MODELS = [
 // 🎨 IMAGE GENERATION MODELS (Celestial Transmutation)
 // ==================================================================================
 export const IMAGE_GEN_MODELS = [
-    { id: "flux", label: "Flux 1.1 Pro", provider: "Pollinations", desc: "SOTA Visual Reality" },
-    { id: "nanobanana-pro", label: "NanoBanana Pro", provider: "Pollinations", desc: "4K Anime Masterpiece Engine" },
-    { id: "turbo", label: "Fast Turbo Core", provider: "Pollinations", desc: "Instant Fragment Manifestation" },
-    { id: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash (G)", provider: "Google", desc: "Official Vision Protocol" },
-    { id: "gemini-3-pro-image-preview", label: "Gemini 3 Pro (G)", provider: "Google", desc: "High Fidelity 4K Artifacts" },
+    // Google Alchemy
+    { id: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image", provider: "Google", desc: "Official Vision Protocol" },
+    { id: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image", provider: "Google", desc: "High Fidelity 4K Artifacts" },
+    { id: "imagen-4.0-generate-001", label: "Imagen 4.0 Pro", provider: "Google", desc: "Advanced Photorealism" },
+    
+    // Pollinations Forge
+    { id: "flux", label: "Flux 1.1 Pro", provider: "Pollinations", desc: "State-of-the-Art Visual Reality" },
+    { id: "flux-realism", label: "Flux Realism", provider: "Pollinations", desc: "Ultra-Realistic Textures" },
+    { id: "flux-anime", label: "Flux Anime Node", provider: "Pollinations", desc: "Dedicated High-End Anime" },
+    { id: "flux-3d", label: "Flux 3D Sculptor", provider: "Pollinations", desc: "Hyper-Detailed 3D Renders" },
+    { id: "turbo", label: "Instant Turbo Core", provider: "Pollinations", desc: "Real-time Manifestation" },
+    
+    // OpenAI Sanctum
+    { id: "dall-e-3", label: "DALL-E 3", provider: "openai", desc: "Precision Prompt Following" },
+    { id: "dall-e-2", label: "DALL-E 2 Classic", provider: "openai", desc: "Legacy Creative Bridge" },
+    
+    // OpenRouter Portal
+    { id: "openai/dall-e-3", label: "OR: DALL-E 3", provider: "OpenRouter", desc: "Proxied OpenAI Engine" },
+    { id: "black-forest-labs/flux-schnell", label: "OR: Flux Schnell", provider: "OpenRouter", desc: "Speed Optimized Flux" },
 ];
 
 export const ART_STYLES = [
@@ -67,7 +81,7 @@ export const VOICE_OPTIONS = [
 export const LANGUAGES = [
     { id: "indo-gaul", label: "Indonesia (Santai)", flag: "🇮🇩", instruction: "Gunakan Bahasa Indonesia yang akrab, gaul, dan alami. Gunakan 'Aku' dan 'Kamu'.", code: "id-ID" },
     { id: "english-casual", label: "English (Casual)", flag: "🇺🇸", instruction: "Respond in friendly, casual English as a close companion.", code: "en-US" },
-    { id: "japanese-casual", label: "Japanese (Tame-go)", flag: "🇯🇵", instruction: "Respond in casual Japanese (Tame-go). Be warm and informal.", code: "ja-JP" },
+    { id: "japanese-casual", label: "Japanese (Tame-go)", flag: "🇮🇩", instruction: "Respond in casual Japanese (Tame-go). Be warm and informal.", code: "ja-JP" },
     { id: "korean-casual", label: "Korean (Banmal)", flag: "🇰🇷", instruction: "Respond in casual Korean (Banmal). Talk like a close friend.", code: "ko-KR" }
 ];
 

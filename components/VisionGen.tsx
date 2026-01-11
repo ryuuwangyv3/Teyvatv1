@@ -13,7 +13,9 @@ const LOADING_MESSAGES = [
     "Accessing Irminsul Repository...",
     "Calibrating Transmuter...",
     "Weaving Particles...",
-    "Finalizing Nuances..."
+    "Finalizing Nuances...",
+    "Establishing Visual Anchor...",
+    "Resolving Dimensional Fragments..."
 ];
 
 const NEGATIVE_PRESETS = [
@@ -48,7 +50,7 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<any>(null);
 
-  const simulatedProgress = useMemo(() => Math.min(99, Math.floor((elapsedTime / 15) * 100)), [elapsedTime]);
+  const simulatedProgress = useMemo(() => Math.min(99, Math.floor((elapsedTime / 18) * 100)), [elapsedTime]);
 
   useEffect(() => {
       if (isGenerating) {
@@ -61,7 +63,7 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
       return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isGenerating]);
 
-  const statusText = useMemo(() => LOADING_MESSAGES[Math.min(Math.floor(elapsedTime / 4), LOADING_MESSAGES.length - 1)], [elapsedTime]);
+  const statusText = useMemo(() => LOADING_MESSAGES[Math.min(Math.floor(elapsedTime / 3), LOADING_MESSAGES.length - 1)], [elapsedTime]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
@@ -98,9 +100,16 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
   return (
     <div className="h-full w-full flex flex-col lg:flex-row overflow-hidden bg-[#0b0e14]">
       <style>{`
-        @keyframes orbit { from { transform: rotate(0deg) translateX(40px) rotate(0deg); } to { transform: rotate(360deg) translateX(40px) rotate(-360deg); } }
-        .animate-orbit { animation: orbit 4s linear infinite; }
-        .synthesis-orb { box-shadow: 0 0 40px rgba(211, 188, 142, 0.2), inset 0 0 20px rgba(211, 188, 142, 0.1); }
+        @keyframes orbit { from { transform: rotate(0deg) translateX(50px) rotate(0deg); } to { transform: rotate(360deg) translateX(50px) rotate(-360deg); } }
+        @keyframes rotate-runes { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse-ring { 0% { transform: scale(0.9); opacity: 0.1; } 50% { transform: scale(1.1); opacity: 0.3; } 100% { transform: scale(0.9); opacity: 0.1; } }
+        .animate-orbit { animation: orbit 6s linear infinite; }
+        .animate-rotate-runes { animation: rotate-runes 40s linear infinite; }
+        .animate-pulse-ring { animation: pulse-ring 4s ease-in-out infinite; }
+        .synthesis-orb { box-shadow: 0 0 60px rgba(211, 188, 142, 0.4), inset 0 0 30px rgba(211, 188, 142, 0.2); }
+        .celestial-loader {
+            background: radial-gradient(circle, rgba(211, 188, 142, 0.1) 0%, transparent 70%);
+        }
       `}</style>
 
       {lightboxImage && (
@@ -123,8 +132,23 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3 block">Neural Source</label>
                 <div className="grid grid-cols-2 gap-2">
                     {['Google', 'Pollinations', 'openai', 'OpenRouter'].map(p => (
-                        <button key={p} onClick={() => setActiveProvider(p as any)} className={`px-3 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${activeProvider === p ? 'bg-amber-500/10 border-amber-500 text-amber-400' : 'bg-black/20 border-white/5 text-gray-600 hover:text-gray-400'}`}>
+                        <button key={p} onClick={() => setActiveProvider(p as any)} className={`px-3 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${activeProvider.toLowerCase() === p.toLowerCase() ? 'bg-amber-500/10 border-amber-500 text-amber-400' : 'bg-black/20 border-white/5 text-gray-600 hover:text-gray-400'}`}>
                             {p}
+                        </button>
+                    ))}
+                </div>
+            </section>
+
+            <section>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/80 mb-3 block">Synthesis Core (Models)</label>
+                <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
+                    {filteredModels.map(model => (
+                        <button key={model.id} onClick={() => setSelectedModel(model.id)} className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group ${selectedModel === model.id ? 'bg-amber-500/10 border-amber-500 text-amber-400' : 'bg-black/20 border-white/5 text-gray-500 hover:bg-white/5'}`}>
+                            <div className="min-w-0">
+                                <div className="text-[10px] font-black uppercase tracking-tighter truncate">{model.label}</div>
+                                <div className="text-[8px] opacity-60 font-mono mt-0.5 truncate">{model.desc}</div>
+                            </div>
+                            {selectedModel === model.id && <Check className="w-3 h-3 shrink-0" />}
                         </button>
                     ))}
                 </div>
@@ -166,19 +190,46 @@ const VisionGen: React.FC<VisionGenProps> = ({ onError }) => {
       <main className="flex-1 flex flex-col items-center justify-center relative bg-[#0b0e14]">
          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(211,188,142,0.03)_0%,_transparent_70%)] pointer-events-none"></div>
          {isGenerating ? (
-            <div className="flex flex-col items-center gap-10 animate-in fade-in duration-700">
-                <div className="relative w-48 h-48 sm:w-72 sm:h-72 flex items-center justify-center">
-                    <div className="absolute inset-0 rounded-full border-2 border-dashed border-amber-500/20 animate-[spin_15s_linear_infinite]"></div>
-                    <div className="absolute inset-16 rounded-full synthesis-orb bg-amber-500/5 backdrop-blur-xl border border-amber-500/20 flex flex-col items-center justify-center animate-pulse">
-                         <span className="text-4xl sm:text-6xl font-black genshin-gold font-mono tracking-tighter">{simulatedProgress}%</span>
-                         <span className="text-[8px] sm:text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] mt-2">Syncing</span>
+            <div className="flex flex-col items-center gap-10 animate-in fade-in duration-700 w-full h-full relative overflow-hidden">
+                <div className="absolute inset-0 celestial-loader animate-pulse-ring opacity-20 pointer-events-none"></div>
+                
+                {/* Advanced Luxury Loader */}
+                <div className="relative w-64 h-64 sm:w-96 sm:h-96 flex items-center justify-center">
+                    {/* Outer Rune Ring */}
+                    <div className="absolute inset-0 rounded-full border-2 border-dashed border-amber-500/20 animate-rotate-runes">
+                        {[...Array(12)].map((_, i) => (
+                            <div key={i} className="absolute text-[10px] text-amber-500/40 font-serif" style={{ top: '50%', left: '50%', transform: `rotate(${i * 30}deg) translate(0, -170px) rotate(-${i * 30}deg)` }}>
+                                ⌘
+                            </div>
+                        ))}
                     </div>
-                    {[...Array(8)].map((_, i) => (
-                        <div key={i} className="absolute w-2 h-2 bg-amber-500 rounded-full animate-orbit" style={{ animationDelay: `${i * 0.5}s` }}></div>
+                    
+                    {/* Intermediate Orbit Ring */}
+                    <div className="absolute inset-8 rounded-full border border-amber-500/10 animate-[spin_20s_linear_infinite_reverse]"></div>
+                    
+                    {/* Synthesis Core */}
+                    <div className="absolute inset-24 sm:inset-32 rounded-full synthesis-orb bg-amber-500/5 backdrop-blur-3xl border border-amber-500/30 flex flex-col items-center justify-center animate-pulse z-10">
+                         <div className="text-xs font-black text-amber-500/40 uppercase tracking-[0.2em] mb-1">Stability</div>
+                         <span className="text-4xl sm:text-7xl font-black genshin-gold font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(211,188,142,0.5)]">{simulatedProgress}%</span>
+                         <span className="text-[9px] sm:text-[11px] font-black text-amber-500 uppercase tracking-[0.3em] mt-3">Synthesizing</span>
+                    </div>
+
+                    {/* Orbiting Particles */}
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="absolute w-1.5 h-1.5 bg-amber-500 rounded-full animate-orbit shadow-[0_0_10px_#f59e0b]" style={{ animationDuration: `${3 + i}s`, animationDelay: `${i * 0.7}s` }}></div>
                     ))}
+                    
+                    {/* Glowing Flare */}
+                    <div className="absolute w-1 h-full bg-gradient-to-t from-transparent via-amber-500/20 to-transparent animate-pulse blur-xl"></div>
                 </div>
-                <div className="text-center">
-                    <h2 className="text-lg sm:text-2xl font-bold genshin-gold uppercase tracking-[0.4em] font-serif">{statusText}</h2>
+
+                <div className="text-center z-20 space-y-3">
+                    <h2 className="text-xl sm:text-3xl font-bold genshin-gold uppercase tracking-[0.4em] font-serif drop-shadow-lg">{statusText}</h2>
+                    <div className="flex items-center justify-center gap-4 text-[9px] sm:text-[11px] font-mono uppercase tracking-[0.2em] text-gray-500">
+                        <span className="flex items-center gap-1.5"><Cpu className="w-3 h-3" /> Core: {IMAGE_GEN_MODELS.find(m => m.id === selectedModel)?.label}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500/30"></span>
+                        <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3" /> Node: {activeProvider}</span>
+                    </div>
                 </div>
             </div>
          ) : resultImage ? (
