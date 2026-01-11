@@ -2,13 +2,12 @@
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { 
   PhoneCall, Terminal as TerminalIcon, Users, User, Settings as SettingsIcon, 
-  ImageIcon, Video, Globe, LayoutDashboard, Info, MessageSquare, 
-  Menu, X, History, ShieldCheck, HardDrive, Loader2, Cloud, Lock, Sparkles, Database, LogOut, CheckCircle2, ChevronDown, Box, CloudLightning, Zap
+  ImageIcon, Video, Globe, LayoutDashboard, HardDrive, MessageSquare, 
+  Menu, X, History, Loader2, Info, Crown, Zap, Sparkles, Cpu, Trash2, ChevronDown
 } from 'lucide-react';
-import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData, GitHubConfig } from './types';
+import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData } from './types';
 import { DEFAULT_PERSONAS, INITIAL_USER_PROFILE } from './constants';
 import { LANGUAGES, AI_MODELS } from './data';
-import LazyImage from './components/LazyImage';
 import HistorySidebar from './components/HistorySidebar';
 import DonationModal from './components/DonationModal';
 import OnboardingTutorial from './components/OnboardingTutorial';
@@ -18,15 +17,13 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AdminConsole from './components/AdminConsole'; 
 import CookieConsent from './components/CookieConsent';
 import { 
-  initSupabase, fetchUserProfile, syncUserProfile, 
-  syncUserSettings, fetchUserSettings, subscribeToTable,
-  getCurrentSession, signInWithGoogle, listenToAuthChanges, checkDbConnection, mapUserToProfile, getSessionId
+  initSupabase, fetchUserProfile, syncUserSettings, fetchUserSettings, 
+  getCurrentSession, signInWithGoogle, checkDbConnection, getSessionId, clearChatHistory
 } from './services/supabaseService';
 import { enableRuntimeProtection } from './services/securityService';
 import { setServiceKeys } from './services/geminiService';
-import { syncGithubRepo, DEFAULT_GITHUB_CONFIG } from './services/githubService';
 
-// --- EAGER IMPORTS ---
+// --- COMPONENTS ---
 import Terminal from './components/Terminal';
 import LiveCall from './components/LiveCall';
 import PersonaSelector from './components/PersonaSelector';
@@ -41,21 +38,23 @@ import Forum from './components/Forum';
 import About from './components/About';
 import ExternalPortal from './components/ExternalPortal';
 
-// --- HASH ROUTING HELPERS ---
-const getMenuFromHash = (): MenuType => {
-  if (typeof window === 'undefined') return MenuType.TERMINAL;
-  const hash = window.location.hash.replace(/^#\//, '').replace(/-/g, '_').toLowerCase();
-  const values = Object.values(MenuType);
-  return (values.find(v => v.toLowerCase() === hash) as MenuType) || MenuType.TERMINAL;
-};
-
-const getHashFromMenu = (menu: MenuType): string => {
-  return '#/' + menu.replace(/_/g, '-');
+const MENU_ICONS: Record<string, any> = {
+    [MenuType.DASHBOARD]: LayoutDashboard,
+    [MenuType.TERMINAL]: TerminalIcon,
+    [MenuType.PERSONAS]: Users,
+    [MenuType.VISION_GEN]: ImageIcon,
+    [MenuType.VIDEO_GEN]: Video,
+    [MenuType.STORAGE]: HardDrive,
+    [MenuType.FORUM]: MessageSquare,
+    [MenuType.LANGUAGE]: Globe,
+    [MenuType.USER_INFO]: User,
+    [MenuType.VOICE_SETTINGS]: SettingsIcon,
+    [MenuType.ABOUT]: Info,
+    [MenuType.REALM_PORTAL]: Zap
 };
 
 const App: React.FC = () => {
-  const [activeMenu, setActiveMenu] = useState<MenuType>(() => getMenuFromHash());
-  // For strictly mobile 9:16 layout, sidebar should usually be hidden by default regardless of width
+  const [activeMenu, setActiveMenu] = useState<MenuType>(MenuType.TERMINAL);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [globalErrorLog, setGlobalErrorLog] = useState<string | null>(null);
@@ -64,14 +63,11 @@ const App: React.FC = () => {
   const [showDbSetupModal, setShowDbSetupModal] = useState(false); 
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [loadingStep, setLoadingStep] = useState("Initializing VFS...");
-  const [showModelSelector, setShowModelSelector] = useState(false);
   const [isLiveCallOpen, setIsLiveCallOpen] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [terminalKey, setTerminalKey] = useState(0); 
 
-  // State
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() => getSessionId());
-  const [customPersonas, setCustomPersonas] = useState<Persona[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([]);
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({ 
       speed: 1.0, pitch: 1.0, reverb: 0, gain: 1.0, voiceId: 'Kore', autoPlay: true
@@ -81,182 +77,73 @@ const App: React.FC = () => {
   const [currentPersona, setCurrentPersona] = useState<Persona>(DEFAULT_PERSONAS[0]);
 
   useEffect(() => {
-    const handleHashChange = () => {
-        const newMenu = getMenuFromHash();
-        setActiveMenu(newMenu);
-        window.dispatchEvent(new CustomEvent('akasha:menu_change', { detail: { menu: newMenu } }));
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  useEffect(() => {
-    const targetHash = getHashFromMenu(activeMenu);
-    if (window.location.hash !== targetHash) window.location.hash = targetHash;
-  }, [activeMenu]);
-
-  useEffect(() => {
     enableRuntimeProtection(); 
     initializeSystem();
-    
-    const syncInterval = setInterval(() => {
-        const ghConfig = userProfile.githubConfig || DEFAULT_GITHUB_CONFIG;
-        if (ghConfig.autoSync) {
-            syncGithubRepo(ghConfig);
-        }
-    }, 600000);
-
-    return () => {
-        clearInterval(syncInterval);
-    };
-  }, [userProfile.githubConfig]);
+  }, []);
 
   const initializeSystem = async () => {
-      setLoadingStep("Accessing Irminsul VFS...");
       try {
           const connected = initSupabase();
           setIsSupabaseConnected(connected);
-
           if (connected) {
-              setLoadingStep("Syncing Celestial Identity...");
               const ping = await checkDbConnection();
-              
-              if (ping === -2) {
-                  setShowDbSetupModal(true);
-              } else if (ping >= 0) {
+              if (ping === -2) setShowDbSetupModal(true);
+              else if (ping >= 0) {
                   const session = await getCurrentSession();
                   if (session?.user) {
-                      setCurrentUserId(session.user.id);
-                      const [cloudProfile, cloudSettings] = await Promise.all([
-                          fetchUserProfile(),
-                          fetchUserSettings()
-                      ]);
-
-                      if (cloudProfile) {
-                          setUserProfile(cloudProfile);
-                          const ghConfig = cloudProfile.githubConfig || DEFAULT_GITHUB_CONFIG;
-                          if (ghConfig.autoSync) {
-                              setLoadingStep(`Resonating with GitHub (${ghConfig.repo})...`);
-                              syncGithubRepo(ghConfig);
-                          }
-                      } else {
-                          const googleProfile = mapUserToProfile(session.user);
-                          setUserProfile(googleProfile);
-                          syncUserProfile(googleProfile);
-                          syncGithubRepo(DEFAULT_GITHUB_CONFIG);
-                      }
-
+                      const [cloudProfile, cloudSettings] = await Promise.all([fetchUserProfile(), fetchUserSettings()]);
+                      if (cloudProfile) setUserProfile(cloudProfile);
                       if (cloudSettings) {
                           if (cloudSettings.apiKeys) setApiKeys(cloudSettings.apiKeys);
                           if (cloudSettings.voiceConfig) setVoiceConfig(cloudSettings.voiceConfig);
                           if (cloudSettings.currentLanguage) setCurrentLanguage(cloudSettings.currentLanguage);
                           if (cloudSettings.selectedModel) setSelectedModel(cloudSettings.selectedModel);
                       }
-                  } else {
-                      setLoadingStep("Resonating with Public Fragments...");
-                      syncGithubRepo(DEFAULT_GITHUB_CONFIG);
-                      if (!localStorage.getItem('has_seen_auth_v2')) {
-                          setShowAuthModal(true);
-                      }
                   }
               }
-          } else {
-              setLoadingStep("Resonating with Local Fragments...");
-              syncGithubRepo(DEFAULT_GITHUB_CONFIG);
           }
+      } finally { setIsDataLoaded(true); }
+  };
 
-          if (!isSupabaseConnected || !currentUserId) {
-             const vfsProfile = await fetchUserProfile();
-             if (vfsProfile) setUserProfile(vfsProfile);
-          }
+  useEffect(() => {
+    if (isDataLoaded) {
+      syncUserSettings({ voiceConfig, apiKeys, currentLanguage, selectedModel });
+      setServiceKeys(apiKeys);
+    }
+  }, [voiceConfig, apiKeys, currentLanguage, selectedModel, isDataLoaded]);
 
-          const savedPersonaId = localStorage.getItem('active_persona_id'); 
-          if (savedPersonaId) {
-              const all = [...DEFAULT_PERSONAS];
-              const found = all.find(p => p.id === savedPersonaId);
-              if (found) setCurrentPersona(found);
-          }
+  const handlePersonaSelect = (p: Persona) => {
+      setCurrentPersona(p);
+      setActiveMenu(MenuType.TERMINAL);
+      
+      // AUTO-SYNC VOICE CONFIG BASED ON PERSONA PRESETS
+      setVoiceConfig(prev => ({
+          ...prev,
+          voiceId: p.voiceName,
+          pitch: p.pitch || 1.0,
+          speed: p.speed || 1.0,
+          gain: p.pitch && p.pitch < 1 ? 1.2 : 1.0 // Kompensasi volume untuk pitch rendah
+      }));
+  };
 
-      } catch (err) {
-          console.error("Akasha VFS Init failed:", err);
-      } finally {
-          setIsDataLoaded(true);
+  const handleClearChat = async () => {
+      if (window.confirm(`Purge all memory fragments with ${currentPersona.name}? This will sever the current resonance link.`)) {
+          await clearChatHistory(currentPersona.id);
+          setTerminalKey(prev => prev + 1); 
       }
   };
 
-  useEffect(() => {
-      const { subscription } = listenToAuthChanges(async (user) => {
-          if (user) {
-              setCurrentUserId(user.id);
-              const cloudProfile = await fetchUserProfile();
-              if (cloudProfile) {
-                  setUserProfile(cloudProfile);
-              } else {
-                  const googleProfile = mapUserToProfile(user);
-                  setUserProfile(googleProfile);
-                  syncUserProfile(googleProfile);
-              }
-              setShowAuthModal(false);
-              setActiveMenu(MenuType.USER_INFO);
-              window.location.hash = getHashFromMenu(MenuType.USER_INFO);
-          } else {
-              setCurrentUserId(null);
-              setUserProfile(prev => ({ ...prev, isAuth: false, email: undefined }));
-          }
-      });
-      return () => { subscription?.unsubscribe(); };
-  }, []);
-
-  useEffect(() => {
-      if (!isSupabaseConnected || !userProfile.isAuth) return;
-
-      const profileChannel = subscribeToTable('user_profiles', (payload) => {
-          if (payload.eventType === 'UPDATE' && payload.new.user_id === currentUserId) {
-              const p = payload.new;
-              setUserProfile(prev => ({
-                  ...prev,
-                  username: p.username, bio: p.bio, avatar: p.avatar,
-                  header_background: p.header_background, email: p.email,
-                  githubConfig: p.github_config 
-              }));
-          }
-      });
-
-      const settingsChannel = subscribeToTable('user_settings', (payload) => {
-          if (payload.eventType === 'UPDATE' && payload.new.user_id === currentUserId) {
-              const s = payload.new.data;
-              if (s.voiceConfig) setVoiceConfig(s.voiceConfig);
-              if (s.currentLanguage) setCurrentLanguage(s.currentLanguage);
-              if (s.selectedModel) setSelectedModel(s.selectedModel);
-          }
-      });
-
-      return () => {
-          profileChannel?.unsubscribe();
-          settingsChannel?.unsubscribe();
-      };
-  }, [isSupabaseConnected, userProfile.isAuth, currentUserId]);
-
-  useEffect(() => {
-    if (!isDataLoaded) return;
-    syncUserSettings({ voiceConfig, apiKeys, currentLanguage, selectedModel });
-    setServiceKeys(apiKeys);
-  }, [voiceConfig, apiKeys, currentLanguage, selectedModel, isDataLoaded]);
-
-  const handlePersonaChange = (persona: Persona) => {
-    setCurrentPersona(persona);
-    localStorage.setItem('active_persona_id', persona.id);
-    setActiveMenu(MenuType.TERMINAL);
-    setIsSidebarOpen(false); 
-  };
+  const sidebarMenus = Object.values(MenuType).filter(m => 
+    ![MenuType.ADMIN_CONSOLE, MenuType.API_KEY, MenuType.LIVE_CALL].includes(m)
+  );
 
   const activeContent = useMemo(() => {
       if (!isDataLoaded) return null;
       switch (activeMenu) {
           case MenuType.DASHBOARD: return <Dashboard />;
           case MenuType.STORAGE: return <Drive />;
-          case MenuType.TERMINAL: return <Terminal key={currentPersona.id} currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
-          case MenuType.PERSONAS: return <PersonaSelector onSelect={handlePersonaChange} activePersonaId={currentPersona.id} onCustomAdd={(p) => setCustomPersonas(v => [...v, p])} onDeleteCustom={() => {}} customPersonas={customPersonas} />;
+          case MenuType.TERMINAL: return <Terminal key={`${currentPersona.id}-${terminalKey}`} currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
+          case MenuType.PERSONAS: return <PersonaSelector onSelect={handlePersonaSelect} activePersonaId={currentPersona.id} onCustomAdd={() => {}} onDeleteCustom={() => {}} customPersonas={[]} />;
           case MenuType.VISION_GEN: return <VisionGen onError={setGlobalErrorLog} />;
           case MenuType.VIDEO_GEN: return <VideoGen />;
           case MenuType.VOICE_SETTINGS: return <Settings voiceConfig={voiceConfig} setVoiceConfig={setVoiceConfig} apiKeys={apiKeys} setApiKeys={setApiKeys} />;
@@ -266,132 +153,103 @@ const App: React.FC = () => {
           case MenuType.ABOUT: return <About onSwitchToAdmin={() => setActiveMenu(MenuType.ADMIN_CONSOLE)} />;
           case MenuType.ADMIN_CONSOLE: return <AdminConsole apiKeys={apiKeys} setApiKeys={setApiKeys} userProfile={userProfile} selectedModel={selectedModel} setSelectedModel={setSelectedModel} />;
           case MenuType.REALM_PORTAL: return <ExternalPortal />;
-          default: return <Terminal currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
+          default: return <Terminal key={`${currentPersona.id}-${terminalKey}`} currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
       }
-  }, [activeMenu, currentPersona, userProfile, currentLanguage, voiceConfig, selectedModel, isDataLoaded, apiKeys, isSupabaseConnected, customPersonas]);
+  }, [activeMenu, currentPersona, userProfile, currentLanguage, voiceConfig, selectedModel, isDataLoaded, apiKeys, isSupabaseConnected, terminalKey]);
 
-  if (!isDataLoaded) {
-      return (
-        <div className="h-full w-full bg-[#0b0e14] flex flex-col items-center justify-center overflow-hidden text-[#ece5d8]">
-            <div className="relative w-32 h-32 sm:w-64 sm:h-64 flex items-center justify-center mb-8">
-                <div className="absolute inset-0 rounded-full border border-dashed border-amber-500/20 akasha-loader-ring"></div>
-                <div className="absolute inset-8 sm:inset-16 rounded-full bg-black/40 backdrop-blur-sm akasha-pulse flex items-center justify-center">
-                    <TerminalIcon className="w-8 h-8 sm:w-16 sm:h-16 text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.8)]" />
-                </div>
-            </div>
-            <div className="text-center px-6">
-                <h1 className="text-xl sm:text-4xl font-bold font-serif tracking-[0.2em] genshin-gold mb-2 uppercase">Akasha Terminal</h1>
-                <p className="text-[8px] sm:text-xs font-mono text-cyan-400 uppercase tracking-widest animate-pulse">[{loadingStep}]</p>
-            </div>
-        </div>
-      );
-  }
-
-  const navItems = [
-    { type: MenuType.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-    { type: MenuType.STORAGE, label: 'Drive', icon: HardDrive },
-    { type: MenuType.TERMINAL, label: 'Terminal', icon: TerminalIcon },
-    { type: MenuType.PERSONAS, label: 'Personas', icon: Users },
-    { type: MenuType.USER_INFO, label: 'User Info', icon: User },
-    { type: MenuType.VOICE_SETTINGS, label: 'Audio Config', icon: SettingsIcon },
-    { type: MenuType.VISION_GEN, label: 'Vision Gen', icon: ImageIcon },
-    { type: MenuType.VIDEO_GEN, label: 'Video Gen', icon: Video },
-    { type: MenuType.LANGUAGE, label: 'Language', icon: Globe },
-    { type: MenuType.FORUM, label: 'Forum', icon: MessageSquare },
-    { type: MenuType.REALM_PORTAL, label: 'Realms', icon: Box },
-    { type: MenuType.ABOUT, label: 'About', icon: Info },
-  ];
+  if (!isDataLoaded) return (
+    <div className="h-full w-full bg-[#0b0e14] flex flex-col items-center justify-center text-[#d3bc8e]">
+        <Loader2 className="w-12 h-12 animate-spin mb-4" />
+        <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Initializing Akasha Brain...</p>
+    </div>
+  );
 
   return (
-    <div className="flex h-full w-full bg-[#0b0e14] text-[#ece5d8] overflow-hidden relative font-sans">
-      {showAuthModal && <AuthModal onLogin={async () => { setIsAuthLoading(true); const r = await signInWithGoogle(); setIsAuthLoading(false); return r; }} onGuest={() => { setShowAuthModal(false); localStorage.setItem('has_seen_auth_v2', 'true'); }} isLoading={isAuthLoading} />}
+    <div className="flex h-full w-full bg-[#0b0e14] text-[#ece5d8] overflow-hidden relative select-none">
+      {showAuthModal && <AuthModal onLogin={async () => { setIsAuthLoading(true); const r = await signInWithGoogle(); setIsAuthLoading(false); return r; }} onGuest={() => setShowAuthModal(false)} isLoading={isAuthLoading} />}
       {showDbSetupModal && <DatabaseSetupModal onClose={() => setShowDbSetupModal(false)} />}
 
-      {/* Background Mask for drawer */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110] transition-all duration-300 ease-in-out cursor-pointer"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110]" onClick={() => setIsSidebarOpen(false)} />}
 
-      {/* Mobile-First Floating Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-[120] h-full genshin-panel border-r border-white/10 transition-all duration-300 ease-in-out flex flex-col ${isSidebarOpen ? 'translate-x-0 w-80 shadow-[20px_0_50px_rgba(0,0,0,0.8)]' : '-translate-x-full w-80'}`}>
-          <div className="p-6 flex items-center justify-between shrink-0">
-              <span className="text-xl font-bold tracking-widest genshin-gold truncate">TEYVAT.AI</span>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-white/10 text-amber-500 transition-colors"><X className="w-6 h-6"/></button>
+      <aside className={`fixed inset-y-0 left-0 z-[120] h-full genshin-panel border-r border-[#d3bc8e]/20 transition-all duration-500 flex flex-col ${isSidebarOpen ? 'translate-x-0 w-80 shadow-[20px_0_60px_rgba(0,0,0,0.9)]' : '-translate-x-full w-80'}`}>
+          <div className="p-8 flex items-center justify-between shrink-0 border-b border-[#d3bc8e]/10">
+              <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#d3bc8e]/10 border border-[#d3bc8e]/30 flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-[#d3bc8e]" />
+                  </div>
+                  <span className="text-xl font-black tracking-widest genshin-gold font-serif">AKASHA</span>
+              </div>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-[#d3bc8e] hover:rotate-90 transition-transform"><X className="w-6 h-6"/></button>
           </div>
-          <nav className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar">
-            <button onClick={() => { setIsLiveCallOpen(true); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl mb-4 transition-all bg-gradient-to-r from-amber-500/20 to-transparent border-l-4 border-amber-500 text-white shadow-lg shadow-amber-900/10 group`}>
-              <div className="relative shrink-0">
-                <PhoneCall className="w-6 h-6 text-amber-500 group-hover:scale-110 transition-transform" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
-              </div>
-              <span className="font-black uppercase tracking-widest text-xs truncate">Celestial Call</span>
+          <nav className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-1">
+            <button onClick={() => { setIsLiveCallOpen(true); setIsSidebarOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl mb-4 bg-[#d3bc8e]/10 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/20 transition-all group">
+                <PhoneCall className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span className="font-black uppercase tracking-widest text-[10px]">Celestial Call</span>
             </button>
-            {navItems.map((item) => (
-              <button key={item.type} onClick={() => { setActiveMenu(item.type); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${activeMenu === item.type ? 'bg-amber-500/10 border-l-4 border-amber-500 text-amber-500' : 'text-gray-400 hover:bg-white/5'}`}>
-                <item.icon className={`w-6 h-6 shrink-0 ${activeMenu === item.type ? 'text-amber-500' : ''}`} />
-                <span className="font-bold truncate text-sm">{item.label}</span>
-              </button>
-            ))}
-            {activeMenu === MenuType.ADMIN_CONSOLE && <button className="w-full flex items-center gap-4 p-4 rounded-xl bg-red-900/20 border-l-4 border-red-500 text-red-400 shrink-0"><Lock className="w-6 h-6 shrink-0" /><span className="font-bold text-sm truncate">ADMIN ROOT</span></button>}
+            
+            {sidebarMenus.map((m) => {
+              const Icon = MENU_ICONS[m] || TerminalIcon;
+              return (
+                <button key={m} onClick={() => { setActiveMenu(m); setIsSidebarOpen(false); }} className={`w-full text-left p-4 rounded-xl flex items-center gap-4 transition-all duration-300 ${activeMenu === m ? 'bg-[#d3bc8e] text-black shadow-lg shadow-[#d3bc8e]/10' : 'text-gray-400 hover:bg-white/5 hover:text-[#d3bc8e]'}`}>
+                  <Icon className="w-5 h-5 shrink-0" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{m.replace(/_/g, ' ')}</span>
+                </button>
+              );
+            })}
           </nav>
-          
-          <div className="p-6 border-t border-white/10 bg-[#0e121b]/80 backdrop-blur-xl shrink-0">
-              <div className="flex items-center gap-3 p-2 rounded-2xl transition-all hover:bg-white/5 group" onClick={() => { setActiveMenu(MenuType.USER_INFO); setIsSidebarOpen(false); }}>
-                  <div className="relative cursor-pointer shrink-0">
-                      <LazyImage src={userProfile.avatar} className="w-10 h-10 rounded-xl border border-white/20 shadow-lg group-hover:border-amber-500/50 transition-colors" alt="User" />
-                      {userProfile.isAuth && (
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0e121b] rounded-full flex items-center justify-center shadow-md">
-                              <CheckCircle2 className="w-2.5 h-2.5 text-white" />
-                          </div>
-                      )}
-                  </div>
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="text-sm font-bold text-gray-100 truncate flex items-center gap-1.5">
-                          {userProfile.username}
-                          {userProfile.isAuth && <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />}
-                      </div>
-                      <div className="text-[9px] text-gray-500 truncate font-mono uppercase tracking-tighter">
-                          {userProfile.isAuth ? (userProfile.email || 'Google Account') : 'Guest Session'}
-                      </div>
-                  </div>
-              </div>
+          <div className="p-4 border-t border-[#d3bc8e]/10 bg-black/40">
+             <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+                <img src={userProfile.avatar} className="w-10 h-10 rounded-full border border-[#d3bc8e]/30" alt="av" />
+                <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black text-[#d3bc8e] uppercase truncate">{userProfile.username}</p>
+                    <p className="text-[8px] text-gray-500 uppercase tracking-tighter">Traveler Node</p>
+                </div>
+             </div>
           </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-h-0 relative overflow-hidden w-full">
-        <header className="h-14 border-b border-white/10 flex items-center justify-between px-4 bg-[#0b0e14]/95 backdrop-blur-md z-[100] shrink-0">
-           <div className="flex items-center gap-3 min-w-0">
-               <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0">
-                   <Menu className="w-6 h-6" />
-               </button>
-               <h2 className="text-xs sm:text-base font-bold genshin-gold uppercase tracking-[0.15em] truncate">
-                   {activeMenu.replace(/_/g, ' ')}
-               </h2>
+      <main className="flex-1 flex flex-col min-h-0 relative w-full">
+        <header className="h-16 border-b border-[#d3bc8e]/10 flex items-center justify-between px-6 bg-[#0b0e14]/90 backdrop-blur-md z-[100] shrink-0">
+           <div className="flex items-center gap-4">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-[#d3bc8e] hover:scale-110 transition-transform"><Menu className="w-7 h-7" /></button>
            </div>
-           <div className="flex items-center gap-2 shrink-0">
-               {activeMenu === MenuType.TERMINAL && (
+
+           <div className="hidden sm:flex flex-col items-center">
+             <h2 className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.3em] font-serif">{activeMenu.replace(/_/g, ' ')}</h2>
+             <div className="h-0.5 w-8 bg-[#d3bc8e]/30 mt-1 rounded-full"></div>
+           </div>
+
+           <div className="flex items-center gap-1 sm:gap-3">
+              {activeMenu === MenuType.TERMINAL && (
+                 <>
                     <div className="relative">
-                        <button onClick={() => setShowModelSelector(!showModelSelector)} className="flex items-center gap-1.5 text-[8px] font-black text-gray-400 uppercase tracking-[0.1em] hover:text-[#d3bc8e] transition-all bg-white/5 px-3 py-2 rounded-full border border-white/5">
-                            {AI_MODELS.find(m => m.id === selectedModel)?.provider === 'openai' ? <CloudLightning className="w-3 h-3" /> : <Box className="w-3 h-3" />}
-                            <span className="hidden xs:inline truncate max-w-[80px]">Engine</span>
-                            <ChevronDown className={`w-3 h-3 transition-transform shrink-0 ${showModelSelector ? 'rotate-180' : ''}`} />
+                        <button 
+                            onClick={() => setShowModelDropdown(!showModelDropdown)}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#d3bc8e]/10 border border-[#d3bc8e]/30 text-[#d3bc8e] hover:bg-[#d3bc8e]/20 transition-all group"
+                        >
+                            <Cpu className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                            <span className="text-[9px] font-black uppercase tracking-widest hidden md:block">
+                                {AI_MODELS.find(m => m.id === selectedModel)?.label.split(' ')[0] || 'Model'}
+                            </span>
+                            <ChevronDown className={`w-3 h-3 transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} />
                         </button>
-                        {showModelSelector && (
+
+                        {showModelDropdown && (
                             <>
-                                <div className="fixed inset-0 z-[130]" onClick={() => setShowModelSelector(false)}></div>
-                                <div className="absolute top-full right-0 mt-2 w-56 bg-[#131823] border border-white/10 rounded-2xl shadow-2xl p-2 z-[140] animate-in slide-in-from-top-2">
-                                    <div className="text-[9px] font-black text-gray-500 uppercase tracking-[0.3em] p-2 border-b border-white/5 mb-1">Wisdom Core</div>
-                                    <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-0.5">
-                                        {AI_MODELS.map(model => (
-                                            <button key={model.id} onClick={() => { setSelectedModel(model.id); setShowModelSelector(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-[10px] flex items-center justify-between transition-all ${selectedModel === model.id ? 'bg-[#d3bc8e]/20 text-[#d3bc8e] font-black' : 'hover:bg-white/5 text-gray-400'}`}>
-                                                <div className="flex flex-col">
-                                                    <span className="truncate">{model.label}</span>
-                                                    <span className="text-[7px] opacity-60 font-mono">{model.provider.toUpperCase()}</span>
-                                                </div>
-                                                {selectedModel === model.id && <Box className="w-2.5 h-2.5" />}
+                                <div className="fixed inset-0 z-10" onClick={() => setShowModelDropdown(false)}></div>
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-[#13182b]/95 backdrop-blur-xl border border-[#d3bc8e]/30 rounded-2xl shadow-2xl z-20 py-2 overflow-hidden animate-in slide-in-from-top-2">
+                                    <div className="px-4 py-2 border-b border-[#d3bc8e]/10 mb-1">
+                                        <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Select Wisdom Core</span>
+                                    </div>
+                                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                                        {AI_MODELS.map(m => (
+                                            <button 
+                                                key={m.id}
+                                                onClick={() => { setSelectedModel(m.id); setShowModelDropdown(false); }}
+                                                className={`w-full text-left px-4 py-3 flex flex-col transition-all ${selectedModel === m.id ? 'bg-[#d3bc8e] text-black' : 'hover:bg-white/5 text-gray-400 hover:text-[#d3bc8e]'}`}
+                                            >
+                                                <span className="text-[10px] font-black uppercase tracking-tight">{m.label}</span>
+                                                <span className={`text-[8px] opacity-70 italic ${selectedModel === m.id ? 'text-black/60' : 'text-gray-500'}`}>{m.desc}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -399,17 +257,25 @@ const App: React.FC = () => {
                             </>
                         )}
                     </div>
-               )}
-               <button onClick={() => setIsHistoryOpen(true)} className="p-2 -mr-2 rounded-full hover:bg-white/5 transition-colors text-amber-500 shrink-0">
-                   <History className="w-6 h-6" />
-               </button>
+
+                    <button 
+                        onClick={handleClearChat}
+                        className="p-2 text-[#d3bc8e]/60 hover:text-red-400 hover:scale-110 transition-all"
+                        title="Purge Memory"
+                    >
+                        <Trash2 className="w-6 h-6" />
+                    </button>
+                 </>
+              )}
+
+              <button onClick={() => setIsHistoryOpen(true)} className="p-2 text-[#d3bc8e] hover:scale-110 transition-transform" title="Resonance Log"><History className="w-7 h-7" /></button>
            </div>
         </header>
         
-        <section className="flex-1 min-h-0 relative z-10 flex flex-col w-full overflow-hidden">
+        <section className="flex-1 min-h-0 relative z-10 overflow-hidden w-full">
           <ErrorBoundary>
-             <Suspense fallback={<div className="flex h-full items-center justify-center text-amber-500"><Loader2 className="animate-spin w-10 h-10" /></div>}>
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full">
+             <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="animate-spin w-10 h-10 text-[#d3bc8e]" /></div>}>
+                <div className="h-full w-full overflow-hidden">
                     {activeContent}
                 </div>
              </Suspense>
@@ -417,14 +283,8 @@ const App: React.FC = () => {
         </section>
       </main>
 
-      <LiveCall 
-        currentPersona={currentPersona} 
-        voiceConfig={voiceConfig} 
-        isOpen={isLiveCallOpen} 
-        onClose={() => setIsLiveCallOpen(false)} 
-      />
-
-      <HistorySidebar isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} onSelectPersona={handlePersonaChange} onNewChat={() => setActiveMenu(MenuType.PERSONAS)} activePersonaId={currentPersona.id} customPersonas={customPersonas} />
+      <LiveCall currentPersona={currentPersona} voiceConfig={voiceConfig} isOpen={isLiveCallOpen} onClose={() => setIsLiveCallOpen(false)} />
+      <HistorySidebar isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} onSelectPersona={handlePersonaSelect} onNewChat={() => setActiveMenu(MenuType.PERSONAS)} activePersonaId={currentPersona.id} customPersonas={[]} />
       <DonationModal errorLog={globalErrorLog} onClose={() => setGlobalErrorLog(null)} />
       <OnboardingTutorial />
       <CookieConsent />

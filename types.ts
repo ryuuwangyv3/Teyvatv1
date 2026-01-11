@@ -1,4 +1,5 @@
 
+
 export enum MenuType {
   LIVE_CALL = 'live_call',
   TERMINAL = 'terminal',
@@ -32,8 +33,10 @@ export interface Persona {
   description: string;
   systemInstruction: string;
   voiceName: 'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr';
-  pitch?: number; // Character-specific voice pitch (0.5 - 2.0)
-  visualSummary: string;
+  pitch?: number; 
+  speed?: number; 
+  visualSummary: string; // Base character description
+  region: 'Mondstadt' | 'Liyue' | 'Inazuma' | 'Sumeru' | 'Fontaine' | 'Natlan' | 'Snezhnaya' | 'Khaenriah' | 'Akasha';
   isCustom?: boolean;
 }
 
@@ -96,7 +99,6 @@ export interface VoiceConfig {
   autoPlay?: boolean;
 }
 
-// --- VFS TYPES ---
 export type FileType = 'folder' | 'image' | 'video' | 'audio' | 'text' | 'code' | 'binary';
 
 export interface DriveItem {
@@ -110,15 +112,7 @@ export interface DriveItem {
     created_at: number;
     updated_at: number;
     starred?: boolean;
-    github_sha?: string; // Track versioning for auto-sync
-}
-
-export interface VirtualFile {
-    name: string;
-    path: string;
-    is_dir: boolean;
-    size: number;
-    timestamp: number;
+    github_sha?: string; 
 }
 
 export interface ApiKeyData {
@@ -129,14 +123,17 @@ export interface ApiKeyData {
   label?: string;
 }
 
-export interface SupabaseConfig {
-  url: string;
-  key: string;
-  enabled: boolean;
+// Added missing interfaces to resolve import errors in various components
+export interface SystemLog {
+  id: string;
+  message: string;
+  type: 'info' | 'warn' | 'error' | 'success';
+  created_at: string;
 }
 
 export interface ForumPost {
   id: string;
+  author_id: string | null;
   author: string;
   avatar: string;
   title: string;
@@ -147,7 +144,7 @@ export interface ForumPost {
   dislikes: number;
   rating?: number;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
 }
 
 export interface ForumComment {
@@ -159,25 +156,17 @@ export interface ForumComment {
   created_at: string;
 }
 
-export interface SystemLog {
+export interface Donator {
   id: string;
+  name: string;
+  amount: string;
   message: string;
-  type: 'info' | 'warn' | 'error' | 'success';
+  avatar: string;
+  platform: string;
   created_at: string;
 }
 
-export interface GlobalStats {
-  total_users: number;
-  total_posts: number;
-  active_personas: number;
-}
-
-export interface Donator {
-    id: string;
-    name: string;
-    amount: string;
-    message: string;
-    avatar?: string;
-    platform: 'saweria' | 'trakteer' | 'other';
-    timestamp: string;
+export interface SupabaseConfig {
+  url: string;
+  key: string;
 }

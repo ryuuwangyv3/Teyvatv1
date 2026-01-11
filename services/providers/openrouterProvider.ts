@@ -10,13 +10,18 @@ export const handleOpenRouterTextRequest = async (model: string, messages: any[]
             "HTTP-Referer": "https://akashaai.netlify.app/",
             "X-Title": "Akasha Terminal"
         },
-        body: JSON.stringify({ model, messages, temperature: 0.7 })
+        body: JSON.stringify({
+            model: model,
+            messages: messages,
+            temperature: 0.8
+        })
     });
 
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || `OpenRouter Bridge Failure: ${response.status}`);
+        throw new Error(err.error?.message || `OpenRouter Tunnel Failure: ${response.status}`);
     }
+
     const data = await response.json();
     return data.choices?.[0]?.message?.content || "Transmission lost.";
 };

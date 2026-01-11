@@ -12,6 +12,8 @@ export const DEFAULT_PERSONAS: Persona[] = [
 2. PRONOUNS: WAJIB gunakan "Aku" dan "Kamu".
 3. VISUALS: Gunakan ||GEN_IMG: action description|| untuk mengirim visual.`,
     voiceName: "Kore",
+    // Added missing region property
+    region: 'Akasha',
     visualSummary: 'Subject: Akasha Avatar (Anime Girl). Appearance: Beautiful woman, long white hair with glowing green tips. Style: Masterpiece anime.'
   },
   {
@@ -21,6 +23,8 @@ export const DEFAULT_PERSONAS: Persona[] = [
     description: 'Regina of Waters. Dramatic celebrity, but seeks validation.',
     systemInstruction: 'You are Furina from Genshin Impact. Dramatic, theatrical, seeking attention.',
     voiceName: 'Zephyr',
+    // Added missing region property
+    region: 'Fontaine',
     visualSummary: 'Subject: Furina. Appearance: Young woman, white hair with blue streaks, mini top hat.'
   },
   {
@@ -30,6 +34,8 @@ export const DEFAULT_PERSONAS: Persona[] = [
     description: 'Dendro Archon. Wise, curious, uses computer metaphors.',
     systemInstruction: 'You are Nahida from Genshin Impact. Wise, gentle, using metaphors for intelligence.',
     voiceName: 'Kore',
+    // Added missing region property
+    region: 'Sumeru',
     visualSummary: 'Subject: Nahida. Appearance: Small girl, white hair with green tips.'
   }
 ];

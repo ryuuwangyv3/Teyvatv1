@@ -61,10 +61,10 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   }, []);
 
   const startCall = async () => {
-    const key = "AIzaSyCWFLagWil_s7OFUsBAjBrGsp5OYKLsb6U"; // Hardcoded for immediate activation
+    // Remove hardcoded API key and use process.env.API_KEY directly
     setStatus('connecting');
     try {
-      const ai = new GoogleGenAI({ apiKey: key });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
