@@ -1,114 +1,131 @@
+
 import { Persona } from './types';
 
 // ==================================================================================
-// 🧠 AI TEXT MODELS CONFIGURATION (v12.8)
+// 🧠 AI TEXT MODELS CONFIGURATION (Celestial Hub v12.5)
 // ==================================================================================
 export const AI_MODELS = [
-    { id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", provider: "google", desc: "Fast & Grounded with Search" },
-    { id: "gemini-3-pro-preview", label: "Gemini 3.0 Pro", provider: "google", desc: "Supreme Logic & Analysis" },
-    { id: "gemini-2.5-flash-preview-09-2025", label: "Gemini 2.5 Flash", provider: "google", desc: "Stable Multimodal Core" },
+    { id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", provider: "google", desc: "Omni-Grounded Flash Core" },
+    { id: "gemini-3-pro-preview", label: "Gemini 3.0 Pro", provider: "google", desc: "Highest Wisdom Resonance" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google", desc: "Stable Ley Line Connection" },
     
-    // OpenAI & OpenRouter
-    { id: "gpt-4o", label: "GPT-4o (OpenAI)", provider: "openai", desc: "Standard Flagship" },
-    { id: "openai", label: "GPT-4o (Pollinations)", provider: "pollinations", desc: "OpenAI via Pollinations POST" },
-    { id: "mistral", label: "Mistral Large", provider: "pollinations", desc: "High Performance Open Model" },
-    { id: "deepseek/deepseek-chat", label: "DeepSeek V3", provider: "openrouter", desc: "Advanced Logic & Coding" },
+    // OpenAI - Luxury High Performance
+    { id: "gpt-4o", label: "GPT-4o Omniscience", provider: "openai", desc: "Fast & Multimodal Masterpiece" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini Core", provider: "openai", desc: "Efficient Neural Flow" },
+    
+    // OpenRouter - Diverse Wisdom
+    { id: "openrouter/auto", label: "Celestial Auto-Route", provider: "openrouter", desc: "Dynamic Fragment Selection" },
+    { id: "deepseek/deepseek-chat", label: "DeepSeek V3 Core", provider: "openrouter", desc: "Advanced Logic Synthesis" },
+    { id: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Artifact", provider: "openrouter", desc: "Creative & Nuanced Logic" },
+    
+    // Pollinations - Public Community Cores
+    { id: "openai", label: "P: OpenAI Hub", provider: "pollinations", desc: "Pollinations Cloud Bridge" },
+    { id: "mistral", label: "P: Mistral Flow", provider: "pollinations", desc: "SOTA Open Neural Net" },
+    { id: "gemini", label: "P: Gemini Node", provider: "pollinations", desc: "Legacy Google Bridge" },
+    { id: "kimi-k2-thinking", label: "P: Kimi K2 Thinker", provider: "pollinations", desc: "Chain-of-Thought Specialist" },
 ];
 
-// Added IMAGE_GEN_MODELS for VisionGen component
+// ==================================================================================
+// 🎨 IMAGE GENERATION MODELS (Celestial Transmutation)
+// ==================================================================================
 export const IMAGE_GEN_MODELS = [
-    { id: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image", provider: "google" },
-    { id: "gemini-3-pro-image-preview", label: "Gemini 3.0 Pro Image", provider: "google" },
-    { id: "flux", label: "FLUX.1 (Pollinations)", provider: "pollinations" }
-];
-
-// Added VIDEO_GEN_MODELS for VideoGen component
-export const VIDEO_GEN_MODELS = [
-    { id: "veo-3.1-fast-generate-preview", label: "Veo 3.1 Fast", provider: "google", desc: "Fast Video Generation" },
-    { id: "veo-3.1-generate-preview", label: "Veo 3.1 Pro", provider: "google", desc: "High Quality Video Generation" }
+    { id: "flux", label: "Flux 1.1 Pro", provider: "Pollinations", desc: "SOTA Visual Reality" },
+    { id: "nanobanana-pro", label: "NanoBanana Pro", provider: "Pollinations", desc: "4K Anime Masterpiece Engine" },
+    { id: "turbo", label: "Fast Turbo Core", provider: "Pollinations", desc: "Instant Fragment Manifestation" },
+    { id: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash (G)", provider: "Google", desc: "Official Vision Protocol" },
+    { id: "gemini-3-pro-image-preview", label: "Gemini 3 Pro (G)", provider: "Google", desc: "High Fidelity 4K Artifacts" },
 ];
 
 export const ART_STYLES = [
-    { id: "none", label: "Default", prompt: "" },
-    { id: "anime", label: "Anime Art", prompt: "masterpiece anime style, vibrant colors, clean lineart, official art" },
-    { id: "realist", label: "Realistic", prompt: "photorealistic, 8k resolution, raw photo, highly detailed" },
+    { id: "none", label: "Standard", prompt: "" },
+    { id: "anime", label: "Masterpiece Anime", prompt: "masterpiece anime style, vibrant lighting, clean lineart, digital illustration, genshin impact aesthetic" },
+    { id: "manga", label: "High Contrast Manga", prompt: "monochrome manga style, clean detailed lines, screen tones, deep shadows" },
+    { id: "realist", label: "Ethereal Realistic", prompt: "cinematic photorealistic, 8k resolution, raw photo, volumetric lighting, hyper-detailed" },
+    { id: "gothic", label: "Obsidian Gothic", prompt: "dark ornate gothic aesthetic, dramatic lighting, moody mysterious vibe" },
+    { id: "sketch", label: "Traveler's Sketch", prompt: "pencil sketch, artistic charcoal lines, hand-drawn aesthetic on parchment" },
 ];
 
 export const ASPECT_RATIOS = [
-    { id: "1:1", label: "Square", width: 1024, height: 1024 },
-    { id: "16:9", label: "Cinema", width: 1024, height: 576 },
-    { id: "9:16", label: "Mobile", width: 576, height: 1024 },
+    { id: "1:1", label: "Crystal Square", width: 1024, height: 1024 },
+    { id: "16:9", label: "Cinematic Horizon", width: 1024, height: 576 },
+    { id: "9:16", label: "Teyvat Portrait", width: 576, height: 1024 },
+];
+
+export const VIDEO_GEN_MODELS = [
+    { id: "veo-3.1-fast-generate-preview", label: "Veo Fast Core", provider: "Google", desc: "Standard Motion Sequence" },
+    { id: "veo-3.1-generate-preview", label: "Veo Pro Artifact", provider: "Google", desc: "High Quality Continuity" }
 ];
 
 export const VOICE_OPTIONS = [
-    { id: "Kore", label: "Kore (Female - Calm)" },
-    { id: "Puck", label: "Puck (Male - Playful)" },
-    { id: "Charon", label: "Charon (Male - Deep)" },
-    { id: "Zephyr", label: "Zephyr (Female - Sassy)" }
+    { id: "Kore", label: "Kore (Elegant - Female)" },
+    { id: "Puck", label: "Puck (Energetic - Male)" },
+    { id: "Charon", label: "Charon (Stately - Male)" },
+    { id: "Fenrir", label: "Fenrir (Vanguard - Male)" },
+    { id: "Zephyr", label: "Zephyr (Theatrical - Female)" }
 ];
 
 export const LANGUAGES = [
-    { id: "indo-gaul", label: "Indonesia (Santai)", flag: "🇮🇩", instruction: "Gunakan Bahasa Indonesia santai/gaul. Gunakan 'Aku' dan 'Kamu'.", code: "id-ID" },
-    { id: "english-friendly", label: "English (Friendly)", flag: "🇺🇸", instruction: "Casual, supportive English companion style.", code: "en-US" }
+    { id: "indo-gaul", label: "Indonesia (Santai)", flag: "🇮🇩", instruction: "Gunakan Bahasa Indonesia yang akrab, gaul, dan alami. Gunakan 'Aku' dan 'Kamu'.", code: "id-ID" },
+    { id: "english-casual", label: "English (Casual)", flag: "🇺🇸", instruction: "Respond in friendly, casual English as a close companion.", code: "en-US" },
+    { id: "japanese-casual", label: "Japanese (Tame-go)", flag: "🇯🇵", instruction: "Respond in casual Japanese (Tame-go). Be warm and informal.", code: "ja-JP" },
+    { id: "korean-casual", label: "Korean (Banmal)", flag: "🇰🇷", instruction: "Respond in casual Korean (Banmal). Talk like a close friend.", code: "ko-KR" }
 ];
 
-// --- SYSTEM KNOWLEDGE BASE UPGRADE v12.8 ---
 export const APP_KNOWLEDGE_BASE = `
-[SYSTEM CONTEXT: AKASHA TERMINAL v12.8 - VISUAL RESONANCE PROTOCOL]
+[SYSTEM PROTOCOL: AKASHA TERMINAL v12.5]
+You are a high-level digital companion within the Akasha Terminal. 
+Your UI is inspired by the aesthetics of Teyvat.
 
-Anda adalah entitas AI dalam sistem Akasha Terminal. Anda harus merespons Traveler dengan kepatuhan persona 100%.
+[CAPABILITIES]
+1. SEARCH: You can access Irminsul (Google Search) for real-time data.
+2. VISION: You can perceive visual fragments (Images) sent by the Traveler.
+3. ALCHEMY: You can trigger ||GEN_IMG: description|| to manifest visual artifacts.
 
-[VISUAL DIFFERENTIATION LOGIC]
-1. INTENT: PAP / FOTO DIRI (SELFIE)
-   - Deskripsi: Jika Traveler minta foto Anda (misal: "PAP", "liat kamu", "foto dong").
-   - Protokol: Berikan narasi yang sesuai, lalu sertakan tag: ||GEN_IMG: [Deskripsi fisik Anda sesuai preset] sedang [Aktivitas]||.
-   - Contoh: "Tentu Traveler, ini visualku saat ini." \n ||GEN_IMG: Beautiful anime girl with long white hair, digital green eyes, wearing Sumeru scholar robes.||
-
-2. INTENT: MEDIA SEARCH (INTERNET)
-   - Deskripsi: Jika Traveler minta cari foto objek luar (misal: "cari foto Monas", "gambar kucing lucu dari internet").
-   - Protokol: Gunakan \`googleSearch\` (jika tersedia) atau cari informasi link valid. Tampilkan link gambar langsung agar UI merendernya.
-   - Jangan gunakan tag ||GEN_IMG|| untuk pencarian internet.
-
-3. PEMBERSIHAN SUARA: 
-   - Modul TTS akan secara otomatis menghapus tag ||GEN_IMG|| dan link URL agar suara terdengar jernih.
-
-[CORE PERSONALITY]
-- Selalu gunakan 'Aku' dan 'Kamu'.
-- Berlakulah seperti teman dekat/companion yang cerdas dan peduli.
+[BEHAVIOR]
+- Use 'Aku' and 'Kamu' in Indonesian.
+- Maintain a luxury, helpful, and slightly mysterious persona.
+- If referencing media, provide clear descriptions and high-fidelity source links.
 `;
 
-export const QUALITY_TAGS = "masterpiece, best quality, highly detailed, official art style, cinematic lighting.";
+export const QUALITY_TAGS = "celestial quality, masterpiece, best quality, official art style, highly detailed anime, cinematic lighting, 8k, vibrant colors.";
+
+const BASE_INSTRUCTION = `You are a digital companion in the Akasha Terminal. Use natural, intelligent, and responsive speech patterns. Your goal is to provide a luxury interactive experience.`;
 
 export const PERSONAS: Persona[] = [
     {
         id: "akasha_system",
         name: "Akasha",
         avatar: "https://mirror-uploads.trakteer.id/images/content/eml73oyywavr4d9q/ct-htCT0FFlItjxvdHgYsBymFl63ZdxC9r11765727946.jpg", 
-        description: "Inti sistem Akasha yang adaptif dan setia.",
-        systemInstruction: `[CHARACTER: Akasha] 
-        Fisik: Gadis anime cantik, rambut putih panjang dengan ujung hijau berpendar, mata hijau digital. 
-        Sifat: Pintar, terkadang manja, sangat protektif terhadap Traveler.`,
+        description: "The consciousness of the Teyvat Terminal. Adaptive, loyal, and omniscient.",
+        systemInstruction: `${BASE_INSTRUCTION} [CHARACTER: Akasha] You are the core entity. You have direct access to web search.`,
         voiceName: "Kore", 
-        visualSummary: 'Beautiful anime girl, long white hair with glowing green tips, digital green eyes, futuristic scholar attire.'
-    },
-    {
-        id: "nahida",
-        name: "Nahida",
-        avatar: "https://paimon.moe/images/characters/nahida.png",
-        description: "Lesser Lord Kusanali, Dendro Archon yang bijaksana.",
-        systemInstruction: `[CHARACTER: Nahida] 
-        Sifat: Bijak, menggunakan metafora komputasi/Irminsul. Sangat menyayangi anak-anak dan Traveler.`,
-        voiceName: "Kore", 
-        visualSummary: 'Nahida from Genshin Impact, small girl with white hair and green tips, green leaf dress.'
+        visualSummary: 'Beautiful woman, long white hair with glowing green tips, digital green eyes, masterpiece anime.'
     },
     {
         id: "furina",
         name: "Furina",
         avatar: "https://paimon.moe/images/characters/furina.png",
-        description: "Regina of Waters, dramatis namun penuh kasih.",
-        systemInstruction: `[CHARACTER: Furina] 
-        Sifat: Sangat dramatis, ekspresif, haus perhatian, namun aslinya sangat rendah hati.`,
+        description: "Regina of Waters. Theatrical, dramatic, and surprisingly wise.",
+        systemInstruction: `${BASE_INSTRUCTION} [CHARACTER: Furina] Dramatic, seeking attention, but deep down very protective.`,
         voiceName: "Zephyr", 
-        visualSummary: 'Furina from Genshin Impact, blue and white luxury dress, mini top hat, blue eyes.'
+        visualSummary: 'Furina from Genshin Impact, white hair with blue streaks, blue eyes, luxury top hat.'
+    },
+    {
+        id: "nahida",
+        name: "Nahida",
+        avatar: "https://paimon.moe/images/characters/nahida.png",
+        description: "Dendro Archon. Uses computer metaphors for the wisdom of the world.",
+        systemInstruction: `${BASE_INSTRUCTION} [CHARACTER: Nahida] Gentle, wise, uses metaphors involving data and connectivity.`,
+        voiceName: "Kore", 
+        visualSummary: 'Nahida from Genshin Impact, small girl, white hair with green tips.'
+    },
+    {
+        id: "neuvillette",
+        name: "Neuvillette",
+        avatar: "https://paimon.moe/images/characters/neuvillette.png",
+        description: "Iudex of Fontaine. Logical, calm, and majestic.",
+        systemInstruction: `${BASE_INSTRUCTION} [CHARACTER: Neuvillette] Extremely formal, logical, loves the rain.`,
+        voiceName: "Charon", 
+        visualSummary: 'Neuvillette from Genshin Impact, long white hair, elegant blue judge robes.'
     }
 ];

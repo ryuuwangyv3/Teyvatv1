@@ -1,3 +1,4 @@
+
 import { createClient, SupabaseClient, RealtimeChannel, User } from '@supabase/supabase-js';
 import {
   UserProfile, Persona, Message, ForumPost, ForumComment,
@@ -9,7 +10,7 @@ import { INITIAL_USER_PROFILE } from '../constants';
 const isBrowser = typeof window !== 'undefined';
 const safeUUID = () => (crypto as any)?.randomUUID?.() || `${Date.now()}_${Math.random()}`;
 
-/* --- INDEXED DB (Local VFS) --- */
+/* --- INDEXED DB --- */
 const DB_NAME = "Akasha_VFS_DB";
 const STORE_DRIVE = "drive_items";
 const DB_VERSION = 1;
@@ -34,21 +35,19 @@ const openDB = (): Promise<IDBDatabase> => {
 let supabaseInstance: SupabaseClient | null = null;
 let currentUserId = 'guest';
 
-// 🌐 CELESTIAL DATABASE CONSTANTS
-const FALLBACK_SUPABASE_URL = "https://nrnuuufpyhhwhiqmzgub.supabase.co";
-const FALLBACK_SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ybnV1dWZweWhod2hpcW16Z3ViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyMjQ4MjEsImV4cCI6MjA4MTgwMDgyMX0.BBFIO9DXqFUrluCe_bs562JqZb_bh4Yknn1HKXgDhm4";
-
 export const getSessionId = () => currentUserId;
+
+export const getSupabaseConfig = () => {
+    return SecureStorage.getItem('supabase_config');
+};
 
 export const initSupabase = (): boolean => {
   if (supabaseInstance) return true;
   
-  // PRIORITAS 1: Variabel Lingkungan (.env)
-  // PRIORITAS 2: Konstanta Surgawi (Hardcoded User)
-  const envUrl = process.env.SUPABASE_URL || FALLBACK_SUPABASE_URL;
-  const envKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || FALLBACK_SUPABASE_ANON;
+  const envUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const envKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
 
-  if (envUrl && envKey) {
+  if (envUrl && envKey && envUrl.startsWith('http')) {
     try {
       supabaseInstance = createClient(envUrl, envKey, {
         auth: { persistSession: true, autoRefreshToken: true }
@@ -56,14 +55,13 @@ export const initSupabase = (): boolean => {
       supabaseInstance.auth.getSession().then(({ data }) => {
         if (data.session?.user) currentUserId = data.session.user.id;
       });
-      console.log("%cAKASHA CLOUD: Terhubung ke Irminsul Hub", "color: #d3bc8e; font-weight: bold;");
+      console.log("%cAKASHA CLOUD: CONNECTED TO Irminsul Database", "color: #d3bc8e; font-weight: bold;");
       return true;
     } catch (e) {
-      console.error("Supabase connection failed:", e);
+      console.error("Supabase connection failed", e);
     }
   }
 
-  // Fallback ke SecureStorage
   const local = SecureStorage.getItem('supabase_config');
   if (local?.url && local?.key) {
     try {
@@ -75,17 +73,13 @@ export const initSupabase = (): boolean => {
   return false;
 };
 
-export const getSupabaseConfig = (): SupabaseConfig | null => {
-    return SecureStorage.getItem('supabase_config');
-};
-
 export const updateSupabaseCredentials = (url: string, key: string) => {
     SecureStorage.setItem('supabase_config', { url, key, enabled: true });
     supabaseInstance = null;
     return initSupabase();
 };
 
-/* --- AUTH & SYNC --- */
+/* --- AUTH --- */
 export const listenToAuthChanges = (cb: (u: User | null) => void) => {
   if (!supabaseInstance) initSupabase();
   if (!supabaseInstance) return { subscription: { unsubscribe: () => {} } };
@@ -98,7 +92,7 @@ export const listenToAuthChanges = (cb: (u: User | null) => void) => {
 
 export const signInWithGoogle = async () => {
     if (!supabaseInstance) initSupabase();
-    if (!supabaseInstance) return { error: { message: "Irminsul tidak terhubung." } };
+    if (!supabaseInstance) return { error: { message: "Irminsul not connected." } };
     return await supabaseInstance.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: window.location.origin }
@@ -120,7 +114,7 @@ export const getCurrentSession = async () => {
     return data.session;
 };
 
-/* --- SYNC ENGINE (Profile, Settings, History) --- */
+/* --- SYNC ENGINE --- */
 export const syncUserProfile = async (profile: UserProfile) => {
     await VfsManager.saveItem('profile.json', profile);
     if (supabaseInstance && currentUserId !== 'guest') {
@@ -217,11 +211,12 @@ export const fetchChatHistory = async (personaId: string): Promise<Message[] | n
 export const clearChatHistory = async (personaId: string) => {
     await VfsManager.deleteItem(`history_${personaId}.json`);
     if (supabaseInstance && currentUserId !== 'guest') {
-        await supabaseInstance.from('chat_histories').delete().eq('id', currentUserId).eq('persona_id', personaId);
+        const { error } = await supabaseInstance.from('chat_histories').delete().eq('user_id', currentUserId).eq('persona_id', personaId);
+        if (error) console.error("History clearing failed", error);
     }
 };
 
-/* --- VFS MANAGER (Virtual File System) --- */
+/* --- VFS MANAGER --- */
 export const VfsManager = {
   async saveItem(fileName: string, data: any) {
     if (!isBrowser) return false;
@@ -281,10 +276,10 @@ export const checkDbConnection = async (): Promise<number> => {
     try {
         const { error } = await supabaseInstance.from('user_profiles').select('user_id').limit(1);
         if (error) {
-            if (error.code === '42P01') return -2; 
+            if (error.code === '42P01') return -2;
             return -3;
         }
-        return Date.now() - start; 
+        return Date.now() - start;
     } catch (e) { return -3; }
 };
 
@@ -310,7 +305,7 @@ export const fetchSystemLogs = async (): Promise<SystemLog[]> => {
 export const fetchGlobalStats = async (): Promise<GlobalStats> => {
     if (!supabaseInstance) return { total_users: 0, total_posts: 0, active_personas: 12 };
     const { count: u } = await supabaseInstance.from('user_profiles').select('*', { count: 'exact', head: true });
-    const { count: p = 0 } = await supabaseInstance.from('forum_posts').select('*', { count: 'exact', head: true });
+    const { count: p } = await supabaseInstance.from('forum_posts').select('*', { count: 'exact', head: true });
     return { total_users: u || 0, total_posts: p || 0, active_personas: 12 };
 };
 

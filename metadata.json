@@ -1,26 +1,13 @@
 {
-  "name": "Teyvat AI Terminal",
-  "short_name": "TeyvatAI",
-  "description": "A luxury Genshin Impact-themed interactive AI terminal featuring live voice calls, persona-based chat, and creative tools.",
+  "name": "Akasha Terminal AI",
+  "short_name": "AkashaAI",
+  "description": "Luxury Genshin-themed AI Interface with real-time resonance.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",
-  "icons": [
-    {
-      "src": "https://cdn.pixabay.com/photo/2023/12/15/15/51/ai-generated-8451159_1280.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg"
-    },
-    {
-      "src": "https://cdn.pixabay.com/photo/2023/12/15/15/51/ai-generated-8451159_1280.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg"
-    }
-  ],
   "requestFramePermissions": [
     "camera",
-    "microphone",
-    "geolocation"
+    "microphone"
   ]
 }
