@@ -1,13 +1,14 @@
 {
   "name": "Akasha Terminal AI",
   "short_name": "AkashaAI",
-  "description": "Luxury Genshin-themed AI Interface with real-time resonance.",
+  "description": "Luxury Genshin-themed AI Interface with real-time resonance (SDK v3.0).",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0e14",
   "theme_color": "#0b0e14",
   "requestFramePermissions": [
     "camera",
-    "microphone"
+    "microphone",
+    "geolocation"
   ]
 }

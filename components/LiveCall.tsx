@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PhoneOff, Mic, MicOff, Volume2, PhoneCall, Loader2, Minimize2, X, Radio } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, Volume2, PhoneCall, Loader2, X, Radio, Activity } from 'lucide-react';
 import { Persona, VoiceConfig } from '../types';
 import { GoogleGenAI, LiveServerMessage, Modality, Blob } from '@google/genai';
 
@@ -15,33 +15,32 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   const [status, setStatus] = useState<'idle' | 'connecting' | 'active' | 'error'>('idle');
   const [isMuted, setIsMuted] = useState(false);
   
-  // Refs for audio processing and session
   const nextStartTimeRef = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<any>(null);
 
-  // --- GUIDELINE COMPLIANT ENCODING/DECODING ---
-  const decode = (base64: string) => {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+  // Manual encoding/decoding as required by SDK
+  const decode = (b64: string) => {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
   };
 
   const encode = (bytes: Uint8Array) => {
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
+    let bin = '';
+    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
   };
 
   const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
     const dataInt16 = new Int16Array(data.buffer);
     const frameCount = dataInt16.length / numChannels;
     const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-    for (let channel = 0; channel < numChannels; channel++) {
-      const channelData = buffer.getChannelData(channel);
-      for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    for (let ch = 0; ch < numChannels; ch++) {
+      const chData = buffer.getChannelData(ch);
+      for (let i = 0; i < frameCount; i++) chData[i] = dataInt16[i * numChannels + ch] / 32768.0;
     }
     return buffer;
   };
@@ -49,10 +48,7 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   const createBlob = (data: Float32Array): Blob => {
     const int16 = new Int16Array(data.length);
     for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
-    return {
-      data: encode(new Uint8Array(int16.buffer)),
-      mimeType: 'audio/pcm;rate=16000',
-    };
+    return { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
   };
 
   const cleanup = useCallback(() => {
@@ -65,9 +61,7 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
   }, []);
 
   const startCall = async () => {
-    const key = process.env.API_KEY;
-    if (!key) { setStatus('error'); return; }
-
+    const key = "AIzaSyCWFLagWil_s7OFUsBAjBrGsp5OYKLsb6U"; // Hardcoded for immediate activation
     setStatus('connecting');
     try {
       const ai = new GoogleGenAI({ apiKey: key });
@@ -82,51 +76,46 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
         callbacks: {
           onopen: () => {
             setStatus('active');
-            const source = inputCtx.createMediaStreamSource(stream);
-            const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-            processor.onaudioprocess = (e) => {
+            const src = inputCtx.createMediaStreamSource(stream);
+            const proc = inputCtx.createScriptProcessor(4096, 1, 1);
+            proc.onaudioprocess = (e) => {
               if (isMuted) return;
               const inputData = e.inputBuffer.getChannelData(0);
               sessionPromise.then(s => s.sendRealtimeInput({ media: createBlob(inputData) }));
             };
-            source.connect(processor);
-            processor.connect(inputCtx.destination);
+            src.connect(proc);
+            proc.connect(inputCtx.destination);
           },
           onmessage: async (msg: LiveServerMessage) => {
-            const audioBase64 = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (audioBase64) {
+            const audioB64 = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            if (audioB64) {
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
-              const buffer = await decodeAudioData(decode(audioBase64), outputCtx, 24000, 1);
-              const source = outputCtx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(outputCtx.destination);
-              source.start(nextStartTimeRef.current);
+              const buffer = await decodeAudioData(decode(audioB64), outputCtx, 24000, 1);
+              const src = outputCtx.createBufferSource();
+              src.buffer = buffer;
+              src.connect(outputCtx.destination);
+              src.start(nextStartTimeRef.current);
               nextStartTimeRef.current += buffer.duration;
-              sourcesRef.current.add(source);
-              source.onended = () => sourcesRef.current.delete(source);
+              sourcesRef.current.add(src);
+              src.onended = () => sourcesRef.current.delete(src);
             }
-
             if (msg.serverContent?.interrupted) {
               sourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
               sourcesRef.current.clear();
               nextStartTimeRef.current = 0;
             }
           },
-          onerror: (e) => { console.error("Celestial Error:", e); setStatus('error'); },
+          onerror: (e) => { console.error("Neural link error:", e); setStatus('error'); },
           onclose: () => cleanup()
         },
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: currentPersona.voiceName || 'Zephyr' } } },
-          systemInstruction: `You are ${currentPersona.name}. Context: ${currentPersona.systemInstruction}. Maintain high-fidelity interactive resonance.`
+          systemInstruction: `Resonate as ${currentPersona.name}. Context: ${currentPersona.systemInstruction}.`
         }
       });
-      
       sessionRef.current = await sessionPromise;
-    } catch (e) {
-      console.error("Link Failed:", e);
-      setStatus('error');
-    }
+    } catch (e) { setStatus('error'); }
   };
 
   useEffect(() => { return () => cleanup(); }, [cleanup]);
@@ -135,55 +124,28 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
 
   return (
     <div className="fixed inset-0 z-[200] bg-[#0b0e14]/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(211,188,142,0.05)_0%,_transparent_70%)] pointer-events-none"></div>
-      
-      <div className="absolute top-8 right-8 flex gap-4">
-        <button onClick={() => { cleanup(); onClose(); }} className="p-3 rounded-full bg-white/5 border border-white/10 hover:bg-red-500/20 text-gray-400 hover:text-red-500 transition-all"><X className="w-6 h-6" /></button>
-      </div>
-
+      <div className="absolute top-8 right-8"><button onClick={() => { cleanup(); onClose(); }} className="p-3 rounded-full bg-white/5 border border-white/10 hover:bg-red-500/20 text-gray-400 hover:text-red-500 transition-all"><X className="w-6 h-6" /></button></div>
       <div className="relative w-64 h-64 sm:w-80 sm:h-80 flex items-center justify-center mb-12">
-        <div className={`absolute inset-0 rounded-full border border-amber-500/20 animate-[spin_60s_linear_infinite] ${status === 'active' ? 'opacity-100' : 'opacity-20'}`}>
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-amber-500 rounded-full shadow-[0_0_15px_#f59e0b]"></div>
-        </div>
+        <div className={`absolute inset-0 rounded-full border border-amber-500/20 animate-[spin_60s_linear_infinite] ${status === 'active' ? 'opacity-100' : 'opacity-20'}`}><div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-amber-500 rounded-full shadow-[0_0_15px_#f59e0b]"></div></div>
         <div className="relative w-40 h-40 sm:w-56 sm:h-56 rounded-full overflow-hidden border-4 border-amber-500/40 shadow-[0_0_80px_rgba(211,188,142,0.2)]">
            <img src={currentPersona.avatar} className="w-full h-full object-cover" alt="Persona" />
            {status === 'active' && <div className="absolute inset-0 bg-amber-500/10 mix-blend-overlay animate-pulse"></div>}
         </div>
-        {status === 'active' && (
-          <div className="absolute -bottom-10 flex gap-1 items-end h-10">
-            {[...Array(12)].map((_, i) => (
-              <div key={i} className="w-1.5 bg-amber-500/60 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.1}s`, height: `${Math.random() * 100}%` }}></div>
-            ))}
-          </div>
-        )}
       </div>
-
-      <div className="text-center mb-12 space-y-2">
+      <div className="text-center mb-12">
          <h2 className="text-3xl sm:text-5xl font-black genshin-gold font-serif uppercase tracking-widest drop-shadow-2xl">{currentPersona.name}</h2>
-         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em]">{status === 'active' ? 'Neural Link Optimized' : status === 'connecting' ? 'Synchronizing...' : status === 'error' ? 'Link Severed' : 'Awaiting Connection'}</p>
+         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] mt-2">{status === 'active' ? 'Neural Link Optimized' : status === 'connecting' ? 'Synchronizing...' : status === 'error' ? 'Link Severed' : 'Awaiting Connection'}</p>
       </div>
-
       <div className="flex items-center gap-8">
-        <button onClick={() => setIsMuted(!isMuted)} className={`p-6 rounded-full border-2 transition-all ${isMuted ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-white/5 border-white/20 text-white'}`}>
-            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-        </button>
-        
+        <button onClick={() => setIsMuted(!isMuted)} className={`p-6 rounded-full border-2 transition-all ${isMuted ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-white/5 border-white/20 text-white'}`}>{isMuted ? <MicOff /> : <Mic />}</button>
         {status === 'idle' || status === 'error' ? (
-          <button onClick={startCall} className="w-24 h-24 rounded-full bg-green-500 flex items-center justify-center shadow-2xl hover:scale-105 transition-all text-white">
-              <PhoneCall className="w-10 h-10" />
-          </button>
+          <button onClick={startCall} className="w-24 h-24 rounded-full bg-green-500 flex items-center justify-center shadow-2xl hover:scale-105 transition-all text-white"><PhoneCall className="w-10 h-10" /></button>
         ) : (
-          <button onClick={cleanup} className="w-24 h-24 rounded-full bg-red-500 flex items-center justify-center shadow-2xl hover:scale-105 transition-all text-white">
-              <PhoneOff className="w-10 h-10" />
-          </button>
+          <button onClick={cleanup} className="w-24 h-24 rounded-full bg-red-500 flex items-center justify-center shadow-2xl hover:scale-105 transition-all text-white"><PhoneOff className="w-10 h-10" /></button>
         )}
-        
-        <button className="p-6 rounded-full bg-white/5 border border-white/20 text-white">
-            <Volume2 className="w-6 h-6" />
-        </button>
+        <button className="p-6 rounded-full bg-white/5 border border-white/20 text-white"><Volume2 /></button>
       </div>
     </div>
   );
 };
-
 export default LiveCall;
