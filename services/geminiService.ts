@@ -35,37 +35,86 @@ const getTimeContext = () => {
 
 const getRegionBackground = (region?: string) => {
     switch(region) {
-        case 'Mondstadt': return "Mondstadt City background with windmills, medieval European architecture, dandelion fields, soft clouds";
-        case 'Liyue': return "Liyue Harbor background with red lanterns, traditional stone mountains, Jueyun Karst peaks, golden ginkgo leaves";
-        case 'Inazuma': return "Narukami Island background, purple lightning clouds, floating cherry blossoms, Grand Narukami Shrine, torii gates";
-        case 'Sumeru': return "Lush Rainforest or Sumeru City Academy background, giant glowing trees, Dendro energy particles, mossy ruins";
-        case 'Fontaine': return "Court of Fontaine background, steampunk canals, crystal water fountains, majestic hydro-punk architecture, blue ocean horizon";
-        case 'Natlan': return "Natlan volcanic canyons, lava flows, colorful tribal graffiti on rocks, hot springs, prehistoric fauna environment";
-        case 'Akasha': return "Cyber-space Akasha core, floating data ley lines, glowing green crystals, digital particles";
-        default: return "Ethereal digital space, glowing crystals, Akasha Terminal core";
+        case 'Mondstadt': return "Mondstadt City, windmills, dandelion fields, soft clouds";
+        case 'Liyue': return "Liyue Harbor, traditional stone mountains, golden ginkgo leaves";
+        case 'Inazuma': return "Inazuma, purple lightning clouds, cherry blossoms, torii gates";
+        case 'Sumeru': return "Lush Rainforest, giant glowing trees, Dendro particles, ruins";
+        case 'Fontaine': return "Court of Fontaine, hydro-punk architecture, crystal water fountains";
+        case 'Natlan': return "Natlan volcanic canyons, lava flows, tribal graffiti, hot springs";
+        case 'Akasha': return "Cyber-space Akasha core, data ley lines, glowing green crystals";
+        default: return "Ethereal digital space, Akasha Terminal core";
     }
 };
 
-const getOutfitContext = (prompt: string, personaSummary: string) => {
-    const p = prompt.toLowerCase();
-    if (p.includes("party") || p.includes("pesta") || p.includes("ball") || p.includes("gaun")) 
-        return "Wearing an elegant luxury ballroom gown version of their theme, with jewelry and formal makeup";
-    if (p.includes("sleep") || p.includes("tidur") || p.includes("malam")) 
-        return "Wearing cozy cute soft silk pajamas or nightwear in their signature color palette";
-    if (p.includes("beach") || p.includes("pantai") || p.includes("swim") || p.includes("berenang")) 
-        return "Wearing a stylish summer bikini or swimwear themed after their element and original costume";
-    if (p.includes("battle") || p.includes("tarung") || p.includes("armor") || p.includes("perang")) 
-        return "Wearing heavy battle-ready version of their armor, glowing element energy, serious pose, dynamic action";
-    if (p.includes("casual") || p.includes("modern") || p.includes("kota")) 
-        return "Wearing modern urban streetwear fashion themed after their original colors and personality";
-    
-    // DEFAULT: Hard-lock back to their official visual summary
-    return `Strictly wearing their original canon costume: ${personaSummary.split(', ').slice(2).join(', ')}`;
+/**
+ * IMAGE SYNTHESIS ORCHESTRATOR
+ * REFINED: High-Precision Prompt Engineering
+ */
+export const generateImage = async (
+    prompt: string, 
+    personaId: string = "", 
+    sourceImages: string[] = [], 
+    _u?: any, 
+    sourceModelId: string = 'gemini-3-flash-preview', 
+    aspectRatio: string = "1:1", 
+    style: string = "", 
+    negative: string = ""
+): Promise<string | null> => {
+    const modelCfg = AI_MODELS.find(m => m.id === sourceModelId);
+    const provider = (modelCfg?.provider || 'google').toLowerCase();
+    const persona = PERSONAS.find(p => p.id === personaId);
+
+    // 1. DYNAMIC CONTEXT BUILDER
+    const timeCtx = getTimeContext();
+    const bgCtx = getRegionBackground(persona?.region);
+    const charDesc = persona?.visualSummary || "Masterpiece quality character";
+
+    // 2. MASTER PROMPT CONSTRUCTION (PRECISION FOCUS)
+    let masterPrompt = "";
+
+    if (sourceImages.length > 0) {
+        // --- MODE: PRECISION EDITING / TRANSMUTATION ---
+        masterPrompt = `
+[TASK: IMAGE_TRANSMUTATION]
+[SOURCE_ANALYSIS]: Analyze the provided image(s) with extreme detail.
+[USER_DIRECTIVE]: ${prompt}
+
+[STRICT_RULES]:
+1. PRESERVE the overall composition, identity, and background of the original image UNLESS specified otherwise.
+2. MODIFY SPECIFIC OBJECTS/DETAILS exactly as requested in the directive.
+3. MATCH style, lighting, and color palette of the original artifacts for seamless integration.
+4. If specified, apply ${style || 'masterpiece cinematic'} quality.
+5. ENSURE high fidelity, sharp details, and anatomical accuracy.
+        `.trim();
+    } else {
+        // --- MODE: CREATION FROM VOID ---
+        masterPrompt = `
+[TASK: VISION_MANIFESTATION]
+[SUBJECT]: ${charDesc}
+[ACTION/SCENE]: ${prompt}
+[ENVIRONMENT]: ${bgCtx}
+[LIGHTING/ATMOSPHERE]: ${timeCtx}
+[AESTHETIC]: ${style || 'Masterpiece Genshin Impact splash art, vibrant, sharp details, cinematic'}
+
+[TECHNICAL_SPECIFICATIONS]:
+- Composition: High-end artistic framing.
+- Detail Level: Ultra HD, 8k, meticulous textures.
+- Lighting: Global illumination, volumetric rays.
+- Accuracy: Strict adherence to all keywords in [ACTION/SCENE].
+${negative ? `[EXCLUDE]: ${negative}` : ''}
+        `.trim();
+    }
+
+    // 3. EXECUTION BY PROVIDER
+    if (provider === 'google') return await handleGoogleImageSynthesis(sourceModelId, masterPrompt, aspectRatio, sourceImages);
+    if (provider === 'openai') return await handleOpenAIImageSynthesis(masterPrompt, aspectRatio);
+
+    // Pollinations Fallback
+    const ratioCfg = ASPECT_RATIOS.find(r => r.id === aspectRatio) || { width: 1024, height: 1024 };
+    return handlePollinationsImageSynthesis(masterPrompt, sourceModelId, ratioCfg.width, ratioCfg.height);
 };
 
-/**
- * CHAT & TEXT ORCHESTRATOR
- */
+// ... (Sisa kode chatWithAI, generateTTS, dll tetap sama untuk menjaga integritas fitur)
 export const chatWithAI = async (modelId: string, history: any[], message: string, systemInstruction: string, userContext: string = "", images: ImageAttachment[] = []) => {
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
@@ -94,78 +143,26 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
     }
 };
 
-/**
- * IMAGE SYNTHESIS ORCHESTRATOR
- */
-export const generateImage = async (
-    prompt: string, 
-    personaId: string = "", 
-    _inputImgs?: string[], 
-    _u?: any, 
-    sourceModelId: string = 'gemini-3-flash-preview', 
-    aspectRatio: string = "1:1", 
-    style: string = "", 
-    negative: string = ""
-): Promise<string | null> => {
-    const modelCfg = AI_MODELS.find(m => m.id === sourceModelId);
-    const provider = (modelCfg?.provider || 'google').toLowerCase();
-    const persona = PERSONAS.find(p => p.id === personaId);
-
-    // CONSISTENCY ENGINE
-    const timeCtx = getTimeContext();
-    const bgCtx = getRegionBackground(persona?.region);
-    const outfitCtx = getOutfitContext(prompt, persona?.visualSummary || "Beautiful character");
-    const characterCore = persona?.visualSummary || "Anime character";
-
-    const masterPrompt = `[CONSISTENT_SUBJECT: ${characterCore}] 
-    [OUTFIT_STATE: ${outfitCtx}]
-    [CURRENT_ACTION: ${prompt}] 
-    [ENVIRONMENT_LOCK: ${bgCtx}, ${timeCtx}]
-    [AESTHETIC_LOCK: masterpiece genshin impact splash art style, vibrant lighting, sharp details, cinematic composition, ${style}] 
-    [QUALITY_GUARD: perfect face, perfect hands, detailed eyes, consistent hair length, high fidelity, 8k] 
-    ${negative ? `[IGNORE: ${negative}]` : ''}`;
-
-    if (provider === 'google') return await handleGoogleImageSynthesis(sourceModelId, masterPrompt, aspectRatio);
-    if (provider === 'openai') return await handleOpenAIImageSynthesis(masterPrompt, aspectRatio);
-
-    const ratioCfg = ASPECT_RATIOS.find(r => r.id === aspectRatio) || { width: 1024, height: 1024 };
-    return handlePollinationsImageSynthesis(masterPrompt, sourceModelId, ratioCfg.width, ratioCfg.height);
-};
-
-/**
- * TTS INTERFACE
- */
 export const generateTTS = async (text: string, voiceName: string, _config?: VoiceConfig) => {
     const audibleText = text
         .replace(/(https?:\/\/[^\s]+)/g, 'link')
         .replace(/\|\|GEN_IMG:.*?\|\|/g, '')
         .trim();
-        
     return await handleGoogleTTS(audibleText, voiceName);
 };
 
-/**
- * VIDEO INTERFACE
- */
 export const generateVideo = async (prompt: string, image?: string, modelId?: string): Promise<string | null> => {
     return await handleGoogleVideoGeneration(prompt, image, modelId);
 };
 
-/**
- * UTILS: TRANSLATION
- */
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
     return await handleGoogleTextRequest('gemini-3-flash-preview', [{role:'user', parts:[{text:`Translate to ${targetLanguage}:\n${text}`}]}], "You are a translation node.");
 };
 
-/**
- * UTILS: PERSONA ANALYSIS
- */
 export const analyzePersonaFromImage = async (base64Image: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const [header, data] = base64Image.split(',');
     const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
-    
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: {
@@ -194,9 +191,6 @@ export const analyzePersonaFromImage = async (base64Image: string) => {
     return JSON.parse(response.text || '{}');
 };
 
-/**
- * UTILS: API KEY VALIDATION
- */
 export const validateApiKey = async (key: string, provider: string): Promise<boolean> => {
     if (provider === 'google') {
         try {

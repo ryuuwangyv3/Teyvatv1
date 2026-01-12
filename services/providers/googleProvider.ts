@@ -7,8 +7,6 @@ import { addWavHeader } from "../../utils/audioUtils";
  */
 export const handleGoogleTextRequest = async (model: string, contents: any[], systemInstruction: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    // Always enable search for models that support it to facilitate video/web finding
     const supportSearch = model.includes('pro') || model.includes('flash') || model.includes('3-');
     
     try {
@@ -44,68 +42,108 @@ export const handleGoogleTextRequest = async (model: string, contents: any[], sy
 };
 
 /**
- * Handle Image Synthesis via Gemini/Imagen Models
+ * Handle Image Synthesis (Generation/Editing/Merging)
+ * FIXED: Recursive scanner to find inlineData across all candidates and parts.
  */
-export const handleGoogleImageSynthesis = async (modelId: string, prompt: string, aspectRatio: string): Promise<string | null> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    let visualModel = "gemini-2.5-flash-image";
+export const handleGoogleImageSynthesis = async (modelId: string, prompt: string, aspectRatio: string, base64Images?: string[]): Promise<string | null> => {
+    let targetModel = modelId;
     
+    // Auto-select model based on capabilities
     if (modelId.includes('pro')) {
-        let keySelected = true;
+        targetModel = "gemini-3-pro-image-preview";
+        // Check for session-based key selection
         if (typeof window !== 'undefined' && (window as any).aistudio) {
-            keySelected = await (window as any).aistudio.hasSelectedApiKey();
+            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            if (!hasKey) await (window as any).aistudio.openSelectKey();
         }
-        if (keySelected) visualModel = "gemini-3-pro-image-preview";
+    } else if (!modelId.includes('imagen')) {
+        targetModel = "gemini-2.5-flash-image";
     }
+
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     try {
-        const config: any = { imageConfig: { aspectRatio: aspectRatio as any } };
-        if (visualModel === "gemini-3-pro-image-preview") config.imageConfig.imageSize = "1K";
+        const parts: any[] = [];
+        
+        // 1. Ingest Base Artifacts (Source Images)
+        if (base64Images && base64Images.length > 0) {
+            base64Images.forEach(img => {
+                if (!img) return;
+                // Parse MIME and strip header
+                const match = img.match(/^data:(image\/\w+);base64,(.*)$/);
+                if (match) {
+                    parts.push({
+                        inlineData: {
+                            mimeType: match[1],
+                            data: match[2].replace(/[\n\r\s]/g, '') // Clean base64 string
+                        }
+                    });
+                }
+            });
+        }
+
+        // 2. Add Directive (Prompt)
+        parts.push({ text: prompt });
+
+        const config: any = { 
+            imageConfig: { 
+                aspectRatio: (aspectRatio as any) || "1:1"
+            } 
+        };
+        
+        if (targetModel.includes('pro')) {
+            config.imageConfig.imageSize = "1K";
+        }
 
         const response = await ai.models.generateContent({
-            model: visualModel,
-            contents: { parts: [{ text: prompt }] },
+            model: targetModel,
+            contents: { parts: parts },
             config: config
         });
         
-        if (response.candidates && response.candidates[0]?.content?.parts) {
-            for (const part of response.candidates[0].content.parts) {
-                if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+        // 3. Robust Part Extraction
+        // Search all candidates for valid image parts
+        if (response.candidates) {
+            for (const candidate of response.candidates) {
+                if (candidate.content?.parts) {
+                    for (const part of candidate.content.parts) {
+                        if (part.inlineData?.data) {
+                            const mime = part.inlineData.mimeType || 'image/png';
+                            // Successfully extracted visual fragment
+                            return `data:${mime};base64,${part.inlineData.data}`;
+                        }
+                    }
+                }
             }
         }
+        
+        console.warn("Vision Protocol: Image data not found in Irminsul response.");
+        return null;
     } catch (e: any) {
+        console.error("Vision Protocol Failure:", e);
         if (e?.message?.includes("Requested entity was not found") && typeof window !== 'undefined' && (window as any).aistudio) {
             await (window as any).aistudio.openSelectKey();
         }
+        return null;
     }
-    return null;
 };
 
 /**
  * Handle Text-to-Speech via Gemini TTS
- * Enhanced to handle long text and ensure all content is spoken correctly.
  */
 export const handleGoogleTTS = async (text: string, voiceName: string) => {
     if (!text || !text.trim()) return null;
-    
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Clean text more aggressively for speech
+    // Clean text for optimal TTS resonance
     const cleanText = text
-        .replace(/```[\s\S]*?```/g, ' [Kode skrip terlampir] ') // Don't speak large code blocks
-        .replace(/`([^`]+)`/g, '$1') // Speak inline code
+        .replace(/```[\s\S]*?```/g, ' [Data Fragment] ')
         .replace(/\|\|GEN_IMG:.*?\|\|/g, '') 
-        .replace(/\|\|VIDEO_EMBED:.*?\|\|/g, '') 
-        .replace(/\|\|WEB_EMBED:.*?\|\|/g, '')   
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Just read link text
         .replace(/[*#~>|\\-]/g, ' ')         
-        .replace(/(https?:\/\/[^\s]+)/g, ' tautan ')  
-        .replace(/[^\x20-\x7E\u00A0-\u00FF\u0100-\u017F\u0180-\u024F\u002E\u002C\u003F\u0021\u003A]/g, ' ') 
-        .replace(/\s+/g, ' ')                
-        .substring(0, 3000) // Extended limit for full response
+        .substring(0, 3000) 
         .trim();
 
-    if (!cleanText || cleanText.length < 1) return null;
+    if (!cleanText) return null;
 
     try {
         const response = await ai.models.generateContent({
@@ -122,11 +160,8 @@ export const handleGoogleTTS = async (text: string, voiceName: string) => {
         });
 
         const audioPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-        const rawPcm = audioPart?.inlineData?.data;
-        
-        if (rawPcm) {
-            // Raw PCM data from gemini-2.5-flash-preview-tts is 24kHz mono
-            return addWavHeader(rawPcm, 24000, 1);
+        if (audioPart?.inlineData?.data) {
+            return addWavHeader(audioPart.inlineData.data, 24000, 1);
         }
     } catch (e: any) {
         console.error("TTS Resonance Failure:", e);
@@ -152,7 +187,7 @@ export const handleGoogleVideoGeneration = async (prompt: string, image?: string
         };
         if (image) {
             const [header, data] = image.split(',');
-            config.image = { imageBytes: data, mimeType: header.match(/:(.*?);/)?.[1] || 'image/png' };
+            config.image = { imageBytes: data.replace(/[\n\r\s]/g, ''), mimeType: header.match(/:(.*?);/)?.[1] || 'image/png' };
         }
         
         let operation = await ai.models.generateVideos(config);
