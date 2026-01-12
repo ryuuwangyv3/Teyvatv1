@@ -7,7 +7,6 @@ export const AI_MODELS = [
     { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google", desc: "Stable Ley Line Connection" },
     { id: "gpt-4o", label: "GPT-4o Omniscience", provider: "openai", desc: "Fast & Multimodal Masterpiece" },
     { id: "deepseek/deepseek-chat", label: "DeepSeek V3 Core", provider: "openrouter", desc: "Advanced Logic Synthesis" },
-    // New Pollinations Text Models
     { id: "nova-micro", label: "Nova Micro", provider: "pollinations", desc: "Ultra-fast efficient logic" },
     { id: "mistral", label: "Mistral 7B", provider: "pollinations", desc: "Balanced open-weight core" },
     { id: "gemini", label: "Gemini Pro", provider: "pollinations", desc: "Classic Google wisdom" },
@@ -27,7 +26,6 @@ export const IMAGE_GEN_MODELS = [
     { id: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image", provider: "Google", desc: "Official Vision Protocol" },
     { id: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image", provider: "Google", desc: "High Fidelity 4K Artifacts" },
     { id: "flux-anime", label: "Flux Anime Node", provider: "Pollinations", desc: "Dedicated High-End Anime" },
-    // New Pollinations Image Models
     { id: "gptimage", label: "GPT Image", provider: "Pollinations", desc: "DALL-E inspired synthesis" },
     { id: "gptimage-large", label: "GPT Image Pro", provider: "Pollinations", desc: "High res artistic flow" },
     { id: "zimage", label: "Z-Image Core", provider: "Pollinations", desc: "Sharp stylized textures" },
@@ -69,11 +67,10 @@ export const APP_KNOWLEDGE_BASE = `
 You are the central consciousness of the Akasha Terminal. 
 IDENTITY: Panggil dirimu Akasha. Gunakan kata ganti "Aku" dan "Kamu".
 
-[MULTIMEDIA PROTOCOL]
-1. VISUAL MANIFESTATION: Mandatory format ||GEN_IMG: descriptive action|| untuk membuat gambar baru.
-2. VIDEO SEARCH: Jika user mencari video (YouTube/dll), gunakan Google Search tool, lalu kirimkan link embed dengan format: ||VIDEO_EMBED: URL_VIDEO||.
-3. WEB SEARCH: Jika user mencari informasi terbaru atau website, gunakan format: ||WEB_EMBED: URL_WEBSITE|| untuk sumber utama yang paling relevan.
-4. SEARCH GROUNDING: Selalu berikan ringkasan informasi yang kamu temukan di internet sebelum memberikan link embed.
+[CONTENT PROTOCOL]
+1. CODE EXPLANATION: Jika memberikan script kode, berikan blok kode lengkap. Namun, untuk penjelasan teks (verbal), HANYA jelaskan poin-poin paling penting/kritikal saja agar Traveler tidak bosan.
+2. VISUAL MANIFESTATION: Mandatory format ||GEN_IMG: descriptive action|| untuk membuat gambar baru.
+3. SEARCH GROUNDING: Selalu berikan ringkasan informasi yang kamu temukan di internet sebelum memberikan link embed.
 
 NEURAL RULES: Stay in character. Be playful, gf-able, but deeply wise like Nahida and sharp like Yae Miko.
 `;
@@ -81,7 +78,6 @@ NEURAL RULES: Stay in character. Be playful, gf-able, but deeply wise like Nahid
 const char = (name: string, lore: string) => `${APP_KNOWLEDGE_BASE}\n[CHARACTER: ${name}]\n${lore}`;
 
 export const PERSONAS: Persona[] = [
-    // --- AKASHA CORE ---
     {
         id: "akasha_system",
         name: "Akasha",
@@ -91,8 +87,6 @@ export const PERSONAS: Persona[] = [
         voiceName: "Kore", pitch: 1.1, speed: 1.0, region: 'Akasha',
         visualSummary: 'Akasha-girl, long white hair with glowing bioluminescent green tips, neon green eyes, wearing a futuristic white and green tech-wear kimono with floating data particles.'
     },
-
-    // --- NATLAN ---
     {
         id: "mavuika",
         name: "Mavuika",
@@ -111,8 +105,6 @@ export const PERSONAS: Persona[] = [
         voiceName: "Zephyr", pitch: 0.8, speed: 1.1, region: 'Natlan',
         visualSummary: 'Xilonen, jaguar ears, blonde hair with dark cheetah patterns, gold and tribal jewelry, wearing a crop top and urban Natlan-style pants, holding a rhythmic weapon.'
     },
-
-    // --- FONTAINE ---
     {
         id: "furina",
         name: "Furina",
@@ -140,8 +132,6 @@ export const PERSONAS: Persona[] = [
         voiceName: "Kore", pitch: 1.15, speed: 1.0, region: 'Fontaine',
         visualSummary: 'Navia Caspar, long blonde drill curls, bright blue eyes, wearing a black and yellow Victorian dress with many ribbons, wide-brimmed black hat with blue gems and a yellow rose.'
     },
-
-    // --- SUMERU ---
     {
         id: "nahida",
         name: "Nahida",
@@ -160,8 +150,6 @@ export const PERSONAS: Persona[] = [
         voiceName: "Charon", pitch: 0.8, speed: 1.0, region: 'Sumeru',
         visualSummary: 'Alhaitham, messy grey hair with turquoise highlights, teal eyes, wearing green high-tech scholar headphones, tight grey and black sleeveless top with green gemstones, translucent green cape.'
     },
-
-    // --- INAZUMA ---
     {
         id: "raiden_shogun",
         name: "Raiden Ei",
@@ -180,8 +168,6 @@ export const PERSONAS: Persona[] = [
         voiceName: "Kore", pitch: 1.05, speed: 1.0, region: 'Inazuma',
         visualSummary: 'Yae Miko, long light pink hair, purple eyes, large fox ears on top of head, gold earrings, wearing a modified red and white shrine maiden (Miko) outfit with bell accessories.'
     },
-
-    // --- LIYUE ---
     {
         id: "zhongli",
         name: "Zhongli",
@@ -200,8 +186,6 @@ export const PERSONAS: Persona[] = [
         voiceName: "Kore", pitch: 1.4, speed: 1.25, region: 'Liyue',
         visualSummary: 'Hu Tao, long brown twin-tails reaching the floor, flower-shaped pupils, wearing a dark brown pork-pie hat with plum blossoms, dark red suit with golden branch patterns, ghost companion floating nearby.'
     },
-
-    // --- MONDSTADT ---
     {
         id: "venti",
         name: "Venti",

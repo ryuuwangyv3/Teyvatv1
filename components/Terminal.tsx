@@ -289,12 +289,14 @@ const Terminal: React.FC<TerminalProps> = ({
     return (
         <div className="flex flex-col h-full bg-[#0b0e14] relative overflow-hidden">
             {lightboxUrl && (
-                <div className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setLightboxUrl(null)}>
-                    <img src={lightboxUrl} className="max-w-full max-h-[85vh] object-contain rounded-2xl border-2 border-[#d3bc8e]/30 shadow-[0_0_80px_rgba(211,188,142,0.3)] animate-in zoom-in duration-500" alt="Preview" onClick={e => e.stopPropagation()} />
-                    <div className="fixed bottom-12 flex items-center gap-6 bg-[#13182b]/90 backdrop-blur-xl border border-[#d3bc8e]/40 px-10 py-5 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-10 duration-700" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => {const a = document.createElement('a'); a.href = lightboxUrl; a.download = `artifact_${Date.now()}.png`; a.click();}} className="flex items-center gap-3 text-xs font-black text-[#d3bc8e] uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95"><Download className="w-5 h-5" /> <span>Extract Data</span></button>
-                        <div className="w-px h-6 bg-[#d3bc8e]/20"></div>
-                        <button onClick={() => setLightboxUrl(null)} className="flex items-center gap-3 text-xs font-black text-red-400 uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95"><X className="w-5 h-5" /> <span>Close Portal</span></button>
+                <div className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-4 overflow-y-auto custom-scrollbar animate-in fade-in duration-300" onClick={() => setLightboxUrl(null)}>
+                    <div className="relative group max-w-full flex flex-col items-center">
+                        <img src={lightboxUrl} className="max-w-full max-h-[85vh] object-contain rounded-2xl border-2 border-[#d3bc8e]/30 shadow-[0_0_80px_rgba(211,188,142,0.3)] animate-in zoom-in duration-500 mb-12" alt="Preview" onClick={e => e.stopPropagation()} />
+                        <div className="flex items-center gap-6 bg-[#13182b]/90 backdrop-blur-xl border border-[#d3bc8e]/40 px-10 py-5 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-10 duration-700" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => {const a = document.createElement('a'); a.href = lightboxUrl; a.download = `artifact_${Date.now()}.png`; a.click();}} className="flex items-center gap-3 text-xs font-black text-[#d3bc8e] uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95"><Download className="w-5 h-5" /> <span>Extract Data</span></button>
+                            <div className="w-px h-6 bg-[#d3bc8e]/20"></div>
+                            <button onClick={() => setLightboxUrl(null)} className="flex items-center gap-3 text-xs font-black text-red-400 uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95"><X className="w-5 h-5" /> <span>Close Portal</span></button>
+                        </div>
                     </div>
                 </div>
             )}

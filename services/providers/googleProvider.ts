@@ -17,7 +17,7 @@ export const handleGoogleTextRequest = async (model: string, contents: any[], sy
             contents: contents,
             config: {
                 systemInstruction: systemInstruction,
-                temperature: 0.9, // Balanced for creativity and precision
+                temperature: 0.9, 
                 topP: 0.95,
                 ...(supportSearch ? { tools: [{ googleSearch: {} }] } : {})
             }
@@ -26,7 +26,6 @@ export const handleGoogleTextRequest = async (model: string, contents: any[], sy
         let text = response.text || "";
         const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
         if (chunks && chunks.length > 0) {
-            // Keep existing fragments logic but cleaned up
             const links = chunks
                 .map((c: any) => c.web?.uri ? `- [${c.web.title || 'Source'}](${c.web.uri})` : null)
                 .filter(Boolean);
@@ -84,22 +83,26 @@ export const handleGoogleImageSynthesis = async (modelId: string, prompt: string
 
 /**
  * Handle Text-to-Speech via Gemini TTS
+ * Enhanced to handle long text and ensure all content is spoken correctly.
  */
 export const handleGoogleTTS = async (text: string, voiceName: string) => {
     if (!text || !text.trim()) return null;
     
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
+    // Clean text more aggressively for speech
     const cleanText = text
+        .replace(/```[\s\S]*?```/g, ' [Kode skrip terlampir] ') // Don't speak large code blocks
+        .replace(/`([^`]+)`/g, '$1') // Speak inline code
         .replace(/\|\|GEN_IMG:.*?\|\|/g, '') 
-        .replace(/\|\|VIDEO_EMBED:.*?\|\|/g, '') // Hide video tags from speech
-        .replace(/\|\|WEB_EMBED:.*?\|\|/g, '')   // Hide web tags from speech
-        .replace(/\[.*?\]\(.*?\)/g, '')       
-        .replace(/[*#`~>|\\-]/g, '')         
-        .replace(/(https?:\/\/[^\s]+)/g, '')  
+        .replace(/\|\|VIDEO_EMBED:.*?\|\|/g, '') 
+        .replace(/\|\|WEB_EMBED:.*?\|\|/g, '')   
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Just read link text
+        .replace(/[*#~>|\\-]/g, ' ')         
+        .replace(/(https?:\/\/[^\s]+)/g, ' tautan ')  
         .replace(/[^\x20-\x7E\u00A0-\u00FF\u0100-\u017F\u0180-\u024F\u002E\u002C\u003F\u0021\u003A]/g, ' ') 
         .replace(/\s+/g, ' ')                
-        .substring(0, 1500)                  
+        .substring(0, 3000) // Extended limit for full response
         .trim();
 
     if (!cleanText || cleanText.length < 1) return null;
@@ -122,6 +125,7 @@ export const handleGoogleTTS = async (text: string, voiceName: string) => {
         const rawPcm = audioPart?.inlineData?.data;
         
         if (rawPcm) {
+            // Raw PCM data from gemini-2.5-flash-preview-tts is 24kHz mono
             return addWavHeader(rawPcm, 24000, 1);
         }
     } catch (e: any) {
