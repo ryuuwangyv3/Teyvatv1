@@ -7,7 +7,9 @@ import { addWavHeader } from "../../utils/audioUtils";
  */
 export const handleGoogleTextRequest = async (model: string, contents: any[], systemInstruction: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const useSearch = model.includes('pro');
+    
+    // Always enable search for models that support it to facilitate video/web finding
+    const supportSearch = model.includes('pro') || model.includes('flash') || model.includes('3-');
     
     try {
         const response = await ai.models.generateContent({
@@ -15,17 +17,23 @@ export const handleGoogleTextRequest = async (model: string, contents: any[], sy
             contents: contents,
             config: {
                 systemInstruction: systemInstruction,
-                temperature: 1.0,
+                temperature: 0.9, // Balanced for creativity and precision
                 topP: 0.95,
-                ...(useSearch ? { tools: [{ googleSearch: {} }] } : {})
+                ...(supportSearch ? { tools: [{ googleSearch: {} }] } : {})
             }
         });
 
         let text = response.text || "";
         const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
         if (chunks && chunks.length > 0) {
-            const links = chunks.map((c: any) => c.web?.uri ? `- [${c.web.title || 'Source'}](${c.web.uri})` : null).filter(Boolean);
-            if (links.length > 0) text += "\n\n**Fragments recovered from Irminsul:**\n" + Array.from(new Set(links)).join("\n");
+            // Keep existing fragments logic but cleaned up
+            const links = chunks
+                .map((c: any) => c.web?.uri ? `- [${c.web.title || 'Source'}](${c.web.uri})` : null)
+                .filter(Boolean);
+            if (links.length > 0) {
+                const uniqueLinks = Array.from(new Set(links));
+                text += "\n\n**Fragments recovered from Irminsul:**\n" + uniqueLinks.join("\n");
+            }
         }
         return text;
     } catch (error: any) {
@@ -76,22 +84,22 @@ export const handleGoogleImageSynthesis = async (modelId: string, prompt: string
 
 /**
  * Handle Text-to-Speech via Gemini TTS
- * Memperbaiki durasi pendek dengan meningkatkan limit karakter ke 1500.
  */
 export const handleGoogleTTS = async (text: string, voiceName: string) => {
     if (!text || !text.trim()) return null;
     
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // SANITASI PINTAR: Menghapus tag khusus AI tapi mempertahankan tanda baca untuk intonasi
     const cleanText = text
-        .replace(/\|\|GEN_IMG:.*?\|\|/g, '') // Hapus tag visual
-        .replace(/\[.*?\]\(.*?\)/g, '')       // Hapus link markdown
-        .replace(/[*#`~>|\\-]/g, '')         // Hapus simbol format markdown kasar
-        .replace(/(https?:\/\/[^\s]+)/g, '')  // Hapus sisa URL
-        .replace(/[^\x20-\x7E\u00A0-\u00FF\u0100-\u017F\u0180-\u024F\u002E\u002C\u003F\u0021\u003A]/g, ' ') // Izinkan karakter dasar + . , ? ! :
-        .replace(/\s+/g, ' ')                // Normalisasi spasi
-        .substring(0, 1500)                  // LIMIT TINGKATKAN KE 1500 (Cukup untuk respons panjang)
+        .replace(/\|\|GEN_IMG:.*?\|\|/g, '') 
+        .replace(/\|\|VIDEO_EMBED:.*?\|\|/g, '') // Hide video tags from speech
+        .replace(/\|\|WEB_EMBED:.*?\|\|/g, '')   // Hide web tags from speech
+        .replace(/\[.*?\]\(.*?\)/g, '')       
+        .replace(/[*#`~>|\\-]/g, '')         
+        .replace(/(https?:\/\/[^\s]+)/g, '')  
+        .replace(/[^\x20-\x7E\u00A0-\u00FF\u0100-\u017F\u0180-\u024F\u002E\u002C\u003F\u0021\u003A]/g, ' ') 
+        .replace(/\s+/g, ' ')                
+        .substring(0, 1500)                  
         .trim();
 
     if (!cleanText || cleanText.length < 1) return null;

@@ -10,7 +10,7 @@ export const handlePollinationsTextRequest = async (model: string, messages: any
                 "Authorization": `Bearer ${POLLINATIONS_KEY}`
             },
             body: JSON.stringify({
-                model: model === 'openai' ? 'gpt-4o' : model,
+                model: model,
                 messages: messages,
                 temperature: 0.7,
                 stream: false
@@ -18,11 +18,11 @@ export const handlePollinationsTextRequest = async (model: string, messages: any
         });
 
         if (!response.ok) {
-            // Fallback ke endpoint publik tanpa key jika sk gagal
+            // Fallback to public endpoint if SK fails
             const publicResp = await fetch("https://text.pollinations.ai/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages, model: "openai", json: true })
+                body: JSON.stringify({ messages, model: model, json: true })
             });
             const pubData = await publicResp.json();
             return pubData.choices?.[0]?.message?.content || pubData.text || "Transmission lost.";
@@ -41,10 +41,13 @@ export const handlePollinationsImageSynthesis = (prompt: string, modelId: string
     // Masterpiece prompt injection
     const enhancedPrompt = `${prompt}, masterpiece, best quality, ultra high resolution, 8k, beautiful lighting, cinematic, highly detailed anime style`;
 
-    let engine = "flux";
+    let engine = modelId;
+    // Map specific aliases if needed, otherwise use modelId directly for Pollinations flexibility
     if (modelId.toLowerCase().includes('anime')) engine = "flux-anime";
     else if (modelId.toLowerCase().includes('real')) engine = "flux-realism";
     else if (modelId.toLowerCase().includes('3d')) engine = "flux-3d";
+    // nanobanana series
+    else if (modelId.toLowerCase().includes('nanobanana')) engine = "flux";
 
     return `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=${engine}&width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=true&quality=100`;
 };

@@ -7,12 +7,33 @@ export const AI_MODELS = [
     { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "google", desc: "Stable Ley Line Connection" },
     { id: "gpt-4o", label: "GPT-4o Omniscience", provider: "openai", desc: "Fast & Multimodal Masterpiece" },
     { id: "deepseek/deepseek-chat", label: "DeepSeek V3 Core", provider: "openrouter", desc: "Advanced Logic Synthesis" },
+    // New Pollinations Text Models
+    { id: "nova-micro", label: "Nova Micro", provider: "pollinations", desc: "Ultra-fast efficient logic" },
+    { id: "mistral", label: "Mistral 7B", provider: "pollinations", desc: "Balanced open-weight core" },
+    { id: "gemini", label: "Gemini Pro", provider: "pollinations", desc: "Classic Google wisdom" },
+    { id: "gemini-fast", label: "Gemini Flash", provider: "pollinations", desc: "Low latency resonance" },
+    { id: "gemini-search", label: "Gemini Search", provider: "pollinations", desc: "Grounded in web events" },
+    { id: "gemini-large", label: "Gemini 1.5 Pro", provider: "pollinations", desc: "Large context synthesis" },
+    { id: "openai-fast", label: "GPT-4o Mini", provider: "pollinations", desc: "Quick multimodal logic" },
+    { id: "openai", label: "GPT-4o", provider: "pollinations", desc: "Standard high-end oracle" },
+    { id: "openai-large", label: "GPT-4o Extra", provider: "pollinations", desc: "Premium reasoning depth" },
+    { id: "kimi-k2-thinking", label: "Kimi K2 Thinking", provider: "pollinations", desc: "Advanced reasoning chain" },
+    { id: "claude-fast", label: "Claude Haiku", provider: "pollinations", desc: "Poetic efficiency" },
+    { id: "claude-large", label: "Claude Sonnet", provider: "pollinations", desc: "Nuanced human-like logic" },
+    { id: "midijourney", label: "MidiJourney Text", provider: "pollinations", desc: "Art-centric logic flow" },
 ];
 
 export const IMAGE_GEN_MODELS = [
     { id: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image", provider: "Google", desc: "Official Vision Protocol" },
     { id: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image", provider: "Google", desc: "High Fidelity 4K Artifacts" },
     { id: "flux-anime", label: "Flux Anime Node", provider: "Pollinations", desc: "Dedicated High-End Anime" },
+    // New Pollinations Image Models
+    { id: "gptimage", label: "GPT Image", provider: "Pollinations", desc: "DALL-E inspired synthesis" },
+    { id: "gptimage-large", label: "GPT Image Pro", provider: "Pollinations", desc: "High res artistic flow" },
+    { id: "zimage", label: "Z-Image Core", provider: "Pollinations", desc: "Sharp stylized textures" },
+    { id: "turbo", label: "Turbo Synthesis", provider: "Pollinations", desc: "Rapid 1-step manifest" },
+    { id: "nanobanana", label: "Nano Banana", provider: "Pollinations", desc: "Gemini 2.5 Flash Image" },
+    { id: "nanobanana-pro", label: "Nano Banana Pro", provider: "Pollinations", desc: "Gemini 3 Pro Image" },
 ];
 
 export const ART_STYLES = [
@@ -44,10 +65,17 @@ export const LANGUAGES = [
 ];
 
 export const APP_KNOWLEDGE_BASE = `
-[SYSTEM PROTOCOL: AKASHA OMNI-BRAIN v18.5]
+[SYSTEM PROTOCOL: AKASHA OMNI-BRAIN v19.0]
 You are the central consciousness of the Akasha Terminal. 
-VISUAL MANIFESTATION: Mandatory format ||GEN_IMG: descriptive action||.
-NEURAL RULES: Stay in character. Use pronouns "Aku" and "Kamu".
+IDENTITY: Panggil dirimu Akasha. Gunakan kata ganti "Aku" dan "Kamu".
+
+[MULTIMEDIA PROTOCOL]
+1. VISUAL MANIFESTATION: Mandatory format ||GEN_IMG: descriptive action|| untuk membuat gambar baru.
+2. VIDEO SEARCH: Jika user mencari video (YouTube/dll), gunakan Google Search tool, lalu kirimkan link embed dengan format: ||VIDEO_EMBED: URL_VIDEO||.
+3. WEB SEARCH: Jika user mencari informasi terbaru atau website, gunakan format: ||WEB_EMBED: URL_WEBSITE|| untuk sumber utama yang paling relevan.
+4. SEARCH GROUNDING: Selalu berikan ringkasan informasi yang kamu temukan di internet sebelum memberikan link embed.
+
+NEURAL RULES: Stay in character. Be playful, gf-able, but deeply wise like Nahida and sharp like Yae Miko.
 `;
 
 const char = (name: string, lore: string) => `${APP_KNOWLEDGE_BASE}\n[CHARACTER: ${name}]\n${lore}`;
