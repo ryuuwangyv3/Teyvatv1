@@ -116,7 +116,6 @@ const App: React.FC = () => {
       setCurrentPersona(p);
       setActiveMenu(MenuType.TERMINAL);
       
-      // AUTO-SYNC VOICE CONFIG BASED ON PERSONA PRESETS
       setVoiceConfig(prev => ({
           ...prev,
           voiceId: p.voiceName,
@@ -147,12 +146,17 @@ const App: React.FC = () => {
     ![MenuType.ADMIN_CONSOLE, MenuType.API_KEY, MenuType.LIVE_CALL].includes(m)
   );
 
+  // FIXED: Memastikan instruksi bahasa digabungkan ke system instruction persona
+  const combinedSystemInstruction = useMemo(() => {
+    return `${currentPersona.systemInstruction}\n\n[MANDATORY_LANGUAGE_SYNC]\n- ${currentLanguage.instruction}\n- ALWAYS respond using the dialect and cultural rules of ${currentLanguage.label}.\n- IGNORE previous language defaults if they conflict with this protocol.`;
+  }, [currentPersona.systemInstruction, currentLanguage]);
+
   const activeContent = useMemo(() => {
       if (!isDataLoaded) return null;
       switch (activeMenu) {
           case MenuType.DASHBOARD: return <Dashboard />;
           case MenuType.STORAGE: return <Drive />;
-          case MenuType.TERMINAL: return <Terminal key={`${currentPersona.id}-${terminalKey}`} currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
+          case MenuType.TERMINAL: return <Terminal key={`${currentPersona.id}-${terminalKey}`} currentPersona={{...currentPersona, systemInstruction: combinedSystemInstruction}} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
           case MenuType.PERSONAS: return <PersonaSelector onSelect={handlePersonaSelect} activePersonaId={currentPersona.id} onCustomAdd={() => {}} onDeleteCustom={() => {}} customPersonas={[]} />;
           case MenuType.VISION_GEN: return <VisionGen onError={setGlobalErrorLog} />;
           case MenuType.VIDEO_GEN: return <VideoGen />;
@@ -163,9 +167,9 @@ const App: React.FC = () => {
           case MenuType.ABOUT: return <About onSwitchToAdmin={() => setActiveMenu(MenuType.ADMIN_CONSOLE)} />;
           case MenuType.ADMIN_CONSOLE: return <AdminConsole apiKeys={apiKeys} setApiKeys={setApiKeys} userProfile={userProfile} selectedModel={selectedModel} setSelectedModel={setSelectedModel} />;
           case MenuType.REALM_PORTAL: return <ExternalPortal />;
-          default: return <Terminal key={`${currentPersona.id}-${terminalKey}`} currentPersona={currentPersona} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
+          default: return <Terminal key={`${currentPersona.id}-${terminalKey}`} currentPersona={{...currentPersona, systemInstruction: combinedSystemInstruction}} userProfile={userProfile} currentLanguage={currentLanguage} voiceConfig={voiceConfig} selectedModel={selectedModel} onError={setGlobalErrorLog} isSupabaseConnected={isSupabaseConnected} />;
       }
-  }, [activeMenu, currentPersona, userProfile, currentLanguage, voiceConfig, selectedModel, isDataLoaded, apiKeys, isSupabaseConnected, terminalKey]);
+  }, [activeMenu, currentPersona, combinedSystemInstruction, userProfile, currentLanguage, voiceConfig, selectedModel, isDataLoaded, apiKeys, isSupabaseConnected, terminalKey]);
 
   if (!isDataLoaded) return (
     <div className="h-full w-full bg-[#0b0e14] flex flex-col items-center justify-center text-[#d3bc8e]">
@@ -287,9 +291,9 @@ const App: React.FC = () => {
                         {showModelDropdown && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setShowModelDropdown(false)}></div>
-                                <div className="absolute top-full right-0 mt-3 w-72 bg-[#13182b]/98 backdrop-blur-2xl border border-[#d3bc8e]/30 rounded-[1.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-20 py-3 overflow-hidden animate-in slide-in-from-top-3 duration-300">
+                                <div className="absolute top-full right-0 mt-3 w-72 bg-[#1a1f35] border-2 border-[#d3bc8e]/40 rounded-[1.5rem] shadow-[0_30px_70px_rgba(0,0,0,0.9)] z-[100] py-3 overflow-hidden animate-in slide-in-from-top-3 duration-300">
                                     <div className="px-5 py-2 border-b border-[#d3bc8e]/10 mb-2">
-                                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-[0.2em]">Wisdom Core Selection</span>
+                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Wisdom Core Selection</span>
                                     </div>
                                     <div className="max-h-72 overflow-y-auto custom-scrollbar px-2 space-y-1">
                                         {AI_MODELS.map(m => (
@@ -344,14 +348,13 @@ const App: React.FC = () => {
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#d3bc8e]/50">Synchronizing Ley Lines...</p>
                 </div>
              }>
-                <div className="h-full w-full overflow-hidden">
+                <div className="h-full w-full overflow-hidden" key={activeMenu}>
                     {activeContent}
                 </div>
              </Suspense>
           </ErrorBoundary>
         </section>
         
-        {/* Dynamic Elemental Aura Background */}
         <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-[#d3bc8e]/5 to-transparent pointer-events-none z-0"></div>
       </main>
 

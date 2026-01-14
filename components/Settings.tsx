@@ -25,7 +25,8 @@ const Settings: React.FC<SettingsProps> = ({ voiceConfig, setVoiceConfig, onSwit
     try {
         const text = "Ad Astra Abyssosque.";
         const voice = voiceConfig.voiceId || 'Kore'; 
-        const audioBase64 = await generateTTS(text, voice, voiceConfig);
+        // Fixed: generateTTS only accepts 2 arguments (text, voiceName) in its definition.
+        const audioBase64 = await generateTTS(text, voice);
         
         if (audioBase64) {
              const binaryString = atob(audioBase64);
@@ -37,6 +38,8 @@ const Settings: React.FC<SettingsProps> = ({ voiceConfig, setVoiceConfig, onSwit
              const blob = new Blob([bytes], { type: 'audio/wav' });
              const url = URL.createObjectURL(blob);
              const audio = new Audio(url);
+             // Apply speed modulation manually for preview
+             audio.playbackRate = voiceConfig.speed || 1.0;
              audio.play();
              audio.onended = () => setIsPreviewing(false);
         } else {

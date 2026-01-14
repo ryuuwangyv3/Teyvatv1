@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, Terminal as TerminalIcon, Mic, Paperclip, X, Download, Maximize2, Reply, RefreshCw, FileText, Image as ImageIcon, FileCode, Music, Film, File, Sparkles, Cpu } from 'lucide-react';
 import { Persona, UserProfile, Message, Language, VoiceConfig, Attachment } from '../types';
@@ -154,7 +153,7 @@ const Terminal: React.FC<TerminalProps> = ({
         try {
             const historyForAi = messages.slice(-15).map(m => ({
                 role: m.role,
-                content: m.text // Changed from 'parts' for broader Pollinations POST compatibility
+                content: m.text 
             }));
 
             const imageParts = currentAttachments
@@ -166,12 +165,21 @@ const Terminal: React.FC<TerminalProps> = ({
                     }
                 }));
 
-            let enrichedPrompt = textToSend;
+            // INJECT REAL-TIME TEMPORAL CONTEXT
+            const now = new Date();
+            const timeInfo = `[TIME_RESONANCE_DATA]
+- Current Local Time: ${now.toLocaleTimeString()}
+- Current Date: ${now.toLocaleDateString()}
+- Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
+- Traveler Presence: Connected via Terminal`;
+
+            let enrichedPrompt = `${timeInfo}\n\n[USER_MESSAGE]\n${textToSend}`;
+            
             for (const pa of currentAttachments) {
                 if (!pa.type.startsWith('image/') && pa.base64Data) {
                     try {
                         const decoded = atob(pa.base64Data);
-                        enrichedPrompt += `\n\n[FRAGMENT: ${pa.file.name}]\n${decoded}`;
+                        enrichedPrompt += `\n\n[ATTACHED_CONTENT: ${pa.file.name}]\n${decoded}`;
                     } catch (e) { console.error("Failed to decode text fragment", e); }
                 }
             }
@@ -181,13 +189,14 @@ const Terminal: React.FC<TerminalProps> = ({
                 historyForAi,
                 enrichedPrompt,
                 currentPersona.systemInstruction,
-                `User Node: ${userProfile.username}. Temporal Marker: ${new Date().toLocaleTimeString()}`,
+                `User Context: ${userProfile.username}. Real-time Sync Active.`,
                 imageParts
             );
 
             let imgUrl: string | undefined;
-            const cleanText = rawResponse.replace(/\|\|GEN_IMG:.*?\|\|/g, '').trim();
-            const imgMatch = rawResponse.match(/\|\|GEN_IMG:\s*(.*?)\s*\|\|/);
+            const visualTagPattern = /\|\|GEN_IMG:\s*(.*?)\s*\|\|/i;
+            const imgMatch = rawResponse.match(visualTagPattern);
+            const cleanText = rawResponse.replace(/\|\|GEN_IMG:[\s\S]*?\|\|/gi, '').trim();
             
             if (imgMatch) {
                 setTypingStatus('Manifesting Artifact...');
@@ -305,23 +314,26 @@ const Terminal: React.FC<TerminalProps> = ({
                         </p>
                     </div>
                 )}
-                <div className="flex flex-col gap-8 max-w-6xl mx-auto">
+                
+                <div className="flex flex-col gap-8 max-w-6xl mx-auto relative">
                     {messages.map((msg, idx) => (
                         <div key={msg.id} className="message-in">
                             <MessageItem msg={msg} userProfile={userProfile} currentPersona={currentPersona} editingId={editingId} editValue={editValue} copiedId={copiedId} isTranslating={isTranslating} generatingTTSId={generatingTTSId} onLightbox={setLightboxUrl} onEditChange={setEditValue} onSaveEdit={handleSaveEdit} onCancelEdit={() => setEditingId(null)} onCopy={(text, id) => { navigator.clipboard.writeText(text); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); }} onTranslate={handleTranslate} onToggleTranslation={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, showTranslation: !m.showTranslation } : m))} onDelete={handleDelete} onEditStart={(m) => { setEditingId(m.id); setEditValue(m.text); }} onPlayTTS={handlePlayTTS} onReply={setReplyingTo} voiceConfig={voiceConfig} isLatest={idx === messages.length - 1} />
                         </div>
                     ))}
-                </div>
-                {isTyping && (
-                    <div className="flex items-center gap-4 px-6 py-3 bg-[#d3bc8e]/10 border border-[#d3bc8e]/25 rounded-full w-fit animate-in fade-in slide-in-from-left-6 shadow-2xl backdrop-blur-xl ml-4 sm:ml-20">
-                        <div className="relative">
-                            <Loader2 className="w-4 h-4 animate-spin text-[#d3bc8e]" />
-                            <div className="absolute inset-0 bg-[#d3bc8e] blur-md opacity-20 animate-pulse"></div>
+                    
+                    {isTyping && (
+                        <div className="flex items-center gap-4 px-6 py-3 bg-[#d3bc8e]/10 border border-[#d3bc8e]/25 rounded-full w-fit animate-in fade-in slide-in-from-left-6 shadow-2xl backdrop-blur-xl ml-4 sm:ml-20">
+                            <div className="relative">
+                                <Loader2 className="w-4 h-4 animate-spin text-[#d3bc8e]" />
+                                <div className="absolute inset-0 bg-[#d3bc8e] blur-md opacity-20 animate-pulse"></div>
+                            </div>
+                            <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.3em]">{typingStatus}</span>
                         </div>
-                        <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.3em]">{typingStatus}</span>
-                    </div>
-                )}
-                <div ref={messagesEndRef} className="h-10 w-full" />
+                    )}
+                </div>
+
+                <div ref={messagesEndRef} className="h-10 w-full shrink-0" />
             </div>
 
             <div className="p-6 sm:p-10 bg-[#0d111c]/98 border-t border-[#d3bc8e]/25 backdrop-blur-3xl safe-area-bottom shadow-[0_-20px_60px_rgba(0,0,0,0.6)] z-50">

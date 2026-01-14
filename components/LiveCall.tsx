@@ -112,7 +112,7 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
       // Sanitize instructions for Live Engine (Strip Markdown/Tags)
       const cleanInstruction = currentPersona.systemInstruction
         .replace(/\[.*?\]/g, '')
-        .replace(/||GEN_IMG:.*?||/g, '')
+        .replace(/\|\|GEN_IMG:.*?\|\|/g, '')
         .trim();
 
       const sessionPromise = ai.live.connect({
@@ -123,10 +123,14 @@ const LiveCall: React.FC<LiveCallProps> = ({ currentPersona, voiceConfig, isOpen
             const src = inputCtx.createMediaStreamSource(stream);
             const proc = inputCtx.createScriptProcessor(4096, 1, 1);
             proc.onaudioprocess = (e) => {
-              if (isMuted || status !== 'active') return;
+              // CRITICAL: Solely rely on sessionPromise resolves and then call `session.sendRealtimeInput`, **do not** add other condition checks.
               const inputData = e.inputBuffer.getChannelData(0);
+              
+              // Handle muting by sending zeros if needed, but always initiate input to keep session alive
+              const pcmData = isMuted ? new Float32Array(inputData.length) : inputData;
+              
               sessionPromise.then(s => {
-                  try { s.sendRealtimeInput({ media: createBlob(inputData) }); } catch {}
+                  try { s.sendRealtimeInput({ media: createBlob(pcmData) }); } catch {}
               });
             };
             src.connect(proc);

@@ -1,10 +1,10 @@
-
 import React, { useMemo, useState } from 'react';
 import { 
     Copy, Check, Edit2, Volume2, Languages, Trash2, Loader2, Zap, ExternalLink, 
     Reply, CornerDownRight, Cpu, Download, Image, Globe, Maximize2, X, Save, 
     RefreshCw, Youtube, Play, Globe2, Code, Terminal as TerminalIcon, Github, 
-    Music2, FileText as FileIcon, Twitter, Instagram, Linkedin, Facebook 
+    Music2, FileText as FileIcon, Twitter, Instagram, Linkedin, Facebook,
+    Search, LayoutList
 } from 'lucide-react';
 import { Message, UserProfile, Persona, VoiceConfig } from '../types';
 import LazyImage from './LazyImage';
@@ -69,19 +69,17 @@ const CodeBlock: React.FC<{ code: string; lang: string }> = ({ code, lang }) => 
 };
 
 /**
- * CELESTIAL LINK CARD: Luxurious Link Preview with Dynamic Branding
+ * CELESTIAL CATALOG CARD: Enhanced link preview for both user and AI.
  */
 const LinkEmbedCard: React.FC<{ url: string }> = ({ url }) => {
     const domainInfo = useMemo(() => {
         const lowerUrl = url.toLowerCase();
-        if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) return { icon: Youtube, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Irminsul Stream' };
-        if (lowerUrl.includes('github.com')) return { icon: Github, color: 'text-white', bg: 'bg-white/10', label: 'Forge Repository' };
-        if (lowerUrl.includes('spotify.com')) return { icon: Music2, color: 'text-green-400', bg: 'bg-green-400/10', label: 'Euthymia Melodies' };
-        if (lowerUrl.includes('instagram.com')) return { icon: Instagram, color: 'text-pink-400', bg: 'bg-pink-500/10', label: 'Visual Chronicle' };
-        if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) return { icon: Twitter, color: 'text-blue-400', bg: 'bg-blue-500/10', label: 'Celestial Echoes' };
-        if (lowerUrl.includes('linkedin.com')) return { icon: Linkedin, color: 'text-blue-600', bg: 'bg-blue-600/10', label: 'Guild Network' };
-        if (lowerUrl.includes('facebook.com')) return { icon: Facebook, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Ancient Social' };
-        return { icon: Globe2, color: 'text-[#d3bc8e]', bg: 'bg-[#d3bc8e]/10', label: 'World Data Node' };
+        if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) return { icon: Youtube, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Irminsul Stream', rarity: '⭐⭐⭐⭐⭐' };
+        if (lowerUrl.includes('github.com')) return { icon: Github, color: 'text-white', bg: 'bg-white/10', label: 'Forge Repository', rarity: '⭐⭐⭐⭐⭐' };
+        if (lowerUrl.includes('spotify.com')) return { icon: Music2, color: 'text-green-400', bg: 'bg-green-400/10', label: 'Euthymia Melodies', rarity: '⭐⭐⭐⭐' };
+        if (lowerUrl.includes('instagram.com')) return { icon: Instagram, color: 'text-pink-400', bg: 'bg-pink-500/10', label: 'Visual Chronicle', rarity: '⭐⭐⭐⭐' };
+        if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) return { icon: Twitter, color: 'text-blue-400', bg: 'bg-blue-500/10', label: 'Celestial Echoes', rarity: '⭐⭐⭐⭐' };
+        return { icon: Globe2, color: 'text-[#d3bc8e]', bg: 'bg-[#d3bc8e]/10', label: 'Archive Fragment', rarity: '⭐⭐⭐' };
     }, [url]);
 
     const Icon = domainInfo.icon;
@@ -91,41 +89,39 @@ const LinkEmbedCard: React.FC<{ url: string }> = ({ url }) => {
             href={url} 
             target="_blank" 
             rel="noreferrer" 
-            className="block my-4 w-full p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-[#d3bc8e]/60 hover:bg-[#d3bc8e]/10 transition-all group/link-card shadow-[0_15px_35px_rgba(0,0,0,0.5)] overflow-hidden relative"
+            className="block my-4 w-full p-4 rounded-2xl bg-[#131823] border border-[#d3bc8e]/20 hover:border-[#d3bc8e]/60 hover:bg-[#1a1f2e] transition-all group/link-card shadow-[0_15px_35px_rgba(0,0,0,0.5)] overflow-hidden relative"
         >
-            {/* Shimmer Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full group-hover/link-card:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent -translate-x-full group-hover/link-card:translate-x-full transition-transform duration-1000"></div>
             
             <div className="flex items-center gap-5 relative z-10">
-                <div className={`w-14 h-14 rounded-2xl ${domainInfo.bg} flex items-center justify-center border border-white/10 group-hover/link-card:scale-110 group-hover/link-card:border-[#d3bc8e]/40 transition-all duration-500 shadow-inner shrink-0`}>
-                    <Icon className={`w-7 h-7 ${domainInfo.color} drop-shadow-[0_0_8px_currentColor]`} />
+                <div className={`w-16 h-16 rounded-2xl ${domainInfo.bg} flex flex-col items-center justify-center border border-[#d3bc8e]/10 group-hover/link-card:scale-105 transition-transform duration-500 shadow-inner shrink-0`}>
+                    <Icon className={`w-8 h-8 ${domainInfo.color} drop-shadow-[0_0_8px_currentColor]`} />
+                    <span className="text-[6px] text-amber-500/60 mt-1 font-black">{domainInfo.rarity}</span>
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-black text-amber-500/90 uppercase tracking-[0.2em]">{domainInfo.label}</span>
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
-                           <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                           <span className="text-[7px] font-black text-green-400 uppercase tracking-tighter">Synced</span>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[9px] font-black text-amber-500/90 uppercase tracking-[0.2em] flex items-center gap-1">
+                            <LayoutList className="w-2.5 h-2.5" /> {domainInfo.label}
+                        </span>
+                        <div className="px-1.5 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
+                           <span className="text-[7px] font-black text-green-400 uppercase">Synchronized</span>
                         </div>
                     </div>
-                    
                     <p className="text-sm font-bold text-gray-100 truncate group-hover/link-card:text-white transition-colors">{url.replace(/^https?:\/\//, '')}</p>
-                    
-                    <div className="flex items-center gap-3 mt-2">
-                        <div className="flex items-center gap-1 text-[8px] font-black text-gray-500 uppercase tracking-widest">
-                            <Zap className="w-2.5 h-2.5" /> High Fidelity Link
+                    <div className="flex items-center gap-2 mt-2">
+                        <div className="text-[8px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                            <Zap className="w-2.5 h-2.5" /> Catalog Link Found
                         </div>
-                        <div className="h-1 w-1 rounded-full bg-white/20"></div>
-                        <div className="flex items-center gap-1 text-[8px] font-black text-[#d3bc8e] uppercase tracking-widest opacity-0 group-hover/link-card:opacity-100 transition-opacity">
-                            Access Portal <ExternalLink className="w-2 h-2" />
+                        <div className="ml-auto opacity-0 group-hover/link-card:opacity-100 transition-opacity">
+                            <ExternalLink className="w-3 h-3 text-[#d3bc8e]" />
                         </div>
                     </div>
                 </div>
             </div>
             
-            {/* Corner Accent */}
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-[#d3bc8e]/20 rounded-br-2xl group-hover/link-card:border-[#d3bc8e]/60 transition-all"></div>
+            {/* Corner Decor */}
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[#d3bc8e]/10 group-hover/link-card:border-[#d3bc8e]/40 transition-colors"></div>
         </a>
     );
 };
@@ -158,7 +154,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                 embeds.push(
                     <div key={`yt-${i}`} className="my-4 w-full rounded-2xl overflow-hidden border-2 border-[#d3bc8e]/20 bg-black shadow-2xl aspect-video relative group/yt animate-in zoom-in-95 duration-500">
                         <iframe src={embedUrl} className="w-full h-full border-0" title="Auto-YouTube" allowFullScreen />
-                        <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 opacity-0 group-hover/yt:opacity-100 transition-opacity pointer-events-none">
+                        <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 opacity-0 group-hover/yt:opacity-100 transition-opacity">
                             <Youtube className="w-4 h-4 text-red-500" />
                             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#d3bc8e]">Irminsul Data Stream</span>
                         </div>
@@ -183,26 +179,28 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                 const match = part.match(/```(\w*)\n?([\s\S]*?)?```/);
                 const lang = match?.[1] || 'fragment';
                 const code = match?.[2] || '';
-                return <CodeBlock key={index} code={code} lang={lang} />;
+                return <CodeBlock key={`code-${index}`} code={code} lang={lang} />;
             }
 
             const subParts = part.split(/(`[^`]+`)/g);
             return (
-                <span key={index}>
+                <span key={`text-block-${index}`}>
                     {subParts.map((subPart, subIdx) => {
                         if (subPart.startsWith('`') && subPart.endsWith('`')) {
                             return (
-                                <code key={subIdx} className="bg-black/40 px-1.5 py-0.5 rounded font-mono text-amber-300 text-[11px] border border-white/5 mx-0.5">
+                                <code key={`inline-code-${subIdx}`} className="bg-black/40 px-1.5 py-0.5 rounded font-mono text-amber-300 text-[11px] border border-white/5 mx-0.5">
                                     {subPart.slice(1, -1)}
                                 </code>
                             );
                         }
 
+                        // For normal text, we split by URLs to avoid double-rendering if we wanted link highlighting
+                        // But since we have dedicated cards, we just render as text nodes.
                         return subPart.split(urlRegex).map((content, linkIdx) => {
                             if (content.match(urlRegex)) {
-                                return <a key={linkIdx} href={content} target="_blank" rel="noreferrer" className="text-amber-400 underline hover:text-amber-300 transition-colors font-bold">{content}</a>;
+                                return <a key={`link-inline-${linkIdx}`} href={content} target="_blank" rel="noreferrer" className="text-amber-400 underline hover:text-amber-300 transition-colors font-bold">{content}</a>;
                             }
-                            return content;
+                            return <span key={`raw-node-${linkIdx}`}>{content}</span>;
                         });
                     })}
                 </span>

@@ -35,6 +35,7 @@ export const createReverbImpulse = (ctx: AudioContext, duration: number, decay: 
 };
 
 // Add RIFF WAVE Header to Raw PCM Data
+// FIXED: Penanganan buffer besar menggunakan perulangan chunking untuk mencegah "Maximum call stack size exceeded"
 export const addWavHeader = (base64PCM: string, sampleRate: number = 24000, numChannels: number = 1): string => {
   try {
     const binaryString = atob(base64PCM);
@@ -74,11 +75,13 @@ export const addWavHeader = (base64PCM: string, sampleRate: number = 24000, numC
     wavBytes.set(headerBytes, 0);
     wavBytes.set(samples, headerBytes.length);
 
+    // FIXED: Gunakan pendekatan chunking untuk memproses buffer besar
     let binary = '';
-    const bufferLen = wavBytes.byteLength;
-    for (let i = 0; i < bufferLen; i += 8192) {
-       binary += String.fromCharCode.apply(null, Array.from(wavBytes.slice(i, i + 8192)));
+    const chunk_size = 8192;
+    for (let i = 0; i < wavBytes.length; i += chunk_size) {
+      binary += String.fromCharCode.apply(null, Array.from(wavBytes.subarray(i, i + chunk_size)));
     }
+    
     return btoa(binary);
 
   } catch (e) {
@@ -91,7 +94,11 @@ export const addWavHeader = (base64PCM: string, sampleRate: number = 24000, numC
 export const decodeRawPCM = (arrayBuffer: ArrayBuffer, ctx: AudioContext): AudioBuffer => {
     const sampleRate = 24000;
     let offset = 0;
-    if (arrayBuffer.byteLength > 44) offset = 44; 
+    // Deteksi apakah data memiliki header WAV atau PCM murni
+    if (arrayBuffer.byteLength > 44) {
+        const view = new DataView(arrayBuffer);
+        if (view.getUint8(0) === 82 && view.getUint8(1) === 73) offset = 44; // "RI" from "RIFF"
+    }
 
     const int16View = new Int16Array(arrayBuffer.slice(offset));
     const float32Data = new Float32Array(int16View.length);
