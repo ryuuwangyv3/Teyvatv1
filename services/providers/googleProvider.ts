@@ -7,6 +7,7 @@ import { addWavHeader } from "../../utils/audioUtils";
  */
 export const handleGoogleTextRequest = async (model: string, contents: any[], systemInstruction: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Support search for newer flash and pro models as per guidelines
     const supportSearch = model.includes('pro') || model.includes('flash') || model.includes('3-');
     
     try {

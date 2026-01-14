@@ -1,42 +1,46 @@
 
 const OPENAI_KEY = "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";
+const PROXIES = [
+    "https://corsproxy.io/?",
+    "https://api.allorigins.win/get?url="
+];
 
 export const handleOpenAITextRequest = async (model: string, messages: any[]) => {
+    const targetUrl = "https://api.openai.com/v1/chat/completions";
+    const payload = {
+        model: model || "gpt-4o",
+        messages: messages,
+        temperature: 0.7
+    };
+
     try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        const response = await fetch(`${PROXIES[0]}${encodeURIComponent(targetUrl)}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_KEY}`
+                "Authorization": `Bearer ${OPENAI_KEY}`,
+                "Accept": "application/json"
             },
-            body: JSON.stringify({
-                model: model,
-                messages: messages,
-                temperature: 0.7
-            })
+            body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.error?.message || `OpenAI Bridge Failure: ${response.status}`);
+        if (response.ok) {
+            const data = await response.json();
+            return data.choices?.[0]?.message?.content || "Transmission lost in deep space.";
         }
-
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content || "Transmission lost.";
-    } catch (e: any) {
-        if (e.message.includes('fetch')) {
-            throw new Error("OpenAI Local Link Blocked: CORS anomaly detected. Try using Google or Pollinations engine.");
-        }
-        throw e;
+    } catch (e) {
+        console.warn("[Akasha] OpenAI Link unstable.");
     }
+
+    throw new Error("OpenAI Resonance Failure: The transmission could not be established via available Ley Lines.");
 };
 
 export const handleOpenAIImageSynthesis = async (prompt: string, aspectRatio: string): Promise<string | null> => {
+    const targetUrl = "https://api.openai.com/v1/images/generations";
+    const sizeMap: Record<string, string> = { "1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792" };
+
     try {
-        const enhancedPrompt = `Masterpiece, best quality, 8k, ${prompt}`;
-        const sizeMap: Record<string, string> = { "1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792" };
-        
-        const response = await fetch("https://api.openai.com/v1/images/generations", {
+        const response = await fetch(`${PROXIES[0]}${encodeURIComponent(targetUrl)}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -44,17 +48,16 @@ export const handleOpenAIImageSynthesis = async (prompt: string, aspectRatio: st
             },
             body: JSON.stringify({
                 model: "dall-e-3",
-                prompt: enhancedPrompt,
+                prompt: `Masterpiece, cinematic anime style, ${prompt}`,
                 n: 1,
-                size: sizeMap[aspectRatio] || "1024x1024",
-                quality: "hd"
+                size: sizeMap[aspectRatio] || "1024x1024"
             })
         });
 
-        if (!response.ok) return null;
-        const data = await response.json();
-        return data.data?.[0]?.url || null;
-    } catch (e) {
-        return null;
-    }
+        if (response.ok) {
+            const data = await response.json();
+            return data.data?.[0]?.url || null;
+        }
+    } catch (e) {}
+    return null;
 };

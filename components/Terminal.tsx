@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Terminal as TerminalIcon, Mic, Paperclip, X, Download, Maximize2, Reply, RefreshCw, FileText, Image as ImageIcon, FileCode, Music, Film, File } from 'lucide-react';
+import { Send, Loader2, Terminal as TerminalIcon, Mic, Paperclip, X, Download, Maximize2, Reply, RefreshCw, FileText, Image as ImageIcon, FileCode, Music, Film, File, Sparkles, Cpu } from 'lucide-react';
 import { Persona, UserProfile, Message, Language, VoiceConfig, Attachment } from '../types';
 import { chatWithAI, generateImage, translateText, generateTTS } from '../services/geminiService';
 import MessageItem from './MessageItem';
@@ -37,10 +37,8 @@ const Terminal: React.FC<TerminalProps> = ({
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
     const [isTranslating, setIsTranslating] = useState<string | null>(null);
-    // Added missing state for copy status
     const [copiedId, setCopiedId] = useState<string | null>(null);
     
-    // ATTACHMENT STATES
     const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
     const [isRecording, setIsRecording] = useState(false);
 
@@ -78,7 +76,6 @@ const Terminal: React.FC<TerminalProps> = ({
         return () => clearTimeout(timer);
     }, [messages, isTyping, editingId]);
 
-    // Fix: Cast Array.from(files) to File[] to resolve 'unknown' property errors
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files) return;
@@ -152,15 +149,14 @@ const Terminal: React.FC<TerminalProps> = ({
         setPendingAttachments([]);
         setReplyingTo(null);
         setIsTyping(true);
-        setTypingStatus('Connecting to Akasha...');
+        setTypingStatus('Harmonizing with Akasha...');
 
         try {
             const historyForAi = messages.slice(-15).map(m => ({
                 role: m.role,
-                parts: [{ text: m.text }]
+                content: m.text // Changed from 'parts' for broader Pollinations POST compatibility
             }));
 
-            // Prepare Multimodal Input
             const imageParts = currentAttachments
                 .filter(pa => pa.type.startsWith('image/'))
                 .map(pa => ({
@@ -170,14 +166,13 @@ const Terminal: React.FC<TerminalProps> = ({
                     }
                 }));
 
-            // Include document content if it's a text file
             let enrichedPrompt = textToSend;
             for (const pa of currentAttachments) {
                 if (!pa.type.startsWith('image/') && pa.base64Data) {
                     try {
                         const decoded = atob(pa.base64Data);
-                        enrichedPrompt += `\n\n[FILE_CONTENT: ${pa.file.name}]\n${decoded}`;
-                    } catch (e) { console.error("Failed to decode text file", e); }
+                        enrichedPrompt += `\n\n[FRAGMENT: ${pa.file.name}]\n${decoded}`;
+                    } catch (e) { console.error("Failed to decode text fragment", e); }
                 }
             }
 
@@ -186,7 +181,7 @@ const Terminal: React.FC<TerminalProps> = ({
                 historyForAi,
                 enrichedPrompt,
                 currentPersona.systemInstruction,
-                `User Node: ${userProfile.username}. Time: ${new Date().toLocaleTimeString()}`,
+                `User Node: ${userProfile.username}. Temporal Marker: ${new Date().toLocaleTimeString()}`,
                 imageParts
             );
 
@@ -195,7 +190,7 @@ const Terminal: React.FC<TerminalProps> = ({
             const imgMatch = rawResponse.match(/\|\|GEN_IMG:\s*(.*?)\s*\|\|/);
             
             if (imgMatch) {
-                setTypingStatus('Manifesting Visual...');
+                setTypingStatus('Manifesting Artifact...');
                 const generatedImg = await generateImage(imgMatch[1], currentPersona.id, undefined, undefined, selectedModel);
                 if (generatedImg) imgUrl = generatedImg;
             }
@@ -221,14 +216,13 @@ const Terminal: React.FC<TerminalProps> = ({
             }
 
         } catch (err: any) {
-            onError(err.message || 'Link failed.');
+            onError(err.message || 'Ley Line Resonance Failed.');
         } finally {
             setIsTyping(false);
             setTypingStatus('');
         }
     };
 
-    // Fix: Implement missing handleSaveEdit to handle message editing and optional regeneration
     const handleSaveEdit = async (id: string, newText: string, regenerate: boolean) => {
         setEditingId(null);
         if (regenerate) {
@@ -247,20 +241,18 @@ const Terminal: React.FC<TerminalProps> = ({
         }
     };
 
-    // Fix: Implement missing handleTranslate to call translation service
     const handleTranslate = async (id: string, text: string) => {
         setIsTranslating(id);
         try {
             const translated = await translateText(text, currentLanguage.label);
             setMessages(prev => prev.map(m => m.id === id ? { ...m, translatedText: translated, showTranslation: true } : m));
         } catch (err) {
-            onError("Translation link failed.");
+            onError("Linguistic bridge failure.");
         } finally {
             setIsTranslating(null);
         }
     };
 
-    // Fix: Implement missing handleDelete to remove message fragments
     const handleDelete = async (id: string) => {
         if (!window.confirm("Purge this memory fragment?")) return;
         const updated = messages.filter(m => m.id !== id);
@@ -278,116 +270,122 @@ const Terminal: React.FC<TerminalProps> = ({
     };
 
     const getFileIcon = (type: string) => {
-        if (type.startsWith('image/')) return <ImageIcon className="w-4 h-4" />;
-        if (type.includes('javascript') || type.includes('json') || type.includes('typescript')) return <FileCode className="w-4 h-4" />;
-        if (type.startsWith('audio/')) return <Music className="w-4 h-4" />;
-        if (type.startsWith('video/')) return <Film className="w-4 h-4" />;
-        if (type.includes('pdf') || type.includes('text')) return <FileText className="w-4 h-4" />;
-        return <File className="w-4 h-4" />;
+        if (type.startsWith('image/')) return <ImageIcon className="w-5 h-5 text-purple-400" />;
+        if (type.includes('javascript') || type.includes('json') || type.includes('typescript')) return <FileCode className="w-5 h-5 text-blue-400" />;
+        if (type.startsWith('audio/')) return <Music className="w-5 h-5 text-green-400" />;
+        if (type.startsWith('video/')) return <Film className="w-5 h-5 text-red-400" />;
+        if (type.includes('pdf') || type.includes('text')) return <FileText className="w-5 h-5 text-amber-400" />;
+        return <File className="w-5 h-5 text-gray-400" />;
     };
 
     return (
         <div className="flex flex-col h-full bg-[#0b0e14] relative overflow-hidden">
             {lightboxUrl && (
-                <div className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-4 overflow-y-auto custom-scrollbar animate-in fade-in duration-300" onClick={() => setLightboxUrl(null)}>
+                <div className="fixed inset-0 z-[500] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-4 overflow-y-auto custom-scrollbar animate-in fade-in duration-400" onClick={() => setLightboxUrl(null)}>
                     <div className="relative group max-w-full flex flex-col items-center">
-                        <img src={lightboxUrl} className="max-w-full max-h-[85vh] object-contain rounded-2xl border-2 border-[#d3bc8e]/30 shadow-[0_0_80px_rgba(211,188,142,0.3)] animate-in zoom-in duration-500 mb-12" alt="Preview" onClick={e => e.stopPropagation()} />
-                        <div className="flex items-center gap-6 bg-[#13182b]/90 backdrop-blur-xl border border-[#d3bc8e]/40 px-10 py-5 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-10 duration-700" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => {const a = document.createElement('a'); a.href = lightboxUrl; a.download = `artifact_${Date.now()}.png`; a.click();}} className="flex items-center gap-3 text-xs font-black text-[#d3bc8e] uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95"><Download className="w-5 h-5" /> <span>Extract Data</span></button>
-                            <div className="w-px h-6 bg-[#d3bc8e]/20"></div>
-                            <button onClick={() => setLightboxUrl(null)} className="flex items-center gap-3 text-xs font-black text-red-400 uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95"><X className="w-5 h-5" /> <span>Close Portal</span></button>
+                        <img src={lightboxUrl} className="max-w-full max-h-[85vh] object-contain rounded-3xl border-2 border-[#d3bc8e]/40 shadow-[0_0_120px_rgba(211,188,142,0.35)] animate-in zoom-in-95 duration-500 mb-12" alt="Preview" onClick={e => e.stopPropagation()} />
+                        <div className="flex items-center gap-10 bg-[#13182b]/95 backdrop-blur-2xl border border-[#d3bc8e]/30 px-12 py-5 rounded-full shadow-[0_30px_60px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-12 duration-700" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => {const a = document.createElement('a'); a.href = lightboxUrl; a.download = `artifact_${Date.now()}.png`; a.click();}} className="flex items-center gap-4 text-xs font-black text-[#d3bc8e] uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95 group"><Download className="w-6 h-6 group-hover:animate-bounce" /> <span>Extract Data</span></button>
+                            <div className="w-px h-8 bg-[#d3bc8e]/20"></div>
+                            <button onClick={() => setLightboxUrl(null)} className="flex items-center gap-4 text-xs font-black text-red-400 uppercase tracking-[0.2em] hover:text-white transition-all hover:scale-110 active:scale-95"><X className="w-6 h-6" /> <span>Close Portal</span></button>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 custom-scrollbar min-h-0 relative">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-12 space-y-10 custom-scrollbar min-h-0 relative">
                 {messages.length === 0 && !isTyping && (
-                    <div className="h-full flex flex-col items-center justify-center opacity-20 text-center px-10">
-                        <TerminalIcon className="w-16 h-16 mb-4 genshin-gold" />
-                        <p className="text-sm font-black uppercase tracking-[0.3em]">Celestial Resonance Ready</p>
-                        <p className="text-[10px] mt-2 italic font-bold">Awaiting transmission with {currentPersona.name}...</p>
+                    <div className="h-full flex flex-col items-center justify-center text-center px-12 animate-in zoom-in-95 duration-1000 opacity-40">
+                        <div className="mb-6">
+                            <TerminalIcon className="w-16 h-16 text-gray-700" />
+                        </div>
+                        <h2 className="text-xl font-black uppercase tracking-[0.4em] text-[#d3bc8e] font-serif">Terminal Initialized</h2>
+                        <p className="text-[10px] mt-3 text-gray-600 italic font-bold uppercase tracking-[0.2em] max-w-xs leading-loose">
+                            "Ley Line stability confirmed. Establishing resonance frequency with {currentPersona.name}."
+                        </p>
                     </div>
                 )}
-                {messages.map((msg, idx) => (
-                    <MessageItem key={msg.id} msg={msg} userProfile={userProfile} currentPersona={currentPersona} editingId={editingId} editValue={editValue} copiedId={copiedId} isTranslating={isTranslating} generatingTTSId={generatingTTSId} onLightbox={setLightboxUrl} onEditChange={setEditValue} onSaveEdit={handleSaveEdit} onCancelEdit={() => setEditingId(null)} onCopy={(text, id) => { navigator.clipboard.writeText(text); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); }} onTranslate={handleTranslate} onToggleTranslation={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, showTranslation: !m.showTranslation } : m))} onDelete={handleDelete} onEditStart={(m) => { setEditingId(m.id); setEditValue(m.text); }} onPlayTTS={handlePlayTTS} onReply={setReplyingTo} voiceConfig={voiceConfig} isLatest={idx === messages.length - 1} />
-                ))}
+                <div className="flex flex-col gap-8 max-w-6xl mx-auto">
+                    {messages.map((msg, idx) => (
+                        <div key={msg.id} className="message-in">
+                            <MessageItem msg={msg} userProfile={userProfile} currentPersona={currentPersona} editingId={editingId} editValue={editValue} copiedId={copiedId} isTranslating={isTranslating} generatingTTSId={generatingTTSId} onLightbox={setLightboxUrl} onEditChange={setEditValue} onSaveEdit={handleSaveEdit} onCancelEdit={() => setEditingId(null)} onCopy={(text, id) => { navigator.clipboard.writeText(text); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); }} onTranslate={handleTranslate} onToggleTranslation={(id) => setMessages(prev => prev.map(m => m.id === id ? { ...m, showTranslation: !m.showTranslation } : m))} onDelete={handleDelete} onEditStart={(m) => { setEditingId(m.id); setEditValue(m.text); }} onPlayTTS={handlePlayTTS} onReply={setReplyingTo} voiceConfig={voiceConfig} isLatest={idx === messages.length - 1} />
+                        </div>
+                    ))}
+                </div>
                 {isTyping && (
-                    <div className="flex items-center gap-3 px-4 py-2 bg-[#d3bc8e]/10 border border-[#d3bc8e]/20 rounded-full w-fit animate-in fade-in slide-in-from-left-4">
-                        <Loader2 className="w-3 h-3 animate-spin text-[#d3bc8e]" />
-                        <span className="text-[9px] font-black text-[#d3bc8e] uppercase tracking-[0.2em]">{typingStatus}</span>
+                    <div className="flex items-center gap-4 px-6 py-3 bg-[#d3bc8e]/10 border border-[#d3bc8e]/25 rounded-full w-fit animate-in fade-in slide-in-from-left-6 shadow-2xl backdrop-blur-xl ml-4 sm:ml-20">
+                        <div className="relative">
+                            <Loader2 className="w-4 h-4 animate-spin text-[#d3bc8e]" />
+                            <div className="absolute inset-0 bg-[#d3bc8e] blur-md opacity-20 animate-pulse"></div>
+                        </div>
+                        <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.3em]">{typingStatus}</span>
                     </div>
                 )}
-                <div ref={messagesEndRef} className="h-4 w-full" />
+                <div ref={messagesEndRef} className="h-10 w-full" />
             </div>
 
-            <div className="p-4 sm:p-6 bg-[#0e121b]/95 border-t border-[#d3bc8e]/10 safe-area-bottom">
-                {/* ATTACHMENT PREVIEW BAR */}
+            <div className="p-6 sm:p-10 bg-[#0d111c]/98 border-t border-[#d3bc8e]/25 backdrop-blur-3xl safe-area-bottom shadow-[0_-20px_60px_rgba(0,0,0,0.6)] z-50">
                 {pendingAttachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4 animate-in slide-in-from-bottom-2">
+                    <div className="flex flex-wrap gap-4 mb-6 animate-in slide-in-from-bottom-4 duration-500">
                         {pendingAttachments.map((pa, idx) => (
                             <div key={idx} className="relative group/att">
-                                <div className="w-16 h-16 rounded-xl border border-[#d3bc8e]/30 bg-black/40 overflow-hidden flex items-center justify-center">
+                                <div className="w-24 h-24 rounded-2xl border-2 border-[#d3bc8e]/40 bg-black/70 overflow-hidden flex items-center justify-center shadow-2xl transition-all hover:scale-110 hover:border-white">
                                     {pa.previewUrl ? (
-                                        <img src={pa.previewUrl} className="w-full h-full object-cover" alt="att" />
+                                        <img src={pa.previewUrl} className="w-full h-full object-cover transition-transform group-hover/att:scale-110" alt="att" />
                                     ) : (
-                                        <div className="flex flex-col items-center gap-1">
+                                        <div className="flex flex-col items-center gap-2 p-3">
                                             {getFileIcon(pa.type)}
-                                            <span className="text-[6px] font-bold text-gray-500 truncate w-12 text-center uppercase">{pa.file.name.split('.').pop()}</span>
+                                            <span className="text-[8px] font-black text-gray-500 truncate w-18 text-center uppercase tracking-tighter">{pa.file.name}</span>
                                         </div>
                                     )}
                                 </div>
-                                <button onClick={() => removeAttachment(idx)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-lg group-hover/att:scale-110 transition-transform"><X className="w-3 h-3" /></button>
+                                <button onClick={() => removeAttachment(idx)} className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1.5 shadow-2xl group-hover/att:scale-125 transition-transform border border-white/20"><X className="w-4 h-4" /></button>
                             </div>
                         ))}
                     </div>
                 )}
 
                 {replyingTo && (
-                    <div className="mb-4 p-3 bg-[#d3bc8e]/10 border-l-4 border-[#d3bc8e] rounded-r-xl flex items-center justify-between animate-in slide-in-from-bottom-2">
+                    <div className="mb-6 p-5 bg-[#d3bc8e]/12 border-l-4 border-[#d3bc8e] rounded-r-2xl flex items-center justify-between animate-in slide-in-from-bottom-4 shadow-inner relative group/reply">
                         <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-black text-[#d3bc8e] uppercase tracking-widest flex items-center gap-2"><Reply className="w-3 h-3" /> Replying to {replyingTo.role === 'user' ? 'You' : currentPersona.name}</span>
-                            <p className="text-xs text-gray-400 italic truncate">"{replyingTo.text}"</p>
+                            <span className="text-[11px] font-black text-[#d3bc8e] uppercase tracking-widest flex items-center gap-3 mb-2"><Reply className="w-4 h-4" /> Echoing Resonance: {replyingTo.role === 'user' ? 'Traveler' : currentPersona.name}</span>
+                            <p className="text-xs text-gray-400 italic truncate font-medium max-w-2xl">"{replyingTo.text}"</p>
                         </div>
-                        <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-white/10 rounded-full text-gray-500"><X className="w-4 h-4" /></button>
+                        <button onClick={() => setReplyingTo(null)} className="p-3 hover:bg-white/10 rounded-2xl text-gray-500 hover:text-red-400 transition-all active:scale-90"><X className="w-6 h-6" /></button>
                     </div>
                 )}
                 
-                <div className="flex gap-4 items-end max-w-6xl mx-auto">
-                    {/* ENHANCED MIC BUTTON */}
+                <div className="flex gap-6 items-end max-w-6xl mx-auto">
                     <button 
                         onMouseDown={() => setIsRecording(true)}
                         onMouseUp={() => setIsRecording(false)}
                         onTouchStart={() => setIsRecording(true)}
                         onTouchEnd={() => setIsRecording(false)}
-                        className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shrink-0 mb-1 relative group ${isRecording ? 'bg-red-500 shadow-[0_0_30px_rgba(239,68,68,0.6)] scale-110' : 'bg-white/5 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/10 hover:border-[#d3bc8e]/50'}`}
-                        title="Resonance Link (Hold to Record)"
+                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-[1.8rem] flex items-center justify-center transition-all shrink-0 mb-1 relative group ${isRecording ? 'bg-red-600 shadow-[0_0_50px_rgba(220,38,38,0.7)] scale-115' : 'bg-white/5 border border-[#d3bc8e]/30 text-[#d3bc8e] hover:bg-[#d3bc8e]/15 hover:border-[#d3bc8e]/80 hover:scale-105 shadow-2xl hover:shadow-[0_0_30px_rgba(211,188,142,0.2)]'}`}
+                        title="Celestial Resonance (Hold to Transmit Voice)"
                     >
-                        {isRecording && <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-40"></div>}
-                        <Mic className={`w-7 h-7 transition-transform ${isRecording ? 'scale-110 text-white' : 'group-hover:scale-110'}`} />
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full border-2 border-[#0b0e14] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                        </div>
+                        {isRecording && <div className="absolute inset-0 rounded-[1.8rem] border-4 border-red-500 animate-ping opacity-30"></div>}
+                        <Mic className={`w-8 h-8 transition-transform ${isRecording ? 'scale-110 text-white' : 'group-hover:scale-110'}`} />
                     </button>
 
-                    <div className="relative flex-1 group">
+                    <div className="relative flex-1 group/input">
+                        <div className="absolute inset-0 bg-white/5 blur-xl opacity-0 group-hover/input:opacity-30 transition-opacity pointer-events-none"></div>
                         <textarea 
                             ref={textareaRef}
                             value={input} 
                             onChange={(e) => setInput(e.target.value)} 
                             onKeyDown={handleKeyDown}
                             rows={1}
-                            className="w-full bg-white/5 border border-white/10 rounded-3xl px-8 py-5 text-white focus:outline-none focus:border-[#d3bc8e] transition-all text-sm select-text placeholder:text-gray-600 shadow-inner resize-none overflow-y-auto custom-scrollbar min-h-[64px] max-h-40 leading-relaxed pr-24" 
+                            className="w-full bg-[#1a1f2e]/60 border border-white/10 rounded-[2.2rem] px-10 py-6 text-white focus:outline-none focus:border-[#d3bc8e] transition-all text-[15px] select-text placeholder:text-gray-600 shadow-inner resize-none overflow-y-auto custom-scrollbar min-h-[72px] max-h-48 leading-relaxed pr-32 font-medium backdrop-blur-md" 
                             placeholder={`Message ${currentPersona.name}...`} 
                         />
-                        <div className="absolute right-6 bottom-5 flex items-center gap-4">
-                             {/* MULTI-FORMAT UPLOAD BUTTON */}
+                        <div className="absolute right-8 bottom-6 flex items-center gap-3">
                              <button 
                                 onClick={() => fileInputRef.current?.click()}
-                                className="p-2.5 text-gray-500 hover:text-[#d3bc8e] hover:bg-white/5 rounded-full transition-all active:scale-90"
-                                title="Attach Memory Fragment"
+                                className="p-3 text-gray-500 hover:text-[#d3bc8e] hover:bg-white/10 rounded-2xl transition-all active:scale-90 shadow-sm"
+                                title="Attach Memory Artifact"
                              >
-                                <Paperclip className="w-5 h-5" />
+                                <Paperclip className="w-6 h-6" />
                                 <input 
                                     type="file" 
                                     ref={fileInputRef} 
@@ -403,9 +401,9 @@ const Terminal: React.FC<TerminalProps> = ({
                     <button 
                         onClick={() => handleSendMessage()} 
                         disabled={(!input.trim() && pendingAttachments.length === 0) || isTyping} 
-                        className={`w-16 h-16 rounded-3xl flex items-center justify-center transition-all shadow-xl shrink-0 mb-1 ${ (input.trim() || pendingAttachments.length > 0) && !isTyping ? 'genshin-button scale-100 hover:brightness-110 active:scale-90 hover:shadow-[0_0_20px_rgba(211,188,142,0.4)]' : 'bg-white/5 text-gray-600 grayscale scale-95 opacity-50'}`}
+                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-[1.8rem] flex items-center justify-center transition-all shadow-3xl shrink-0 mb-1 ${ (input.trim() || pendingAttachments.length > 0) && !isTyping ? 'genshin-button scale-100 hover:brightness-110 active:scale-95' : 'bg-white/5 text-gray-800 grayscale scale-95 opacity-40'}`}
                     >
-                        <Send className="w-7 h-7 ml-1" />
+                        <Send className="w-8 h-8 ml-1" />
                     </button>
                 </div>
             </div>

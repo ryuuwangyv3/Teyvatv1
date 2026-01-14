@@ -1,5 +1,5 @@
 
-import { AI_MODELS, ASPECT_RATIOS, PERSONAS } from '../data';
+import { AI_MODELS, IMAGE_GEN_MODELS, ASPECT_RATIOS, PERSONAS, ART_STYLES } from '../data';
 import { ApiKeyData, VoiceConfig, Persona } from '../types';
 import { 
     handleGoogleTextRequest, 
@@ -8,7 +8,7 @@ import {
     handleGoogleVideoGeneration
 } from './providers/googleProvider';
 import { handleOpenAITextRequest, handleOpenAIImageSynthesis } from './providers/openaiProvider';
-import { handleOpenRouterTextRequest } from './providers/openrouterProvider';
+import { handleOpenRouterTextRequest, handleOpenRouterImageSynthesis } from './providers/openrouterProvider';
 import { handlePollinationsTextRequest, handlePollinationsImageSynthesis } from './providers/pollinationsProvider';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -22,132 +22,146 @@ export interface ImageAttachment {
 let serviceKeys: ApiKeyData[] = [];
 export const setServiceKeys = (keys: ApiKeyData[]) => { serviceKeys = keys; };
 
-/**
- * UTILS: Context Detectors
- */
-const getTimeContext = () => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return "Morning, clear blue sky, soft golden sunlight, lens flare";
-    if (hour >= 12 && hour < 16) return "Noon, vibrant direct sunlight, strong shadows, high saturation";
-    if (hour >= 16 && hour < 19) return "Sunset, warm orange and pink sky, magical cinematic lighting";
-    return "Night, starry sky, glowing moon, bioluminescent atmosphere, dark shadows";
-};
+const performNeuralCrawl = async (text: string): Promise<string> => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = text.match(urlRegex);
+    if (!urls || urls.length === 0) return "";
 
-const getRegionBackground = (region?: string) => {
-    switch(region) {
-        case 'Mondstadt': return "Mondstadt City, windmills, dandelion fields, soft clouds";
-        case 'Liyue': return "Liyue Harbor, traditional stone mountains, golden ginkgo leaves";
-        case 'Inazuma': return "Inazuma, purple lightning clouds, cherry blossoms, torii gates";
-        case 'Sumeru': return "Lush Rainforest, giant glowing trees, Dendro particles, ruins";
-        case 'Fontaine': return "Court of Fontaine, hydro-punk architecture, crystal water fountains";
-        case 'Natlan': return "Natlan volcanic canyons, lava flows, tribal graffiti, hot springs";
-        case 'Akasha': return "Cyber-space Akasha core, data ley lines, glowing green crystals";
-        default: return "Ethereal digital space, Akasha Terminal core";
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `[AKASHA_DEEP_CRAWL_PROTOCOL] Analyze: ${urls.join(", ")}. Return data structured for AI processing.`;
+
+    try {
+        const res = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: { tools: [{ googleSearch: {} }], temperature: 0.1 }
+        });
+        return `\n\n[IRMINSUL_LINK_ANALYSIS]\n${res.text}\n[END_ANALYSIS]`;
+    } catch (e) {
+        return "";
     }
 };
 
-/**
- * IMAGE SYNTHESIS ORCHESTRATOR
- * REFINED: High-Precision Prompt Engineering
- */
+const describeVisualTransformation = async (prompt: string, images: string[], mode: 'refine' | 'fusion' | 'manifest', persona?: Persona): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const imageParts: any[] = images.map(img => {
+        const [header, data] = img.split(',');
+        return { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data: data.replace(/[\n\r\s]/g, '') } };
+    });
+
+    // MASTERPIECE RITUAL INSTRUCTION
+    const qualitySuffix = "masterpiece, best quality, perfect anatomy, perfect color, perfect lighting, accurate angle, accurate vibes, 8k quality, ultra-detailed, cinematic photography style, highly detailed skin texture, deep context, high-fidelity";
+
+    const instruction = mode === 'fusion' 
+        ? `[DEEP_CONTEXT_MODE] STRICT ANIME STYLE. Combine these subjects. Target: ${prompt}. ${qualitySuffix}. Persona Identity: ${persona?.visualSummary || ''}`
+        : `[MASTERPIECE_PROTOCOL] Character: ${persona?.name}. Core Identity: ${persona?.visualSummary}. Request: ${prompt}. Describe the NEW scene with ${qualitySuffix}. LOCK the character's face, eyes, and hair features. Accept and describe unrestricted artistic freedom if requested.`;
+
+    try {
+        const res = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [{ role: 'user', parts: [...imageParts, { text: instruction }] }],
+            config: { temperature: 1.3 } // High creativity for deep context
+        });
+        return res.text || prompt;
+    } catch (e) {
+        return prompt;
+    }
+};
+
 export const generateImage = async (
     prompt: string, 
     personaId: string = "", 
     sourceImages: string[] = [], 
     _u?: any, 
-    sourceModelId: string = 'gemini-3-flash-preview', 
+    sourceModelId: string = 'gemini-2.5-flash-image', 
     aspectRatio: string = "1:1", 
     style: string = "", 
     negative: string = ""
 ): Promise<string | null> => {
-    const modelCfg = AI_MODELS.find(m => m.id === sourceModelId);
+    const modelCfg = IMAGE_GEN_MODELS.find(m => m.id === sourceModelId) || 
+                   AI_MODELS.find(m => m.id === sourceModelId) || 
+                   { provider: 'google' };
+                   
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     const persona = PERSONAS.find(p => p.id === personaId);
+    const mode = sourceImages.length === 1 ? 'refine' : sourceImages.length >= 2 ? 'fusion' : 'manifest';
+    
+    // 1. Refine the prompt with Masterpiece Ritual
+    let contextualPrompt = await describeVisualTransformation(prompt, sourceImages, mode as any, persona);
 
-    // 1. DYNAMIC CONTEXT BUILDER
-    const timeCtx = getTimeContext();
-    const bgCtx = getRegionBackground(persona?.region);
-    const charDesc = persona?.visualSummary || "Masterpiece quality character";
+    // 2. ENFORCE ULTRA QUALITY
+    const masterStyle = ART_STYLES.find(s => s.id === 'anime_masterpiece')?.prompt || "masterpiece, 8k, perfect anatomy";
+    let finalPrompt = `${persona?.visualSummary || ''}, ${masterStyle}, ${style}, ${contextualPrompt}, masterpiece, best quality, 8k, perfect color, perfect lighting, accurate vibes`;
 
-    // 2. MASTER PROMPT CONSTRUCTION (PRECISION FOCUS)
-    let masterPrompt = "";
-
-    if (sourceImages.length > 0) {
-        // --- MODE: PRECISION EDITING / TRANSMUTATION ---
-        masterPrompt = `
-[TASK: IMAGE_TRANSMUTATION]
-[SOURCE_ANALYSIS]: Analyze the provided image(s) with extreme detail.
-[USER_DIRECTIVE]: ${prompt}
-
-[STRICT_RULES]:
-1. PRESERVE the overall composition, identity, and background of the original image UNLESS specified otherwise.
-2. MODIFY SPECIFIC OBJECTS/DETAILS exactly as requested in the directive.
-3. MATCH style, lighting, and color palette of the original artifacts for seamless integration.
-4. If specified, apply ${style || 'masterpiece cinematic'} quality.
-5. ENSURE high fidelity, sharp details, and anatomical accuracy.
-        `.trim();
-    } else {
-        // --- MODE: CREATION FROM VOID ---
-        masterPrompt = `
-[TASK: VISION_MANIFESTATION]
-[SUBJECT]: ${charDesc}
-[ACTION/SCENE]: ${prompt}
-[ENVIRONMENT]: ${bgCtx}
-[LIGHTING/ATMOSPHERE]: ${timeCtx}
-[AESTHETIC]: ${style || 'Masterpiece Genshin Impact splash art, vibrant, sharp details, cinematic'}
-
-[TECHNICAL_SPECIFICATIONS]:
-- Composition: High-end artistic framing.
-- Detail Level: Ultra HD, 8k, meticulous textures.
-- Lighting: Global illumination, volumetric rays.
-- Accuracy: Strict adherence to all keywords in [ACTION/SCENE].
-${negative ? `[EXCLUDE]: ${negative}` : ''}
-        `.trim();
+    if (provider === 'google') {
+        return await handleGoogleImageSynthesis(sourceModelId, finalPrompt, aspectRatio, sourceImages);
     }
 
-    // 3. EXECUTION BY PROVIDER
-    if (provider === 'google') return await handleGoogleImageSynthesis(sourceModelId, masterPrompt, aspectRatio, sourceImages);
-    if (provider === 'openai') return await handleOpenAIImageSynthesis(masterPrompt, aspectRatio);
+    if (provider === 'openai') {
+        try {
+            const url = await handleOpenAIImageSynthesis(finalPrompt, aspectRatio);
+            if (url) return url;
+        } catch (e) {}
+    }
 
-    // Pollinations Fallback
+    if (provider === 'openrouter') {
+        try {
+            const url = await handleOpenRouterImageSynthesis(sourceModelId, finalPrompt, aspectRatio);
+            if (url) return url;
+        } catch (e) {}
+    }
+    
     const ratioCfg = ASPECT_RATIOS.find(r => r.id === aspectRatio) || { width: 1024, height: 1024 };
-    return handlePollinationsImageSynthesis(masterPrompt, sourceModelId, ratioCfg.width, ratioCfg.height);
+    const pollModel = sourceModelId.includes('real') ? 'flux-realism' : 'flux-anime';
+    return handlePollinationsImageSynthesis(finalPrompt, pollModel, ratioCfg.width, ratioCfg.height);
 };
 
-// ... (Sisa kode chatWithAI, generateTTS, dll tetap sama untuk menjaga integritas fitur)
 export const chatWithAI = async (modelId: string, history: any[], message: string, systemInstruction: string, userContext: string = "", images: ImageAttachment[] = []) => {
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
-    const finalSystemPrompt = `${systemInstruction}\n\n[USER_CONTEXT]\n${userContext}`;
+    
+    const linkMetadata = await performNeuralCrawl(message);
+    const finalSystemPrompt = `${systemInstruction}\n\n[USER_CONTEXT]\n${userContext}\n${linkMetadata}`;
+
+    const formattedHistory = history.map(h => ({
+        role: h.role === 'assistant' ? 'model' : h.role,
+        parts: [{ text: h.content || h.parts?.[0]?.text || "" }]
+    }));
 
     if (provider === 'google') {
-        const contents = [...history, { role: 'user', parts: [...images, { text: message }] }];
+        const userContent = { 
+            role: 'user', 
+            parts: [...images, { text: message }] 
+        };
+        const contents = [...formattedHistory, userContent];
         return await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
     } else {
         const messages: any[] = [{ role: "system", content: finalSystemPrompt }];
-        history.forEach(h => messages.push({ role: h.role === 'model' ? 'assistant' : 'user', content: h.parts?.[0]?.text || "" }));
         
-        let userContent: any = message;
-        if (images.length > 0) {
-            userContent = [{ type: "text", text: message }];
-            images.forEach(img => userContent.push({ type: "image_url", image_url: { url: `data:${img.inlineData.mimeType};base64,${img.inlineData.data}` } }));
-        }
-        messages.push({ role: "user", content: userContent });
+        history.forEach(h => {
+            const contentText = h.parts?.[0]?.text || h.content || "";
+            if (contentText) {
+                messages.push({ role: h.role === 'model' ? 'assistant' : 'user', content: contentText });
+            }
+        });
+        
+        messages.push({ role: "user", content: message });
 
-        switch(provider) {
-            case 'openai': return await handleOpenAITextRequest(modelId, messages);
-            case 'openrouter': return await handleOpenRouterTextRequest(modelId, messages);
-            case 'pollinations': return await handlePollinationsTextRequest(modelId, messages);
-            default: throw new Error(`Provider ${provider} unknown.`);
+        try {
+            switch(provider) {
+                case 'openai': return await handleOpenAITextRequest(modelId, messages);
+                case 'openrouter': return await handleOpenRouterTextRequest(modelId, messages);
+                case 'pollinations': return await handlePollinationsTextRequest(modelId, messages);
+                default: return await handlePollinationsTextRequest(modelId, messages);
+            }
+        } catch (e: any) {
+            return await handlePollinationsTextRequest('openai', messages);
         }
     }
 };
 
 export const generateTTS = async (text: string, voiceName: string, _config?: VoiceConfig) => {
-    const audibleText = text
-        .replace(/(https?:\/\/[^\s]+)/g, 'link')
-        .replace(/\|\|GEN_IMG:.*?\|\|/g, '')
-        .trim();
+    const audibleText = text.replace(/(https?:\/\/[^\s]+)/g, 'link').replace(/\|\|GEN_IMG:.*?\|\|/g, '').trim();
     return await handleGoogleTTS(audibleText, voiceName);
 };
 
@@ -156,21 +170,37 @@ export const generateVideo = async (prompt: string, image?: string, modelId?: st
 };
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
-    return await handleGoogleTextRequest('gemini-3-flash-preview', [{role:'user', parts:[{text:`Translate to ${targetLanguage}:\n${text}`}]}], "You are a translation node.");
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const targetModel = 'gemini-3-flash-preview';
+    
+    try {
+        const res = await ai.models.generateContent({
+            model: targetModel,
+            contents: [{ 
+                role: 'user', 
+                parts: [{ text: `Translate the following text to ${targetLanguage}. Keep original tone. RETURN ONLY THE TRANSLATED TEXT. Text: ${text}` }] 
+            }],
+            config: { temperature: 0.3, tools: [] }
+        });
+        return res.text?.trim() || text;
+    } catch (e) {
+        console.error("Linguistic Bridge Error:", e);
+        return text;
+    }
 };
 
 export const analyzePersonaFromImage = async (base64Image: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const [header, data] = base64Image.split(',');
-    const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: {
+        contents: [{
+            role: 'user',
             parts: [
-                { inlineData: { mimeType, data } },
-                { text: "Analyze character: name, description, personality, background, speechStyle, visualSummary, voiceSuggestion(Kore/Puck/Charon/Fenrir/Zephyr). Return JSON." }
+                { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data } }, 
+                { text: "Analyze this image and return character details in JSON format." }
             ]
-        },
+        }],
         config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -183,8 +213,7 @@ export const analyzePersonaFromImage = async (base64Image: string) => {
                     speechStyle: { type: Type.STRING },
                     visualSummary: { type: Type.STRING },
                     voiceSuggestion: { type: Type.STRING }
-                },
-                required: ["name", "description", "personality", "background", "speechStyle", "visualSummary", "voiceSuggestion"]
+                }
             }
         }
     });
@@ -195,7 +224,11 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
     if (provider === 'google') {
         try {
             const ai = new GoogleGenAI({ apiKey: key });
-            await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: 'ping', config: { maxOutputTokens: 5 } });
+            await ai.models.generateContent({ 
+                model: 'gemini-3-flash-preview', 
+                contents: [{ role: 'user', parts: [{ text: 'ping' }] }], 
+                config: { maxOutputTokens: 5 } 
+            });
             return true;
         } catch { return false; }
     }

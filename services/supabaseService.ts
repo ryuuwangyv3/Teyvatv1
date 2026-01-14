@@ -60,6 +60,7 @@ export const signOut = async () => {
     if (!supabaseInstance) return;
     await supabaseInstance.auth.signOut();
     currentUserId = 'guest';
+    SecureStorage.clear();
     window.location.reload();
 };
 
@@ -71,7 +72,6 @@ export const getCurrentSession = async () => {
 
 // --- USER MANAGEMENT ---
 
-// Added mapUserToProfile to resolve import error in App.tsx
 export const mapUserToProfile = (user: User): UserProfile => {
   return {
     id: user.id,
@@ -84,7 +84,6 @@ export const mapUserToProfile = (user: User): UserProfile => {
   };
 };
 
-// Added fetchUserStats to resolve import error in UserInfo.tsx
 export const fetchUserStats = async (userId: string) => {
     if (!supabaseInstance) return { achievements: 0, companions: 12, visits: 1, aura: 0 };
     return { achievements: 5, companions: 12, visits: 42, aura: 100 };
@@ -92,7 +91,6 @@ export const fetchUserStats = async (userId: string) => {
 
 // --- SYNC ENGINE ---
 
-// Added syncUserSettings to resolve import error in App.tsx
 export const syncUserSettings = async (settings: any) => {
     if (supabaseInstance && currentUserId !== 'guest') {
         await supabaseInstance.from('user_settings').upsert({
@@ -100,16 +98,17 @@ export const syncUserSettings = async (settings: any) => {
             data: settings,
             updated_at: new Date().toISOString()
         });
+    } else {
+        SecureStorage.setItem('local_settings', settings);
     }
 };
 
-// Added fetchUserSettings to resolve import error in App.tsx
 export const fetchUserSettings = async () => {
     if (supabaseInstance && currentUserId !== 'guest') {
         const { data } = await supabaseInstance.from('user_settings').select('data').eq('user_id', currentUserId).single();
         return data?.data || null;
     }
-    return null;
+    return SecureStorage.getItem('local_settings');
 };
 
 export const syncUserProfile = async (profile: UserProfile) => {
@@ -120,6 +119,8 @@ export const syncUserProfile = async (profile: UserProfile) => {
             avatar: profile.avatar, header_background: profile.headerBackground,
             email: profile.email
         });
+    } else {
+        SecureStorage.setItem('local_profile', profile);
     }
 };
 
@@ -128,13 +129,16 @@ export const fetchUserProfile = async (): Promise<UserProfile | null> => {
         const { data } = await supabaseInstance.from('user_profiles').select('*').eq('user_id', currentUserId).single();
         if (data) return { id: data.user_id, username: data.username, bio: data.bio, avatar: data.avatar, headerBackground: data.header_background, email: data.email, isAuth: true };
     }
-    return null;
+    return SecureStorage.getItem('local_profile');
 };
 
 export const syncChatHistory = async (personaId: string, messages: Message[]) => {
+    const limitedHistory = messages.slice(-50);
     if (supabaseInstance && currentUserId !== 'guest') {
-        const encrypted = encryptData(messages.slice(-50));
+        const encrypted = encryptData(limitedHistory);
         await supabaseInstance.from('chat_histories').upsert({ user_id: currentUserId, persona_id: personaId, messages: encrypted });
+    } else {
+        SecureStorage.setItem(`chat_history_${personaId}`, limitedHistory);
     }
 };
 
@@ -143,13 +147,14 @@ export const fetchChatHistory = async (personaId: string): Promise<Message[] | n
         const { data } = await supabaseInstance.from('chat_histories').select('messages').eq('user_id', currentUserId).eq('persona_id', personaId).single();
         if (data?.messages) return decryptData(data.messages);
     }
-    return null;
+    return SecureStorage.getItem(`chat_history_${personaId}`);
 };
 
-// Added clearChatHistory to resolve import error in Terminal.tsx and HistorySidebar.tsx
 export const clearChatHistory = async (personaId: string) => {
     if (supabaseInstance && currentUserId !== 'guest') {
         await supabaseInstance.from('chat_histories').delete().eq('user_id', currentUserId).eq('persona_id', personaId);
+    } else {
+        SecureStorage.removeItem(`chat_history_${personaId}`);
     }
 };
 
@@ -164,7 +169,6 @@ export const checkDbConnection = async (): Promise<number> => {
     } catch (e) { return -3; }
 };
 
-// Added checkSchemaHealth to resolve import error in DatabaseSetupModal.tsx
 export const checkSchemaHealth = async (): Promise<number> => {
     return checkDbConnection();
 };
@@ -185,7 +189,6 @@ export const fetchForumPosts = async (type: string = 'latest') => {
     return data || [];
 };
 
-// Added createForumPost to resolve import error in Forum.tsx
 export const createForumPost = async (post: any) => {
     if (!supabaseInstance) return false;
     const { error } = await supabaseInstance.from('forum_posts').insert({
@@ -195,49 +198,42 @@ export const createForumPost = async (post: any) => {
     return !error;
 };
 
-// Added updateForumPost to resolve import error in Forum.tsx
 export const updateForumPost = async (id: string, updates: any) => {
     if (!supabaseInstance) return false;
     const { error } = await supabaseInstance.from('forum_posts').update(updates).eq('id', id);
     return !error;
 };
 
-// Added deleteForumPost to resolve import error in Forum.tsx
 export const deleteForumPost = async (id: string) => {
     if (!supabaseInstance) return false;
     const { error } = await supabaseInstance.from('forum_posts').delete().eq('id', id);
     return !error;
 };
 
-// Added updatePostCounters to resolve import error in Forum.tsx
 export const updatePostCounters = async (id: string, counters: { likes: number, dislikes: number }) => {
     if (!supabaseInstance) return false;
     const { error } = await supabaseInstance.from('forum_posts').update(counters).eq('id', id);
     return !error;
 };
 
-// Added fetchComments to resolve import error in Forum.tsx
 export const fetchComments = async (postId: string) => {
     if (!supabaseInstance) return [];
     const { data } = await supabaseInstance.from('forum_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true });
     return data || [];
 };
 
-// Added postComment to resolve import error in Forum.tsx
 export const postComment = async (comment: any) => {
     if (!supabaseInstance) return false;
     const { error } = await supabaseInstance.from('forum_comments').insert(comment);
     return !error;
 };
 
-// Added updateForumComment to resolve import error in Forum.tsx
 export const updateForumComment = async (id: string, content: string) => {
     if (!supabaseInstance) return false;
     const { error } = await supabaseInstance.from('forum_comments').update({ content }).eq('id', id);
     return !error;
 };
 
-// Added deleteForumComment to resolve import error in Forum.tsx
 export const deleteForumComment = async (id: string) => {
     if (!supabaseInstance) return false;
     const { error } = await supabaseInstance.from('forum_comments').delete().eq('id', id);
@@ -246,7 +242,6 @@ export const deleteForumComment = async (id: string) => {
 
 // --- SYSTEM ---
 
-// Added logSystemEvent to resolve import error in Dashboard.tsx and githubService.ts
 export const logSystemEvent = async (message: string, type: 'info' | 'warn' | 'error' | 'success' = 'info') => {
     if (supabaseInstance) {
         await supabaseInstance.from('system_logs').insert({ message, type });
@@ -266,7 +261,6 @@ export const fetchGlobalStats = async () => {
     return { total_users: u || 0, total_posts: p || 0, active_personas: 12 };
 };
 
-// Added fetchTopDonators to resolve import error in About.tsx
 export const fetchTopDonators = async () => {
     if (!supabaseInstance) return [];
     const { data } = await supabaseInstance.from('donations').select('*').order('created_at', { ascending: false }).limit(10);
@@ -275,7 +269,6 @@ export const fetchTopDonators = async () => {
 
 // --- STORAGE ---
 
-// Added fetchDriveItems to resolve import error in Drive.tsx and githubService.ts
 export const fetchDriveItems = async (parentId: string | null) => {
     if (!supabaseInstance || currentUserId === 'guest') return [];
     let q = supabaseInstance.from('drive_items').select('*').eq('user_id', currentUserId);
@@ -285,14 +278,12 @@ export const fetchDriveItems = async (parentId: string | null) => {
     return data || [];
 };
 
-// Added fetchDriveItemContent to resolve import error in Drive.tsx
 export const fetchDriveItemContent = async (itemId: string) => {
     if (!supabaseInstance || currentUserId === 'guest') return null;
     const { data } = await supabaseInstance.from('drive_items').select('content').eq('id', itemId).single();
     return data?.content || null;
 };
 
-// Added saveDriveItem to resolve import error in Drive.tsx and githubService.ts
 export const saveDriveItem = async (item: DriveItem) => {
     if (!supabaseInstance || currentUserId === 'guest') return false;
     const { error } = await supabaseInstance.from('drive_items').upsert({
@@ -302,14 +293,12 @@ export const saveDriveItem = async (item: DriveItem) => {
     return !error;
 };
 
-// Added deleteDriveItem to resolve import error in Drive.tsx
 export const deleteDriveItem = async (itemId: string) => {
     if (!supabaseInstance || currentUserId === 'guest') return false;
     const { error } = await supabaseInstance.from('drive_items').delete().eq('id', itemId);
     return !error;
 };
 
-// Added findDriveItemByName to resolve import error in Drive.tsx and githubService.ts
 export const findDriveItemByName = async (parentId: string | null, name: string) => {
     if (!supabaseInstance || currentUserId === 'guest') return null;
     let q = supabaseInstance.from('drive_items').select('*').eq('user_id', currentUserId).eq('name', name);
@@ -319,7 +308,6 @@ export const findDriveItemByName = async (parentId: string | null, name: string)
     return data || null;
 };
 
-// Added updateDriveItem to resolve import error in Drive.tsx
 export const updateDriveItem = async (itemId: string, updates: Partial<DriveItem>) => {
     if (!supabaseInstance || currentUserId === 'guest') return false;
     const { error } = await supabaseInstance.from('drive_items').update(updates).eq('id', itemId);
@@ -335,4 +323,4 @@ export const uploadToSupabaseStorage = async (file: File | Blob, fileName: strin
 };
 
 export const getSupabaseConfig = () => ({ url: CLOUD_CONFIG.URL, key: CLOUD_CONFIG.ANON_KEY });
-export const updateSupabaseCredentials = (u: string, k: string) => true; // Dummy since hardcoded
+export const updateSupabaseCredentials = (u: string, k: string) => true; 

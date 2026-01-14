@@ -1,6 +1,11 @@
 
 import React, { useMemo, useState } from 'react';
-import { Copy, Check, Edit2, Volume2, Languages, Trash2, Loader2, Zap, ExternalLink, Reply, CornerDownRight, Cpu, Download, Image, Globe, Maximize2, X, Save, RefreshCw, Youtube, Play, Globe2, Code, Terminal as TerminalIcon } from 'lucide-react';
+import { 
+    Copy, Check, Edit2, Volume2, Languages, Trash2, Loader2, Zap, ExternalLink, 
+    Reply, CornerDownRight, Cpu, Download, Image, Globe, Maximize2, X, Save, 
+    RefreshCw, Youtube, Play, Globe2, Code, Terminal as TerminalIcon, Github, 
+    Music2, FileText as FileIcon, Twitter, Instagram, Linkedin, Facebook 
+} from 'lucide-react';
 import { Message, UserProfile, Persona, VoiceConfig } from '../types';
 import LazyImage from './LazyImage';
 import AudioPlayer from './AudioPlayer';
@@ -24,6 +29,7 @@ interface MessageItemProps {
     onDelete: (id: string) => void;
     onEditStart: (msg: Message) => void;
     onPlayTTS: (id: string, text: string) => void;
+    onPlayTTS_auto?: (id: string, text: string) => void;
     onReply: (msg: Message) => void;
     voiceConfig: VoiceConfig;
     isLatest?: boolean; 
@@ -62,6 +68,68 @@ const CodeBlock: React.FC<{ code: string; lang: string }> = ({ code, lang }) => 
     );
 };
 
+/**
+ * CELESTIAL LINK CARD: Luxurious Link Preview with Dynamic Branding
+ */
+const LinkEmbedCard: React.FC<{ url: string }> = ({ url }) => {
+    const domainInfo = useMemo(() => {
+        const lowerUrl = url.toLowerCase();
+        if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) return { icon: Youtube, color: 'text-red-500', bg: 'bg-red-500/10', label: 'Irminsul Stream' };
+        if (lowerUrl.includes('github.com')) return { icon: Github, color: 'text-white', bg: 'bg-white/10', label: 'Forge Repository' };
+        if (lowerUrl.includes('spotify.com')) return { icon: Music2, color: 'text-green-400', bg: 'bg-green-400/10', label: 'Euthymia Melodies' };
+        if (lowerUrl.includes('instagram.com')) return { icon: Instagram, color: 'text-pink-400', bg: 'bg-pink-500/10', label: 'Visual Chronicle' };
+        if (lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) return { icon: Twitter, color: 'text-blue-400', bg: 'bg-blue-500/10', label: 'Celestial Echoes' };
+        if (lowerUrl.includes('linkedin.com')) return { icon: Linkedin, color: 'text-blue-600', bg: 'bg-blue-600/10', label: 'Guild Network' };
+        if (lowerUrl.includes('facebook.com')) return { icon: Facebook, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'Ancient Social' };
+        return { icon: Globe2, color: 'text-[#d3bc8e]', bg: 'bg-[#d3bc8e]/10', label: 'World Data Node' };
+    }, [url]);
+
+    const Icon = domainInfo.icon;
+
+    return (
+        <a 
+            href={url} 
+            target="_blank" 
+            rel="noreferrer" 
+            className="block my-4 w-full p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-[#d3bc8e]/60 hover:bg-[#d3bc8e]/10 transition-all group/link-card shadow-[0_15px_35px_rgba(0,0,0,0.5)] overflow-hidden relative"
+        >
+            {/* Shimmer Effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full group-hover/link-card:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+            
+            <div className="flex items-center gap-5 relative z-10">
+                <div className={`w-14 h-14 rounded-2xl ${domainInfo.bg} flex items-center justify-center border border-white/10 group-hover/link-card:scale-110 group-hover/link-card:border-[#d3bc8e]/40 transition-all duration-500 shadow-inner shrink-0`}>
+                    <Icon className={`w-7 h-7 ${domainInfo.color} drop-shadow-[0_0_8px_currentColor]`} />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-black text-amber-500/90 uppercase tracking-[0.2em]">{domainInfo.label}</span>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
+                           <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                           <span className="text-[7px] font-black text-green-400 uppercase tracking-tighter">Synced</span>
+                        </div>
+                    </div>
+                    
+                    <p className="text-sm font-bold text-gray-100 truncate group-hover/link-card:text-white transition-colors">{url.replace(/^https?:\/\//, '')}</p>
+                    
+                    <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center gap-1 text-[8px] font-black text-gray-500 uppercase tracking-widest">
+                            <Zap className="w-2.5 h-2.5" /> High Fidelity Link
+                        </div>
+                        <div className="h-1 w-1 rounded-full bg-white/20"></div>
+                        <div className="flex items-center gap-1 text-[8px] font-black text-[#d3bc8e] uppercase tracking-widest opacity-0 group-hover/link-card:opacity-100 transition-opacity">
+                            Access Portal <ExternalLink className="w-2 h-2" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Corner Accent */}
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-[#d3bc8e]/20 rounded-br-2xl group-hover/link-card:border-[#d3bc8e]/60 transition-all"></div>
+        </a>
+    );
+};
+
 const MessageItem: React.FC<MessageItemProps> = React.memo(({ 
     msg, userProfile, currentPersona, editingId, editValue, copiedId, isTranslating, generatingTTSId, 
     onLightbox, onEditChange, onSaveEdit, onCancelEdit, onCopy, onTranslate, onToggleTranslation, onDelete, onEditStart, onPlayTTS, onReply, voiceConfig, isLatest = false 
@@ -79,44 +147,27 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
     const parsedContent = useMemo(() => {
         let text = msg.text;
         const embeds: React.ReactNode[] = [];
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const foundUrls = text.match(urlRegex) || [];
 
-        const videoMatch = text.match(/\|\|VIDEO_EMBED:\s*(.*?)\s*\|\|/);
-        if (videoMatch) {
-            const url = videoMatch[1];
-            text = text.replace(videoMatch[0], '').trim();
-            const embedUrl = getYoutubeEmbed(url);
-            embeds.push(
-                <div key="video" className="my-4 w-full rounded-2xl overflow-hidden border-2 border-[#d3bc8e]/40 bg-black shadow-2xl aspect-video relative group/vid">
-                    <iframe src={embedUrl} className="w-full h-full border-0" allowFullScreen title="Video Content" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
-                    <div className="absolute top-2 left-2 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 pointer-events-none">
-                        <Youtube className="w-4 h-4 text-red-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#d3bc8e]">Irminsul Stream</span>
-                    </div>
-                </div>
-            );
-        }
-
-        const webMatch = text.match(/\|\|WEB_EMBED:\s*(.*?)\s*\|\|/);
-        if (webMatch) {
-            const url = webMatch[1];
-            text = text.replace(webMatch[0], '').trim();
-            embeds.push(
-                <a key="web" href={url} target="_blank" rel="noreferrer" className="block my-4 w-full p-4 rounded-2xl bg-[#d3bc8e]/10 border border-[#d3bc8e]/30 hover:bg-[#d3bc8e]/20 transition-all group/web shadow-lg">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-[#d3bc8e]/20 flex items-center justify-center border border-[#d3bc8e]/30 group-hover/web:scale-110 transition-transform">
-                            <Globe2 className="w-6 h-6 text-[#d3bc8e]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-widest mb-1 flex items-center gap-2">
-                                <ExternalLink className="w-3 h-3" /> External Node
-                            </div>
-                            <p className="text-sm font-bold text-white truncate">{url}</p>
-                            <p className="text-[10px] text-gray-500 italic mt-0.5">Click to synchronize with external data...</p>
+        foundUrls.forEach((url, i) => {
+            const isYT = url.includes('youtube.com') || url.includes('youtu.be');
+            
+            if (isYT) {
+                const embedUrl = getYoutubeEmbed(url);
+                embeds.push(
+                    <div key={`yt-${i}`} className="my-4 w-full rounded-2xl overflow-hidden border-2 border-[#d3bc8e]/20 bg-black shadow-2xl aspect-video relative group/yt animate-in zoom-in-95 duration-500">
+                        <iframe src={embedUrl} className="w-full h-full border-0" title="Auto-YouTube" allowFullScreen />
+                        <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 opacity-0 group-hover/yt:opacity-100 transition-opacity pointer-events-none">
+                            <Youtube className="w-4 h-4 text-red-500" />
+                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#d3bc8e]">Irminsul Data Stream</span>
                         </div>
                     </div>
-                </a>
-            );
-        }
+                );
+            } else {
+                embeds.push(<LinkEmbedCard key={`link-${i}`} url={url} />);
+            }
+        });
 
         return { text, embeds };
     }, [msg.text]);
@@ -149,7 +200,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
 
                         return subPart.split(urlRegex).map((content, linkIdx) => {
                             if (content.match(urlRegex)) {
-                                return <a key={linkIdx} href={content} target="_blank" rel="noreferrer" className="text-amber-400 underline hover:text-amber-300 transition-colors">{content}</a>;
+                                return <a key={linkIdx} href={content} target="_blank" rel="noreferrer" className="text-amber-400 underline hover:text-amber-300 transition-colors font-bold">{content}</a>;
                             }
                             return content;
                         });
@@ -178,7 +229,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
             </div>
           </div>
 
-          <div className={`relative px-4 py-3 rounded-2xl w-full max-w-full overflow-hidden ${msg.role === 'user' ? 'bg-[#3d447a] rounded-tr-none text-white shadow-[0_4px_15px_rgba(61,68,122,0.3)]' : 'genshin-panel text-[#ece5d8] border border-[#d3bc8e]/10'}`}>
+          <div className={`relative px-4 py-3 rounded-2xl w-full max-w-full overflow-hidden ${msg.role === 'user' ? 'bg-[#3d447a] rounded-tr-none text-white shadow-[0_4px_15px_rgba(61,68,122,0.3)]' : 'genshin-panel text-[#ece5d8] border border-[#d3bc8e]/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.4)]'}`}>
             {msg.imageUrl && (
                 <div className="mb-3 rounded-xl overflow-hidden border border-amber-500/20 bg-black/40 relative group/img cursor-zoom-in" onClick={() => onLightbox(msg.imageUrl!)}>
                     <LazyImage src={msg.imageUrl} className="w-full h-auto max-h-[300px] object-cover transition-transform group-hover/img:scale-105" alt="Visual" />
