@@ -1,5 +1,5 @@
 
-import { AI_MODELS, IMAGE_GEN_MODELS, ASPECT_RATIOS, PERSONAS, ART_STYLES } from '../data';
+import { AI_MODELS, IMAGE_GEN_MODELS, ASPECT_RATIOS, PERSONAS, ART_STYLES, VIDEO_GEN_MODELS } from '../data';
 import { ApiKeyData, VoiceConfig, Persona } from '../types';
 import { 
     handleGoogleTextRequest, 
@@ -7,9 +7,9 @@ import {
     handleGoogleTTS,
     handleGoogleVideoGeneration
 } from './providers/googleProvider';
-import { handleOpenAITextRequest, handleOpenAIImageSynthesis } from './providers/openaiProvider';
-import { handleOpenRouterTextRequest, handleOpenRouterImageSynthesis } from './providers/openrouterProvider';
-import { handlePollinationsTextRequest, handlePollinationsImageSynthesis } from './providers/pollinationsProvider';
+import { handleOpenAITextRequest, handleOpenAIImageSynthesis, handleOpenAIVideoGeneration } from './providers/openaiProvider';
+import { handleOpenRouterTextRequest, handleOpenRouterImageSynthesis, handleOpenRouterVideoGeneration } from './providers/openrouterProvider';
+import { handlePollinationsTextRequest, handlePollinationsImageSynthesis, handlePollinationsVideoGeneration } from './providers/pollinationsProvider';
 import { GoogleGenAI, Type } from "@google/genai";
 
 export interface ImageAttachment {
@@ -49,7 +49,6 @@ const describeVisualTransformation = async (prompt: string, images: string[], mo
         return { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data: data.replace(/[\n\r\s]/g, '') } };
     });
 
-    // MASTERPIECE RITUAL INSTRUCTION
     const qualitySuffix = "masterpiece, best quality, perfect anatomy, perfect color, perfect lighting, accurate angle, accurate vibes, 8k quality, ultra-detailed, cinematic photography style, highly detailed skin texture, deep context, high-fidelity";
 
     const instruction = mode === 'fusion' 
@@ -60,7 +59,7 @@ const describeVisualTransformation = async (prompt: string, images: string[], mo
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: [{ role: 'user', parts: [...imageParts, { text: instruction }] }],
-            config: { temperature: 1.3 } // High creativity for deep context
+            config: { temperature: 1.3 }
         });
         return res.text || prompt;
     } catch (e) {
@@ -86,10 +85,8 @@ export const generateImage = async (
     const persona = PERSONAS.find(p => p.id === personaId);
     const mode = sourceImages.length === 1 ? 'refine' : sourceImages.length >= 2 ? 'fusion' : 'manifest';
     
-    // 1. Refine the prompt with Masterpiece Ritual
     let contextualPrompt = await describeVisualTransformation(prompt, sourceImages, mode as any, persona);
 
-    // 2. ENFORCE ULTRA QUALITY
     const masterStyle = ART_STYLES.find(s => s.id === 'anime_masterpiece')?.prompt || "masterpiece, 8k, perfect anatomy";
     let finalPrompt = `${persona?.visualSummary || ''}, ${masterStyle}, ${style}, ${contextualPrompt}, masterpiece, best quality, 8k, perfect color, perfect lighting, accurate vibes`;
 
@@ -165,8 +162,33 @@ export const generateTTS = async (text: string, voiceName: string, _config?: Voi
     return await handleGoogleTTS(audibleText, voiceName);
 };
 
-export const generateVideo = async (prompt: string, image?: string, modelId?: string): Promise<string | null> => {
-    return await handleGoogleVideoGeneration(prompt, image, modelId);
+export const generateVideo = async (prompt: string, image?: string, modelId: string = 'veo-3.1-fast-generate-preview'): Promise<string | null> => {
+    const modelCfg = VIDEO_GEN_MODELS.find(m => m.id === modelId);
+    const provider = (modelCfg?.provider || 'google').toLowerCase();
+
+    // CRITICAL: Google provider check must ONLY trigger Google handlers
+    if (provider === 'google') {
+        return await handleGoogleVideoGeneration(prompt, image, modelId);
+    }
+
+    // OpenAI Bridge
+    if (provider === 'openai') {
+        return await handleOpenAIVideoGeneration(prompt, image);
+    }
+
+    // OpenRouter Bridge
+    if (provider === 'openrouter') {
+        return await handleOpenRouterVideoGeneration(modelId, prompt, image);
+    }
+
+    // Pollinations Bridge (Free & Fast)
+    if (provider === 'pollinations') {
+        return await handlePollinationsVideoGeneration(prompt);
+    }
+
+    // Fallback
+    console.warn(`Provider ${provider} untuk video belum sepenuhnya terintegrasi. Mencoba via OpenRouter fallback.`);
+    return await handleOpenRouterVideoGeneration('stabilityai/svd', prompt, image);
 };
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
