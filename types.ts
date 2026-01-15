@@ -1,5 +1,4 @@
 
-
 export enum MenuType {
   LIVE_CALL = 'live_call',
   TERMINAL = 'terminal',
@@ -65,6 +64,7 @@ export interface Message {
     text: string;
     role: string;
   };
+  groundingMetadata?: any; // Added for search grounding
 }
 
 export interface GitHubConfig {
@@ -123,7 +123,6 @@ export interface ApiKeyData {
   label?: string;
 }
 
-// Added missing interfaces to resolve import errors in various components
 export interface SystemLog {
   id: string;
   message: string;

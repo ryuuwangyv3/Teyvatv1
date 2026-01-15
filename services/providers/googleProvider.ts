@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality } from "@google/genai";
 import { addWavHeader } from "../../utils/audioUtils";
 
@@ -7,7 +8,6 @@ import { addWavHeader } from "../../utils/audioUtils";
 export const handleGoogleTextRequest = async (model: string, contents: any[], systemInstruction: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Ensure grounding works by using gemini-3-flash-preview as the engine for searching
     const targetModel = model.includes('gemini') ? model : 'gemini-3-flash-preview';
     const supportSearch = !targetModel.includes('image') && !targetModel.includes('tts');
     
@@ -17,39 +17,17 @@ export const handleGoogleTextRequest = async (model: string, contents: any[], sy
             contents: contents,
             config: {
                 systemInstruction: systemInstruction,
-                temperature: 0.6, // Slightly lowered for better factual accuracy
+                temperature: 0.6,
                 topP: 0.95,
                 ...(supportSearch ? { tools: [{ googleSearch: {} }] } : {})
             }
         });
 
-        let text = response.text || "";
-        
-        /**
-         * DEEP GROUNDING VALIDATION:
-         * Memastikan link yang diberikan AI bukan halusinasi dengan 
-         * mencocokkannya langsung dengan metadata pencarian Google.
-         */
-        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-        if (chunks && chunks.length > 0) {
-            const validLinks = chunks
-                .map((c: any) => {
-                    if (c.web?.uri && c.web?.title) {
-                        return `- [${c.web.title}](${c.web.uri})`;
-                    }
-                    return null;
-                })
-                .filter(Boolean);
-            
-            if (validLinks.length > 0) {
-                const uniqueLinks = Array.from(new Set(validLinks));
-                // Membersihkan teks dari link yang kemungkinan salah dibuat AI
-                // dan menggantinya dengan daftar terverifikasi.
-                text = text.replace(/https?:\/\/[^\s]+/g, '(link verified)'); 
-                text += "\n\n**Verified Sources from Irminsul:**\n" + uniqueLinks.join("\n");
-            }
-        }
-        return text;
+        const text = response.text || "";
+        const metadata = response.candidates?.[0]?.groundingMetadata;
+
+        // Return both text and metadata
+        return { text, metadata };
     } catch (error: any) {
         console.error("[Akasha] Google Provider Error:", error);
         if (error?.message?.includes("Requested entity was not found")) {

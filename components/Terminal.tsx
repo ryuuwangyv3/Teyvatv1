@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Terminal as TerminalIcon, Mic, Paperclip, X, Download, Maximize2, Reply, RefreshCw, FileText, Image as ImageIcon, FileCode, Music, Film, File, Sparkles, Cpu } from 'lucide-react';
+import { Send, Loader2, Terminal as TerminalIcon, Mic, Paperclip, X, Download, Maximize2, Reply, RefreshCw, FileText, Image as ImageIcon, FileCode, Music, Film, File, Sparkles, Cpu, Youtube } from 'lucide-react';
 import { Persona, UserProfile, Message, Language, VoiceConfig, Attachment } from '../types';
 import { chatWithAI, generateImage, translateText, generateTTS } from '../services/geminiService';
 import MessageItem from './MessageItem';
 import { syncChatHistory, fetchChatHistory, clearChatHistory } from '../services/supabaseService';
+import { getYoutubeId, fetchYoutubeMetadata } from '../utils/youtubeUtils';
 
 interface TerminalProps {
     currentPersona: Persona;
@@ -151,6 +153,17 @@ const Terminal: React.FC<TerminalProps> = ({
         setTypingStatus('Harmonizing with Akasha...');
 
         try {
+            // --- YOUTUBE ANALYSIS LOGIC ---
+            let ytContext = "";
+            const ytId = getYoutubeId(textToSend);
+            if (ytId) {
+                setTypingStatus('Scanning Temporal Stream...');
+                const meta = await fetchYoutubeMetadata(`https://www.youtube.com/watch?v=${ytId}`);
+                if (meta) {
+                    ytContext = `\n\n[YOUTUBE_SCAN_DATA]\n- Title: ${meta.title}\n- Author: ${meta.author_name}\n- Video ID: ${ytId}\n- Analysis: AI has analyzed the metadata of this temporal node.`;
+                }
+            }
+
             const historyForAi = messages.slice(-15).map(m => ({
                 role: m.role,
                 content: m.text 
@@ -165,7 +178,6 @@ const Terminal: React.FC<TerminalProps> = ({
                     }
                 }));
 
-            // INJECT REAL-TIME TEMPORAL CONTEXT
             const now = new Date();
             const timeInfo = `[TIME_RESONANCE_DATA]
 - Current Local Time: ${now.toLocaleTimeString()}
@@ -173,7 +185,7 @@ const Terminal: React.FC<TerminalProps> = ({
 - Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
 - Traveler Presence: Connected via Terminal`;
 
-            let enrichedPrompt = `${timeInfo}\n\n[USER_MESSAGE]\n${textToSend}`;
+            let enrichedPrompt = `${timeInfo}${ytContext}\n\n[USER_MESSAGE]\n${textToSend}`;
             
             for (const pa of currentAttachments) {
                 if (!pa.type.startsWith('image/') && pa.base64Data) {
@@ -184,7 +196,7 @@ const Terminal: React.FC<TerminalProps> = ({
                 }
             }
 
-            const rawResponse = await chatWithAI(
+            const resObj = await chatWithAI(
                 selectedModel,
                 historyForAi,
                 enrichedPrompt,
@@ -192,6 +204,9 @@ const Terminal: React.FC<TerminalProps> = ({
                 `User Context: ${userProfile.username}. Real-time Sync Active.`,
                 imageParts
             );
+
+            const rawResponse = resObj.text;
+            const groundingMetadata = resObj.metadata;
 
             let imgUrl: string | undefined;
             const visualTagPattern = /\|\|GEN_IMG:\s*(.*?)\s*\|\|/i;
@@ -210,7 +225,8 @@ const Terminal: React.FC<TerminalProps> = ({
                 text: cleanText,
                 imageUrl: imgUrl,
                 timestamp: Date.now(),
-                model: selectedModel
+                model: selectedModel,
+                groundingMetadata: groundingMetadata
             };
 
             const finalMessages = [...messages, userMsg, modelMsg];

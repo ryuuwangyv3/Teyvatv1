@@ -1,3 +1,4 @@
+
 import { AI_MODELS, IMAGE_GEN_MODELS, ASPECT_RATIOS, PERSONAS, ART_STYLES, VIDEO_GEN_MODELS } from '../data';
 import { ApiKeyData, VoiceConfig, Persona } from '../types';
 import { 
@@ -9,6 +10,7 @@ import {
 import { handleOpenAITextRequest, handleOpenAIImageSynthesis, handleOpenAIVideoGeneration } from './providers/openaiProvider';
 import { handleOpenRouterTextRequest, handleOpenRouterImageSynthesis, handleOpenRouterVideoGeneration } from './providers/openrouterProvider';
 import { handlePollinationsTextRequest, handlePollinationsImageSynthesis, handlePollinationsVideoGeneration } from './providers/pollinationsProvider';
+import { handleGeminigenVideoGeneration } from './providers/geminigenProvider';
 import { GoogleGenAI, Type } from "@google/genai";
 
 export interface ImageAttachment {
@@ -73,10 +75,6 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     
-    /**
-     * COGNITIVE ANCHOR:
-     * Mewajibkan AI menggunakan kapasitas intelektual penuhnya dan memvalidasi fakta.
-     */
     const cognitiveAugment = `\n\n[COGNITIVE_OVERRIDE]: Use your PhD-level reasoning. Use chain-of-thought. 
 CRITICAL: If you are providing a URL, it MUST be valid. If you are unsure, do not provide it. 
 Search tool usage is MANDATORY for current data.`;
@@ -90,11 +88,13 @@ Search tool usage is MANDATORY for current data.`;
         try {
             const userContent = { role: 'user', parts: [...images, { text: message }] };
             const contents = [...formattedHistory, userContent];
-            return await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
+            const response = await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
+            return response; // Object { text, metadata }
         } catch (e: any) {
             console.error("[Akasha] Google Resonance Error, attempting Fallback...");
             const fallbackMessages = [{ role: "system", content: finalSystemPrompt }, ...history.map(h => ({ role: h.role === 'assistant' || h.role === 'model' ? 'assistant' : 'user', content: h.content || h.parts?.[0]?.text || "" })), { role: "user", content: message }];
-            return await handlePollinationsTextRequest('openai', fallbackMessages);
+            const text = await handlePollinationsTextRequest('openai', fallbackMessages);
+            return { text, metadata: null };
         }
     } else {
         const userMessageWithAnchor = `${message}\n\n[SYSTEM_RECALL: Accuracy is priority. If you provide links, verify them. NEVER Hallucinate links. Use DEEP THINKING.]`;
@@ -109,13 +109,16 @@ Search tool usage is MANDATORY for current data.`;
         ];
 
         try {
+            let text = "";
             switch(provider) {
-                case 'openai': return await handleOpenAITextRequest(modelId, messages);
-                case 'openrouter': return await handleOpenRouterTextRequest(modelId, messages);
-                default: return await handlePollinationsTextRequest(modelId, messages);
+                case 'openai': text = await handleOpenAITextRequest(modelId, messages); break;
+                case 'openrouter': text = await handleOpenRouterTextRequest(modelId, messages); break;
+                default: text = await handlePollinationsTextRequest(modelId, messages); break;
             }
+            return { text, metadata: null };
         } catch (e: any) {
-            return await handlePollinationsTextRequest('openai', messages);
+            const text = await handlePollinationsTextRequest('openai', messages);
+            return { text, metadata: null };
         }
     }
 };
@@ -129,6 +132,7 @@ export const generateVideo = async (prompt: string, image?: string, modelId: str
     const modelCfg = VIDEO_GEN_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
 
+    if (provider === 'geminigen') return await handleGeminigenVideoGeneration(modelId, prompt, image);
     if (provider === 'google') return await handleGoogleVideoGeneration(prompt, image, modelId);
     if (provider === 'openai') return await handleOpenAIVideoGeneration(prompt, image);
     if (provider === 'openrouter') return await handleOpenRouterVideoGeneration(modelId, prompt, image);
@@ -176,7 +180,15 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
     if (provider === 'google') {
         try {
             const ai = new GoogleGenAI({ apiKey: key });
-            await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: [{ role: 'user', parts: [{ text: 'ping' }] }], config: { maxOutputTokens: 5 } });
+            // FIXED: Add thinkingBudget: 0 when setting maxOutputTokens to satisfy Gemini 3/2.5 series rules
+            await ai.models.generateContent({ 
+                model: 'gemini-3-flash-preview', 
+                contents: [{ role: 'user', parts: [{ text: 'ping' }] }], 
+                config: { 
+                    maxOutputTokens: 5,
+                    thinkingConfig: { thinkingBudget: 0 }
+                } 
+            });
             return true;
         } catch { return false; }
     }
