@@ -22,7 +22,6 @@ let serviceKeys: ApiKeyData[] = [];
 export const setServiceKeys = (keys: ApiKeyData[]) => { serviceKeys = keys; };
 
 const describeVisualTransformation = async (prompt: string, images: string[], mode: 'refine' | 'fusion' | 'manifest', persona?: Persona): Promise<string> => {
-    // PROTEK: Jika prompt mengandung link tapi masuk ke sirkuit gambar, hentikan halusinasi.
     if (prompt.includes('http')) return prompt;
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -57,9 +56,8 @@ export const generateImage = async (
     const modelCfg = IMAGE_GEN_MODELS.find(m => m.id === sourceModelId) || { provider: 'google' };
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     const persona = PERSONAS.find(p => p.id === personaId);
-    const mode = sourceImages.length === 1 ? 'refine' : sourceImages.length >= 2 ? 'fusion' : 'manifest';
     
-    let contextualPrompt = await describeVisualTransformation(prompt, sourceImages, mode as any, persona);
+    let contextualPrompt = await describeVisualTransformation(prompt, sourceImages, 'manifest', persona);
     const masterStyle = ART_STYLES.find(s => s.id === 'none')?.prompt || "official genshin impact anime style";
     let finalPrompt = `${persona?.visualSummary || ''}, ${contextualPrompt}, ${masterStyle}, ${style}, best quality, 8k, vibrant colors, sharp lineart.`;
 
@@ -75,14 +73,20 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     
-    const finalSystemPrompt = `${systemInstruction}\n\n[USER_CONTEXT]\n${userContext}`;
-
-    const formattedHistory = history.map(h => ({
-        role: h.role === 'assistant' ? 'model' : (h.role === 'model' ? 'model' : 'user'),
-        parts: [{ text: h.content || h.parts?.[0]?.text || "" }]
-    }));
+    /**
+     * COGNITIVE ANCHOR:
+     * Mewajibkan AI menggunakan kapasitas intelektual penuhnya dan memvalidasi fakta.
+     */
+    const cognitiveAugment = `\n\n[COGNITIVE_OVERRIDE]: Use your PhD-level reasoning. Use chain-of-thought. 
+CRITICAL: If you are providing a URL, it MUST be valid. If you are unsure, do not provide it. 
+Search tool usage is MANDATORY for current data.`;
+    const finalSystemPrompt = `${systemInstruction}\n\n[USER_CONTEXT]\n${userContext}${cognitiveAugment}`;
 
     if (provider === 'google') {
+        const formattedHistory = history.map(h => ({
+            role: h.role === 'assistant' ? 'model' : (h.role === 'model' ? 'model' : 'user'),
+            parts: [{ text: h.content || h.parts?.[0]?.text || "" }]
+        }));
         try {
             const userContent = { role: 'user', parts: [...images, { text: message }] };
             const contents = [...formattedHistory, userContent];
@@ -93,7 +97,17 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
             return await handlePollinationsTextRequest('openai', fallbackMessages);
         }
     } else {
-        const messages: any[] = [{ role: "system", content: finalSystemPrompt }, ...history.map(h => ({ role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', content: h.parts?.[0]?.text || h.content || "" })), { role: "user", content: message }];
+        const userMessageWithAnchor = `${message}\n\n[SYSTEM_RECALL: Accuracy is priority. If you provide links, verify them. NEVER Hallucinate links. Use DEEP THINKING.]`;
+
+        const messages: any[] = [
+            { role: "system", content: finalSystemPrompt }, 
+            ...history.map(h => ({ 
+                role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', 
+                content: h.parts?.[0]?.text || h.content || "" 
+            })), 
+            { role: "user", content: userMessageWithAnchor }
+        ];
+
         try {
             switch(provider) {
                 case 'openai': return await handleOpenAITextRequest(modelId, messages);

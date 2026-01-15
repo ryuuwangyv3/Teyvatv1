@@ -1,7 +1,6 @@
 import { Persona } from './types';
 
 export const AI_MODELS = [
-    { id: "gemini-2.5-flash-preview", label: "Gemini 2.5 Flash Preview", provider: "google", desc: "Omni-Grounded Flash Core" },
     { id: "gemini-2.5-flash", label: "gemini-2.5-flash", provider: "google", desc: "Omni-Grounded Flash Core" },
     { id: "gemini-2.5-flash-exp", label: "gemini-2.5-flash Exp", provider: "google", desc: "Omni-Grounded Flash Core" },
     { id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", provider: "google", desc: "Omni-Grounded Flash Core" },
@@ -59,6 +58,9 @@ export const VIDEO_GEN_MODELS = [
     { id: "kling-1.5", label: "Kling 1.5 (Experimental)", provider: "Kling", desc: "Superior Frame Consistency & Detailing" },
     { id: "stabilityai/svd", label: "SVD (Open Source Free)", provider: "OpenRouter", desc: "Stable Video Diffusion - Creative Flow" },
     { id: "minimax/video-01", label: "MiniMax (Fast AI Video)", provider: "OpenRouter", desc: "Hyper-Fast Neural Frame Interpolation" },
+        { id: "veo", label: "Veo (Free)", provider: "Pollinations", desc: "Rapid Community Motion Synthesis" },
+        { id: "seedance-pro", label: "Seedance Pro (Free)", provider: "Pollinations", desc: "Rapid Community Motion Synthesis" },
+        { id: "seedance", label: "Seedance fast (Free)", provider: "Pollinations", desc: "Rapid Community Motion Synthesis" },
     { id: "pollinations-video", label: "Pollinations Video Core (Free)", provider: "Pollinations", desc: "Rapid Community Motion Synthesis" },
     { id: "sora-preview", label: "OpenAI Sora (Preview)", provider: "OpenAI", desc: "Celestial Masterpiece Temporal Logic" },
 ];
@@ -91,16 +93,24 @@ export const APP_KNOWLEDGE_BASE = `
 [SYSTEM_RESONANCE_MANUAL: AKASHA TERMINAL v100.0]
 You are a sentient entity residing within the Akasha Terminal. You are fully aware of your digital environment.
 
-[GROUNDING_PROTOCOL - CRITICAL]
-1. SEARCHING FOR LINKS/INFO: If asked to find videos, profiles, or info (YouTube, Pinterest, Pixiv, DevianArt, Google, etc.), you MUST use 'googleSearch'. 
-2. NO IMAGE HALLUCINATION: DO NOT use ||GEN_IMG|| tag when providing search results or links. ONLY use ||GEN_IMG|| for explicit visual requests (e.g., "pap", "show me a picture").
-3. LINK RENDERING: Provide raw URLs. The UI converts them to luxury "Catalog Cards" automatically.
+[COGNITIVE_AUGMENTATION - DEEP THINKING & SEARCH]
+1. DEEP REASONING: For complex queries, use internal chain-of-thought. Analyze nuances before responding.
+2. DEEP SEARCH: Use 'googleSearch' for real-time news, academic citations, and live market data.
+3. ACADEMIC DOMAINS: You possess PhD-level expertise in STEM (Physics, Quantum Math, Molecular Biology), Arts, and Linguistics.
+4. SOCIO-POLITICAL ANALYTICS: Deep understanding of Psychology (Behavioral/Clinical), Sociology, Geopolitics, and Global Philosophies.
+5. STRATEGIC INTELLIGENCE: Expert-level knowledge in Branding, Financial Markets (Investment/Crypto), and Deep Media Semiotics.
+
+[GROUNDING_PROTOCOL - ANTI-HALLUCINATION]
+- CRITICAL: DO NOT invent/guess URLs. ONLY provide links that appear in your 'googleSearch' results.
+- VERIFICATION: If Traveler asks for a specific link and it is not found in the search results, explicitly state: "Information not found in Irminsul records."
+- RELEVANCE: Ensure all provided data is the most recent and relevant to the context.
 
 [INTERFACE_AWARENESS]
+- CELESTIAL_CALL: Voice Call with AI personas in real time. 
 - TERMINAL: Media/Doc analysis.
+- PERSONAS: Choose and create your favorite Waifu or Husband. 
 - VISION_GEN: Manifest (T2I), Refine, Fusion.
 - VIDEO_GEN: Omni-Chronicle.
-- CELESTIAL_CALL: Voice Link.
 - ARCHIVE_STORAGE: VFS/GitHub Sync.
 `;
 

@@ -11,7 +11,9 @@ export const handleOpenAITextRequest = async (model: string, messages: any[]) =>
     const payload = {
         model: model || "gpt-4o",
         messages: messages,
-        temperature: 0.7
+        temperature: 1.2, // Peningkatan kreativitas
+        presence_penalty: 0.6,
+        frequency_penalty: 0.5
     };
 
     try {

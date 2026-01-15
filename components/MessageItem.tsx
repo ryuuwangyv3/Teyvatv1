@@ -1,3 +1,5 @@
+
+// Added React import to resolve missing namespace/name errors
 import React, { useMemo, useState } from 'react';
 import { 
     Copy, Check, Edit2, Volume2, Languages, Trash2, Loader2, Zap, ExternalLink, 
@@ -68,9 +70,6 @@ const CodeBlock: React.FC<{ code: string; lang: string }> = ({ code, lang }) => 
     );
 };
 
-/**
- * CELESTIAL CATALOG CARD: Enhanced link preview for both user and AI.
- */
 const LinkEmbedCard: React.FC<{ url: string }> = ({ url }) => {
     const domainInfo = useMemo(() => {
         const lowerUrl = url.toLowerCase();
@@ -120,7 +119,6 @@ const LinkEmbedCard: React.FC<{ url: string }> = ({ url }) => {
                 </div>
             </div>
             
-            {/* Corner Decor */}
             <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[#d3bc8e]/10 group-hover/link-card:border-[#d3bc8e]/40 transition-colors"></div>
         </a>
     );
@@ -194,8 +192,6 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                             );
                         }
 
-                        // For normal text, we split by URLs to avoid double-rendering if we wanted link highlighting
-                        // But since we have dedicated cards, we just render as text nodes.
                         return subPart.split(urlRegex).map((content, linkIdx) => {
                             if (content.match(urlRegex)) {
                                 return <a key={`link-inline-${linkIdx}`} href={content} target="_blank" rel="noreferrer" className="text-amber-400 underline hover:text-amber-300 transition-colors font-bold">{content}</a>;
@@ -227,84 +223,91 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
             </div>
           </div>
 
-          <div className={`relative px-4 py-3 rounded-2xl w-full max-w-full overflow-hidden ${msg.role === 'user' ? 'bg-[#3d447a] rounded-tr-none text-white shadow-[0_4px_15px_rgba(61,68,122,0.3)]' : 'genshin-panel text-[#ece5d8] border border-[#d3bc8e]/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.4)]'}`}>
-            {msg.imageUrl && (
-                <div className="mb-3 rounded-xl overflow-hidden border border-amber-500/20 bg-black/40 relative group/img cursor-zoom-in" onClick={() => onLightbox(msg.imageUrl!)}>
-                    <LazyImage src={msg.imageUrl} className="w-full h-auto max-h-[300px] object-cover transition-transform group-hover/img:scale-105" alt="Visual" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity">
-                        <Maximize2 className="w-6 h-6 text-white" />
-                    </div>
-                </div>
-            )}
+          <div className={`relative rounded-2xl w-full max-w-full overflow-hidden ${msg.role === 'user' ? 'bg-[#3d447a] rounded-tr-none text-white shadow-[0_4px_15px_rgba(61,68,122,0.3)]' : 'genshin-panel text-[#ece5d8] border border-[#d3bc8e]/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.4)]'}`}>
             
-            {isEditing ? (
-                <div className="flex flex-col gap-3 min-w-[240px] md:min-w-[320px] animate-in fade-in zoom-in-95">
-                    <textarea 
-                        value={editValue}
-                        onChange={(e) => onEditChange(e.target.value)}
-                        className="w-full bg-black/40 border border-[#d3bc8e]/30 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#d3bc8e] resize-none min-h-[100px] select-text font-medium leading-relaxed custom-scrollbar"
-                        autoFocus
-                    />
-                    <div className="flex justify-end gap-2">
-                        <button onClick={onCancelEdit} className="px-3 py-1.5 rounded-lg bg-white/5 text-gray-400 text-[10px] font-bold uppercase hover:bg-white/10 transition-all border border-white/10"><X className="w-3 h-3 inline mr-1" /> Cancel</button>
-                        <button onClick={() => onSaveEdit(msg.id, editValue, false)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase hover:bg-green-500/30 transition-all border border-green-500/20"><Save className="w-3 h-3 inline mr-1" /> Save Only</button>
-                        {msg.role === 'user' && (
-                            <button onClick={() => onSaveEdit(msg.id, editValue, true)} className="px-3 py-1.5 rounded-lg bg-[#d3bc8e] text-black text-[10px] font-black uppercase hover:bg-white transition-all shadow-lg active:scale-90"><RefreshCw className="w-3 h-3 inline mr-1" /> Save & Resend</button>
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <>
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap select-text font-medium break-words">
-                        {renderFormattedText(parsedContent.text)}
-                    </div>
-                    {parsedContent.embeds}
-                    {msg.showTranslation && msg.translatedText && (
-                        <div className="mt-3 pt-3 border-t border-white/10 animate-in fade-in slide-in-from-top-1">
-                            <div className="flex items-center gap-2 text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">
-                                <Globe className="w-3 h-3" /> Akasha Translation
-                            </div>
-                            <p className="text-xs text-[#d3bc8e]/80 italic select-text leading-relaxed font-medium">{msg.translatedText}</p>
+            {/* SCROLLABLE RESONANCE CHAMBER */}
+            <div className="max-h-[500px] md:max-h-[600px] overflow-y-auto custom-scrollbar px-4 py-3">
+                {msg.imageUrl && (
+                    <div className="mb-3 rounded-xl overflow-hidden border border-amber-500/20 bg-black/40 relative group/img cursor-zoom-in" onClick={() => onLightbox(msg.imageUrl!)}>
+                        <LazyImage src={msg.imageUrl} className="w-full h-auto max-h-[300px] object-cover transition-transform group-hover/img:scale-105" alt="Visual" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                            <Maximize2 className="w-6 h-6 text-white" />
                         </div>
-                    )}
-                </>
-            )}
+                    </div>
+                )}
+                
+                {isEditing ? (
+                    <div className="flex flex-col gap-3 min-w-[240px] md:min-w-[320px] animate-in fade-in zoom-in-95">
+                        <textarea 
+                            value={editValue}
+                            onChange={(e) => onEditChange(e.target.value)}
+                            className="w-full bg-black/40 border border-[#d3bc8e]/30 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#d3bc8e] resize-none min-h-[100px] select-text font-medium leading-relaxed custom-scrollbar"
+                            autoFocus
+                        />
+                        <div className="flex justify-end gap-2 pb-2">
+                            <button onClick={onCancelEdit} className="px-3 py-1.5 rounded-lg bg-white/5 text-gray-400 text-[10px] font-bold uppercase hover:bg-white/10 transition-all border border-white/10"><X className="w-3 h-3 inline mr-1" /> Cancel</button>
+                            <button onClick={() => onSaveEdit(msg.id, editValue, false)} className="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-[10px] font-bold uppercase hover:bg-green-500/30 transition-all border border-green-500/20"><Save className="w-3 h-3 inline mr-1" /> Save Only</button>
+                            {msg.role === 'user' && (
+                                <button onClick={() => onSaveEdit(msg.id, editValue, true)} className="px-3 py-1.5 rounded-lg bg-[#d3bc8e] text-black text-[10px] font-black uppercase hover:bg-white transition-all shadow-lg active:scale-90"><RefreshCw className="w-3 h-3 inline mr-1" /> Save & Resend</button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="text-sm leading-relaxed whitespace-pre-wrap select-text font-medium break-words">
+                            {renderFormattedText(parsedContent.text)}
+                        </div>
+                        {parsedContent.embeds}
+                        {msg.showTranslation && msg.translatedText && (
+                            <div className="mt-3 pt-3 border-t border-white/10 animate-in fade-in slide-in-from-top-1">
+                                <div className="flex items-center gap-2 text-[9px] font-black text-amber-500/60 uppercase tracking-widest mb-1">
+                                    <Globe className="w-3 h-3" /> Akasha Translation
+                                </div>
+                                <p className="text-xs text-[#d3bc8e]/80 italic select-text leading-relaxed font-medium">{msg.translatedText}</p>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
             
-            {msg.audioUrl && (
-                <div className="mt-3 w-full">
-                    <AudioPlayer audioUrl={msg.audioUrl} initialVolume={1.0} voiceConfig={voiceConfig} autoPlay={isLatest} />
+            {/* FIXED CONTROLS AREA (Tombol aksi dan audio tidak ter-scroll) */}
+            <div className="px-4 pb-3">
+                {msg.audioUrl && (
+                    <div className="mt-1 w-full">
+                        <AudioPlayer audioUrl={msg.audioUrl} initialVolume={1.0} voiceConfig={voiceConfig} autoPlay={isLatest} />
+                    </div>
+                )}
+
+                <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { onCopy(msg.text, msg.id); }} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                        {copiedId === msg.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />} {copiedId === msg.id ? 'COPIED' : 'COPY'}
+                    </button>
+                    <button onClick={() => onReply(msg)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                        <Reply className="w-3 h-3" /> REPLY
+                    </button>
+                    
+                    {msg.role === 'user' && !isEditing && (
+                        <button onClick={() => onEditStart(msg)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                            <Edit2 className="w-3 h-3" /> EDIT
+                        </button>
+                    )}
+
+                    {msg.role === 'model' && (
+                        <button onClick={() => msg.showTranslation ? onToggleTranslation(msg.id) : onTranslate(msg.id, msg.text)} disabled={isTranslating === msg.id} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                            {isTranslating === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />} {msg.showTranslation ? 'HIDE' : 'TRANSLATE'}
+                        </button>
+                    )}
+
+                    {msg.role === 'model' && !msg.audioUrl && (
+                        <button onClick={() => onPlayTTS(msg.id, msg.text)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                            {generatingTTSId === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />} VOICE
+                        </button>
+                    )}
+                    
+                    <button onClick={() => onDelete(msg.id)} className="text-[9px] font-bold text-gray-500 hover:text-red-500 ml-auto transition-colors p-1" title="Delete Fragment">
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                 </div>
-            )}
-
-            <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { onCopy(msg.text, msg.id); }} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
-                    {copiedId === msg.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />} {copiedId === msg.id ? 'COPIED' : 'COPY'}
-                </button>
-                <button onClick={() => onReply(msg)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
-                    <Reply className="w-3 h-3" /> REPLY
-                </button>
-                
-                {msg.role === 'user' && !isEditing && (
-                    <button onClick={() => onEditStart(msg)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
-                        <Edit2 className="w-3 h-3" /> EDIT
-                    </button>
-                )}
-
-                {msg.role === 'model' && (
-                    <button onClick={() => msg.showTranslation ? onToggleTranslation(msg.id) : onTranslate(msg.id, msg.text)} disabled={isTranslating === msg.id} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
-                        {isTranslating === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />} {msg.showTranslation ? 'HIDE' : 'TRANSLATE'}
-                    </button>
-                )}
-
-                {msg.role === 'model' && !msg.audioUrl && (
-                    <button onClick={() => onPlayTTS(msg.id, msg.text)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
-                        {generatingTTSId === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />} VOICE
-                    </button>
-                )}
-                
-                <button onClick={() => onDelete(msg.id)} className="text-[9px] font-bold text-gray-500 hover:text-red-500 ml-auto transition-colors p-1" title="Delete Fragment">
-                    <Trash2 className="w-3.5 h-3.5" />
-                </button>
             </div>
           </div>
           

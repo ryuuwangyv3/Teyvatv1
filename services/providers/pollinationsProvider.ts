@@ -1,54 +1,72 @@
 import { decryptFragment } from '../securityService';
 
 /**
- * CELESTIAL RELAY: Pollinations Node (V25.0 - High Reliability)
- * Dioptimalkan untuk stabilitas tinggi dan respons tanpa gangguan.
+ * CELESTIAL RELAY: Pollinations Node (V30.0 - Neural Anchor Synchronized)
+ * Dioptimalkan dengan Brain Anchor untuk memastikan kepatuhan sistem Akasha 100%.
  */
 
-// Obfuscated Paths (Encrypted fragments for security)
-const E_P_TEXT = "U2FsdGVkX19H2S8W4E/G3K6P9uT1Y2X3B4V5C6N7M8L9K0J1H2G3F4D5S6A7Q8W9E0R1T2Y3U4I5O6P7A8S9D0F1G2H3J4K5L6M7";
-const E_P_IMAGE = "U2FsdGVkX19B4V5C6N7M8L9K0J1H2G3F4D5S6A7Q8W9E0R1T2Y3U4I5O6P7A8S9D0F1G2H3J4K5L6M7N8B9V0C1X2Z3Q4W5E6";
-
 export const handlePollinationsTextRequest = async (model: string, messages: any[]) => {
-    // Jalur utama: text.pollinations.ai dengan protokol POST murni
-    const primaryUrl = decryptFragment(E_P_TEXT) || "https://text.pollinations.ai/";
+    const baseUrl = "https://text.pollinations.ai/";
     const seed = Math.floor(Math.random() * 9999999);
     
-    // Pemilihan model target (Pollinations mendukung: openai, mistral, llama, searchgpt)
+    // Sinkronisasi model target
     const targetModel = model || "openai";
+    
+    // Payload untuk metode POST (Paling stabil untuk sinkronisasi OTAK AI)
+    const payload = {
+        messages: messages,
+        model: targetModel,
+        seed: seed,
+        jsonMode: false,
+        temperature: 1.3, 
+        presence_penalty: 0.8,
+        frequency_penalty: 0.8,
+        top_p: 0.9
+    };
 
     try {
-        const response = await fetch(primaryUrl, {
+        let response = await fetch(baseUrl, {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Accept": "text/plain"
-            },
-            body: JSON.stringify({
-                messages: messages, // Mengirimkan seluruh riwayat/konteks
-                model: targetModel,
-                jsonMode: false, // Menghindari parsing JSON yang tidak stabil pada output teks
-                seed: seed,
-                system_prompt: messages.find(m => m.role === 'system')?.content || ""
-            })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
         });
 
+        // Fallback GET jika POST gagal (Node Disturbance)
         if (!response.ok) {
-            // Jika jalur POST terganggu, lakukan upaya pemulihan (Emergency Handshake)
-            const errorMsg = await response.text().catch(() => "Unknown Node Disturbance");
-            throw new Error(`Celestial Link Distorted: ${response.status} - ${errorMsg.substring(0, 30)}`);
+            const lastMsg = messages[messages.length - 1].content;
+            const systemMsg = messages.find(m => m.role === 'system')?.content || "";
+            
+            const queryParams = new URLSearchParams({
+                model: targetModel,
+                seed: seed.toString(),
+                system: systemMsg, 
+                temperature: "1.3",
+                jsonMode: "false"
+            });
+            
+            const getUrl = `${baseUrl}${encodeURIComponent(lastMsg)}?${queryParams.toString()}`;
+            response = await fetch(getUrl);
+        }
+
+        if (!response.ok) {
+            const errorMsg = await response.text().catch(() => "Node Disturbance");
+            throw new Error(`Resonance Blocked: ${response.status} - ${errorMsg.substring(0, 30)}`);
         }
 
         const data = await response.text();
         if (data && data.trim().length > 0) {
-            return data.trim();
+            // Pembersihan output agresif agar tidak ada format bocor
+            return data
+                .replace(/^\[AI_COMPANION\]:/i, '')
+                .replace(/^\[SYSTEM_PROTOCOL\]:/i, '')
+                .replace(/^AI_COMPANION:/i, '')
+                .trim();
         }
         
-        throw new Error("Empty Resonance: No data returned from Akasha Node.");
+        throw new Error("Empty Resonance: No data returned from Irminsul.");
     } catch (e: any) {
         console.error("[Akasha] Pollinations Text Failure:", e);
-        // Lempar galat yang lebih bersahabat untuk DonationModal
-        throw new Error(`Resonance Blocked: Pollinations node unstable. (Technical: ${e.message})`);
+        throw new Error(`Celestial Link Distorted: ${e.message}`);
     }
 };
 
@@ -57,37 +75,35 @@ export const handlePollinationsTextRequest = async (model: string, messages: any
  */
 export const handlePollinationsImageSynthesis = async (prompt: string, modelId: string, width: number, height: number): Promise<string | null> => {
     const seed = Math.floor(Math.random() * 10000000);
-    const primaryUrl = decryptFragment(E_P_IMAGE) || "https://image.pollinations.ai/prompt/";
-    let slug = "flux";
+    const baseUrl = "https://image.pollinations.ai/prompt/{prompt}";
     
-    if (modelId.toLowerCase().includes('anime')) slug = "flux-anime";
-    else if (modelId.toLowerCase().includes('real')) slug = "flux-realism";
-
-    // Membersihkan prompt agar aman bagi URL gateway
-    const cleanPrompt = prompt
-        .replace(/[^\w\s,]/gi, '')
-        .substring(0, 800);
+    const enhancedPrompt = `${prompt}, official genshin impact character art style, high quality anime render, vibrant coloring, masterpiece`;
+    const cleanPrompt = enhancedPrompt.replace(/[^\w\s,]/gi, '').substring(0, 1500);
 
     const queryParams = new URLSearchParams({
         width: width.toString(),
         height: height.toString(),
         seed: seed.toString(),
-        model: slug,
+        model: "flux-anime", 
         nologo: "true",
         enhance: "true"
     });
 
-    return `${primaryUrl}${encodeURIComponent(cleanPrompt)}?${queryParams.toString()}`;
+    return baseUrl.replace('{prompt}', encodeURIComponent(cleanPrompt)) + `?${queryParams.toString()}`;
 };
 
-/**
- * Video Generation Protocol (Temporal Fragments)
- */
 export const handlePollinationsVideoGeneration = async (prompt: string): Promise<string | null> => {
     const seed = Math.floor(Math.random() * 1000000);
-    const primaryUrl = decryptFragment(E_P_IMAGE) || "https://image.pollinations.ai/prompt/";
-    // Menggunakan teknik Frame-Interpolation simulasi via Pollinations High-Fidelity
-    const animationPrompt = `${prompt}, masterpiece anime style, high dynamic range, fluid motion, keyframe rendering`;
+    const baseUrl = "https://image.pollinations.ai/prompt/{prompt}";
+    const animationPrompt = `${prompt}, cinematic movement, high fidelity anime animation, fluid motion`;
     
-    return `${primaryUrl}${encodeURIComponent(animationPrompt)}?model=flux&seed=${seed}&width=1280&height=720&nologo=true&enhance=true`;
+    const queryParams = new URLSearchParams({
+        model: "flux",
+        seed: seed.toString(),
+        width: "1280",
+        height: "720",
+        nologo: "true"
+    });
+
+    return baseUrl.replace('{prompt}', encodeURIComponent(animationPrompt)) + `?${queryParams.toString()}`;
 };
