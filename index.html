@@ -14,10 +14,10 @@
             --genshin-dark: #0b0e14;
             --genshin-blue: #3d447a;
             --genshin-white: #ece5d8;
-            --genshin-panel-bg: rgba(13, 17, 28, 0.92);
+            --genshin-panel-bg: rgba(13, 17, 28, 0.94);
             --genshin-accent: #4ade80;
             --teyvat-bg-gradient: radial-gradient(circle at center, #1a1f2e 0%, #0b0e14 100%);
-            --shimmer: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            --shimmer: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
         }
         
         * { 
@@ -25,6 +25,7 @@
             box-sizing: border-box; 
             scrollbar-width: thin;
             scrollbar-color: var(--genshin-gold-glow) transparent;
+            cursor: url('https://paimon.moe/images/cursor.png'), auto !important;
         }
 
         html, body, #root {
@@ -52,9 +53,9 @@
             inset: 0;
             z-index: -1;
             background: url('https://www.transparenttextures.com/patterns/stardust.png');
-            opacity: 0.3;
+            opacity: 0.2;
             pointer-events: none;
-            animation: drift 150s linear infinite;
+            animation: drift 180s linear infinite;
         }
 
         @keyframes drift {
@@ -65,24 +66,25 @@
         /* Luxury Gold Border Glow */
         .genshin-panel {
             background: var(--genshin-panel-bg);
-            backdrop-filter: blur(30px) saturate(160%);
-            border: 1px solid rgba(211, 188, 142, 0.25);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(211, 188, 142, 0.05);
-            border-radius: 1.8rem;
+            backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(211, 188, 142, 0.3);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(211, 188, 142, 0.08);
+            border-radius: 2rem;
             position: relative;
             overflow: hidden;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
-        /* Shimmer Effect for Luxury Panels */
+        /* Luxury Shimmer Effect */
         .genshin-panel::after {
             content: '';
             position: absolute;
             inset: 0;
             background: var(--shimmer);
             background-size: 200% 100%;
-            animation: shimmer 8s infinite linear;
+            animation: shimmer 12s infinite linear;
             pointer-events: none;
-            opacity: 0.1;
+            opacity: 0.15;
         }
 
         @keyframes shimmer {
@@ -93,32 +95,32 @@
         .genshin-button {
             background: linear-gradient(135deg, #d3bc8e 0%, #b89a64 50%, #9c7f4b 100%);
             color: #1a1a1a;
-            font-weight: 800;
-            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            font-weight: 900;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             text-transform: uppercase;
-            letter-spacing: 0.16em;
-            border: 1px solid rgba(255, 255, 255, 0.25);
+            letter-spacing: 0.2em;
+            border: 1px solid rgba(255, 255, 255, 0.3);
             position: relative;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0.6rem;
-            border-radius: 0.9rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
 
         .genshin-button:hover {
             background: #ffffff;
             color: #000;
-            box-shadow: 0 0 35px var(--genshin-gold-glow), 0 0 10px rgba(255,255,255,0.5);
-            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 0 45px var(--genshin-gold-glow), 0 0 15px rgba(255,255,255,0.6);
+            transform: translateY(-5px) scale(1.05);
             border-color: #fff;
         }
 
-        .genshin-button:active { transform: scale(0.96); }
+        .genshin-button:active { transform: scale(0.94); }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb {
             background: linear-gradient(to bottom, transparent, var(--genshin-gold), transparent);
@@ -127,40 +129,49 @@
 
         .genshin-glow-text {
             color: var(--genshin-gold);
-            text-shadow: 0 0 15px rgba(211, 188, 142, 0.6);
+            text-shadow: 0 0 20px rgba(211, 188, 142, 0.7);
             font-family: 'Marcellus', serif;
         }
 
-        /* Luxury Card with Dynamic Depth */
+        /* Card Depth Refinement */
         .genshin-card {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(211, 188, 142, 0.15);
-            transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
-            border-radius: 1.6rem;
-            backdrop-filter: blur(10px);
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            border-radius: 1.8rem;
+            backdrop-filter: blur(15px);
         }
         
         .genshin-card:hover {
             border-color: var(--genshin-gold);
-            background: rgba(211, 188, 142, 0.12);
-            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5), 0 0 20px rgba(211, 188, 142, 0.15);
-            transform: translateY(-8px) scale(1.01);
+            background: rgba(211, 188, 142, 0.15);
+            box-shadow: 0 35px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(211, 188, 142, 0.2);
+            transform: translateY(-12px) scale(1.02);
         }
 
-        /* Polished Entrance Animation */
+        /* Entrance Animation */
         .message-in {
-            animation: messageEntry 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+            animation: messageEntry 0.8s cubic-bezier(0.19, 1, 0.22, 1) forwards;
         }
 
         @keyframes messageEntry {
-            from { opacity: 0; transform: translateY(30px) scale(0.96); filter: blur(10px); }
+            from { opacity: 0; transform: translateY(40px) scale(0.95); filter: blur(15px); }
             to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
         }
 
-        /* Mobile specific refinements */
+        /* Pulsing Glow for interactive elements */
+        .glow-pulse {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.4; filter: blur(5px); }
+            50% { opacity: 0.8; filter: blur(8px); }
+        }
+
         @media (max-width: 640px) {
-            .genshin-panel { border-radius: 1.4rem; }
-            .safe-area-bottom { padding-bottom: max(1.2rem, env(safe-area-inset-bottom)); }
+            .genshin-panel { border-radius: 1.6rem; }
+            .safe-area-bottom { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
         }
     </style>
 <script type="importmap">

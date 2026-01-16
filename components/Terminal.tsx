@@ -5,7 +5,7 @@ import { Persona, UserProfile, Message, Language, VoiceConfig, Attachment } from
 import { chatWithAI, generateImage, translateText, generateTTS } from '../services/geminiService';
 import MessageItem from './MessageItem';
 import { syncChatHistory, fetchChatHistory, clearChatHistory } from '../services/supabaseService';
-import { getYoutubeId, fetchYoutubeMetadata } from '../utils/youtubeUtils';
+import { getYoutubeId, fetchDetailedYoutubeMetadata } from '../utils/youtubeUtils';
 
 interface TerminalProps {
     currentPersona: Persona;
@@ -153,14 +153,25 @@ const Terminal: React.FC<TerminalProps> = ({
         setTypingStatus('Harmonizing with Akasha...');
 
         try {
-            // --- YOUTUBE ANALYSIS LOGIC ---
+            // --- DEEP YOUTUBE ANALYSIS LOGIC ---
             let ytContext = "";
             const ytId = getYoutubeId(textToSend);
             if (ytId) {
-                setTypingStatus('Scanning Temporal Stream...');
-                const meta = await fetchYoutubeMetadata(`https://www.youtube.com/watch?v=${ytId}`);
+                setTypingStatus('Accessing Irminsul Records for Video Data...');
+                const meta = await fetchDetailedYoutubeMetadata(ytId);
                 if (meta) {
-                    ytContext = `\n\n[YOUTUBE_SCAN_DATA]\n- Title: ${meta.title}\n- Author: ${meta.author_name}\n- Video ID: ${ytId}\n- Analysis: AI has analyzed the metadata of this temporal node.`;
+                    const commentsStr = meta.topComments.map(c => `- ${c.author}: ${c.text} (Likes: ${c.likeCount})`).join('\n');
+                    ytContext = `\n\n[YOUTUBE_RECORDS_FOUND]
+- Video ID: ${meta.id}
+- Title: ${meta.title}
+- Channel: ${meta.channelTitle}
+- Published At: ${new Date(meta.publishedAt).toLocaleString()}
+- Stats: ${meta.viewCount} views, ${meta.likeCount} likes, ${meta.commentCount} comments.
+- Description: ${meta.description.substring(0, 1000)}${meta.description.length > 1000 ? '...' : ''}
+- Tags: ${meta.tags.join(', ')}
+- Top Comments Sample:
+${commentsStr}
+- System Note: You can now discuss the video content, stats, and community reaction as if you have full access to this temporal node.`;
                 }
             }
 

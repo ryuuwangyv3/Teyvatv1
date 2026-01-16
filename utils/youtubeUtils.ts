@@ -1,7 +1,7 @@
 
 /**
  * YOUTUBE INTELLIGENCE UTILS
- * Mendukung ekstraksi data dan bypass CORS untuk analisis kognitif AI.
+ * Mendukung ekstraksi data mendalam melalui YouTube Data API v3.
  */
 
 export const getYoutubeId = (url: string): string | null => {
@@ -10,32 +10,75 @@ export const getYoutubeId = (url: string): string | null => {
     return (match && match[2].length === 11) ? match[2] : null;
 };
 
-export interface YoutubeMetadata {
-    title: string;
-    author_name: string;
-    thumbnail_url: string;
-    html?: string;
+export interface YoutubeComment {
+    author: string;
+    text: string;
+    likeCount: number;
 }
 
-export const fetchYoutubeMetadata = async (url: string): Promise<YoutubeMetadata | null> => {
+export interface YoutubeMetadata {
+    id: string;
+    title: string;
+    description: string;
+    publishedAt: string;
+    channelTitle: string;
+    tags: string[];
+    viewCount: string;
+    likeCount: string;
+    commentCount: string;
+    topComments: YoutubeComment[];
+    thumbnailUrl: string;
+}
+
+export const fetchDetailedYoutubeMetadata = async (videoId: string): Promise<YoutubeMetadata | null> => {
+    const API_KEY = process.env.API_KEY;
+    if (!API_KEY) return null;
+
     try {
-        // Menggunakan noembed (provider oembed) dengan proxy untuk mendapatkan info video
-        const targetUrl = `https://noembed.com/embed?url=${encodeURIComponent(url)}`;
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-        
-        const response = await fetch(proxyUrl);
-        if (!response.ok) return null;
-        
-        const data = await response.json();
-        if (data.error) return null;
+        // 1. Fetch Video Details
+        const videoUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoId}&key=${API_KEY}`;
+        const videoRes = await fetch(videoUrl);
+        const videoData = await videoRes.json();
+
+        if (!videoData.items || videoData.items.length === 0) return null;
+
+        const item = videoData.items[0];
+        const snip = item.snippet;
+        const stats = item.statistics;
+
+        // 2. Fetch Top Comments
+        let comments: YoutubeComment[] = [];
+        try {
+            const commentUrl = `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&maxResults=5&order=relevance&key=${API_KEY}`;
+            const commentRes = await fetch(commentUrl);
+            const commentData = await commentRes.json();
+            
+            if (commentData.items) {
+                comments = commentData.items.map((c: any) => ({
+                    author: c.snippet.topLevelComment.snippet.authorDisplayName,
+                    text: c.snippet.topLevelComment.snippet.textDisplay,
+                    likeCount: c.snippet.topLevelComment.snippet.likeCount
+                }));
+            }
+        } catch (e) {
+            console.warn("Failed to fetch comments, continuing with basic metadata.");
+        }
 
         return {
-            title: data.title,
-            author_name: data.author_name,
-            thumbnail_url: data.thumbnail_url
+            id: videoId,
+            title: snip.title,
+            description: snip.description,
+            publishedAt: snip.publishedAt,
+            channelTitle: snip.channelTitle,
+            tags: snip.tags || [],
+            viewCount: stats.viewCount,
+            likeCount: stats.likeCount,
+            commentCount: stats.commentCount,
+            topComments: comments,
+            thumbnailUrl: snip.thumbnails.high?.url || snip.thumbnails.default?.url
         };
     } catch (e) {
-        console.error("[Akasha] YouTube Metadata Link Severed:", e);
+        console.error("[Akasha] Deep YouTube Scan Failed:", e);
         return null;
     }
 };

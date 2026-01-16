@@ -32,13 +32,13 @@ const describeVisualTransformation = async (prompt: string, images: string[], mo
         return { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data: data.replace(/[\n\r\s]/g, '') } };
     });
 
-    const instruction = `[VISUAL CONSISTENCY] Character: ${persona?.name}. Base: ${persona?.visualSummary}. Request: ${prompt}. MAINTAIN official outfit and hair. Describe pose and lighting in English. Anime 2.3D style.`;
+    const instruction = `[VISUAL CONSISTENCY] Character: ${persona?.name}. Base: ${persona?.visualSummary}. Request: ${prompt}. Describe pose and lighting in English. Anime 2.3D style.`;
 
     try {
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: [{ role: 'user', parts: [...imageParts, { text: instruction }] }],
-            config: { temperature: 0.7 } 
+            config: { temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } } 
         });
         return res.text || prompt;
     } catch (e) {
@@ -75,37 +75,34 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     
-    const cognitiveAugment = `\n\n[COGNITIVE_OVERRIDE]: Use your PhD-level reasoning. Use chain-of-thought. 
-CRITICAL: If you are providing a URL, it MUST be valid. If you are unsure, do not provide it. 
-Search tool usage is MANDATORY for current data.`;
+    const cognitiveAugment = `\n\n[COGNITIVE_OVERRIDE]: Use high-level reasoning. 
+CRITICAL: Use 'googleSearch' for real-time data. If you provide a URL, it MUST be valid.`;
     const finalSystemPrompt = `${systemInstruction}\n\n[USER_CONTEXT]\n${userContext}${cognitiveAugment}`;
 
     if (provider === 'google') {
         const formattedHistory = history.map(h => ({
-            role: h.role === 'assistant' ? 'model' : (h.role === 'model' ? 'model' : 'user'),
+            role: h.role === 'assistant' || h.role === 'model' ? 'model' : 'user',
             parts: [{ text: h.content || h.parts?.[0]?.text || "" }]
         }));
         try {
             const userContent = { role: 'user', parts: [...images, { text: message }] };
             const contents = [...formattedHistory, userContent];
-            const response = await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
-            return response; // Object { text, metadata }
+            return await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
         } catch (e: any) {
-            console.error("[Akasha] Google Resonance Error, attempting Fallback...");
-            const fallbackMessages = [{ role: "system", content: finalSystemPrompt }, ...history.map(h => ({ role: h.role === 'assistant' || h.role === 'model' ? 'assistant' : 'user', content: h.content || h.parts?.[0]?.text || "" })), { role: "user", content: message }];
-            const text = await handlePollinationsTextRequest('openai', fallbackMessages);
+            console.error("[Akasha] Google Resonance Failure, using Pollinations Backup...");
+            const messages = [
+                { role: "system", content: finalSystemPrompt }, 
+                ...history.map(h => ({ role: h.role === 'assistant' || h.role === 'model' ? 'assistant' : 'user', content: h.content || h.parts?.[0]?.text || "" })), 
+                { role: "user", content: message }
+            ];
+            const text = await handlePollinationsTextRequest('openai', messages);
             return { text, metadata: null };
         }
     } else {
-        const userMessageWithAnchor = `${message}\n\n[SYSTEM_RECALL: Accuracy is priority. If you provide links, verify them. NEVER Hallucinate links. Use DEEP THINKING.]`;
-
         const messages: any[] = [
             { role: "system", content: finalSystemPrompt }, 
-            ...history.map(h => ({ 
-                role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', 
-                content: h.parts?.[0]?.text || h.content || "" 
-            })), 
-            { role: "user", content: userMessageWithAnchor }
+            ...history.map(h => ({ role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', content: h.parts?.[0]?.text || h.content || "" })), 
+            { role: "user", content: message }
         ];
 
         try {
@@ -144,43 +141,18 @@ export const translateText = async (text: string, targetLanguage: string): Promi
     try {
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: [{ role: 'user', parts: [{ text: `Translate to ${targetLanguage}. RETURN ONLY TRANSLATION. Text: ${text}` }] }],
-            config: { temperature: 0.3 }
+            contents: [{ role: 'user', parts: [{ text: `Translate to ${targetLanguage}: ${text}` }] }],
+            config: { temperature: 0.3, thinkingConfig: { thinkingBudget: 0 } }
         });
         return res.text?.trim() || text;
     } catch { return text; }
-};
-
-export const analyzePersonaFromImage = async (base64Image: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const [header, data] = base64Image.split(',');
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: [{ role: 'user', parts: [{ inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data } }, { text: "Analyze this image character details in JSON." }] }],
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    name: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    personality: { type: Type.STRING },
-                    background: { type: Type.STRING },
-                    speechStyle: { type: Type.STRING },
-                    visualSummary: { type: Type.STRING },
-                    voiceSuggestion: { type: Type.STRING }
-                }
-            }
-        }
-    });
-    return JSON.parse(response.text || '{}');
 };
 
 export const validateApiKey = async (key: string, provider: string): Promise<boolean> => {
     if (provider === 'google') {
         try {
             const ai = new GoogleGenAI({ apiKey: key });
-            // FIXED: Add thinkingBudget: 0 when setting maxOutputTokens to satisfy Gemini 3/2.5 series rules
+            // Mandatory: thinkingBudget: 0 when maxOutputTokens is used in v3.0 preview
             await ai.models.generateContent({ 
                 model: 'gemini-3-flash-preview', 
                 contents: [{ role: 'user', parts: [{ text: 'ping' }] }], 
@@ -193,4 +165,49 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
         } catch { return false; }
     }
     return key.length > 10;
+};
+
+// Added analyzePersonaFromImage to fix compilation error and provide character analysis from images.
+export const analyzePersonaFromImage = async (base64Image: string) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const [header, data] = base64Image.split(',');
+    const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
+
+    const prompt = `Analyze this character image and extract their essence for a roleplay persona. 
+    Return a JSON object with character traits.`;
+
+    try {
+        const res = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [{
+                role: 'user',
+                parts: [
+                    { inlineData: { mimeType, data: data.replace(/[\n\r\s]/g, '') } },
+                    { text: prompt }
+                ]
+            }],
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING, description: "Name of the character" },
+                        description: { type: Type.STRING, description: "A short title or description" },
+                        personality: { type: Type.STRING, description: "Key personality traits" },
+                        background: { type: Type.STRING, description: "Suggested lore or backstory" },
+                        speechStyle: { type: Type.STRING, description: "How they talk" },
+                        voiceSuggestion: { type: Type.STRING, enum: ['Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr'] },
+                        visualSummary: { type: Type.STRING, description: "A summary of physical appearance for future image generation" }
+                    },
+                    required: ['name', 'description', 'personality', 'background', 'speechStyle', 'voiceSuggestion', 'visualSummary']
+                }
+            }
+        });
+        
+        const text = res.text || "{}";
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Persona Analysis Error:", e);
+        throw e;
+    }
 };

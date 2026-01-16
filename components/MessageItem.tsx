@@ -5,7 +5,7 @@ import {
     Reply, Cpu, Globe, Maximize2, X, Save, RefreshCw, Youtube, Globe2, 
     Terminal as TerminalIcon, Github, Music2, FileText as FileIcon, Twitter, 
     Instagram, Search, LayoutList, Book, Gamepad2, Palette, MessageSquare,
-    Image as LucideImage, Play, ArrowRight, Expand, Monitor, MousePointer2, ShieldCheck
+    Image as LucideImage, Play, ArrowRight, Expand, Monitor, MousePointer2, ShieldCheck, Languages as TranslateIcon
 } from 'lucide-react';
 import { Message, UserProfile, Persona, VoiceConfig } from '../types';
 import LazyImage from './LazyImage';
@@ -51,7 +51,6 @@ const WebPortalFrame: React.FC<{ url: string; onClose: () => void }> = ({ url, o
     return (
         <div className="mt-4 w-full animate-in zoom-in-95 slide-in-from-top-2 duration-500">
             <div className="genshin-panel overflow-hidden border-2 border-[#d3bc8e]/40 shadow-[0_25px_60px_rgba(0,0,0,0.7)] bg-[#0b0e14]">
-                {/* Portal Header */}
                 <div className="px-4 py-3 bg-[#131823] border-b border-[#d3bc8e]/20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
@@ -68,8 +67,6 @@ const WebPortalFrame: React.FC<{ url: string; onClose: () => void }> = ({ url, o
                         </button>
                     </div>
                 </div>
-                
-                {/* Iframe Area */}
                 <div className="relative aspect-video sm:aspect-[16/10] bg-white">
                     {isLoading && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0b0e14] z-10">
@@ -84,8 +81,6 @@ const WebPortalFrame: React.FC<{ url: string; onClose: () => void }> = ({ url, o
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     />
                 </div>
-                
-                {/* Portal Footer */}
                 <div className="px-4 py-2 bg-[#0b0e14] flex items-center justify-center border-t border-white/5">
                     <p className="text-[7px] text-gray-600 font-black uppercase tracking-[0.3em] flex items-center gap-2">
                         <ShieldCheck size={10} /> Akasha Sandbox Protection Active
@@ -214,7 +209,7 @@ const SmartEmbed: React.FC<{ url: string; onPortal: (url: string) => void }> = (
                         src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`} 
                         alt="icon" 
                         className="w-6 h-6 object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIj48L2NpcmNsZT48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iMjIiIHkyPSIxMiI+PC9saW5lPjxwYXRoIGQ9Ik0xMiAyYTYuMjYgNi4yNiAwIDAgMCAwIDIwIDYuMjYgNi4yNiAwIDAgMCAwLTIwIj48L3BhdGg+PC9zdmc+'; }}
+                        onError={(e) => { (e.target as HTMLIFrameElement).src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIj48L2NpcmNsZT48bGluZSB4MT0iMiIgeTE9IjEyIiB4Mj0iMjIiIHkyPSIxMiI+PC9saW5lPjxwYXRoIGQ9Ik0xMiAyYTYuMjYgNi4yNiAwIDAgMCAwIDIwIDYuMjYgNi4yNiAwIDAgMCAwLTIwIj48L3BhdGg+PC9zdmc+'; }}
                     />
                 </div>
                 <div className="flex-1 min-w-0 z-10">
@@ -386,6 +381,18 @@ const MessageItem = React.memo<MessageItemProps>(({
                 ) : (
                     <>
                         <div className="text-sm leading-relaxed whitespace-pre-wrap select-text font-medium break-words">{renderFormattedText(parsedContent.text)}</div>
+                        
+                        {/* TRANSLATION BOX */}
+                        {msg.translatedText && msg.showTranslation && (
+                            <div className="mt-4 p-4 bg-[#d3bc8e]/10 border-l-4 border-[#d3bc8e] rounded-r-xl animate-in slide-in-from-left-2 duration-400">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Globe2 size={12} className="text-[#d3bc8e]" />
+                                    <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-widest">Linguistic Bridge</span>
+                                </div>
+                                <p className="text-sm italic text-gray-300 leading-relaxed">"{msg.translatedText}"</p>
+                            </div>
+                        )}
+
                         <GroundingSources metadata={msg.groundingMetadata} onPortal={setActivePortal} />
                         {parsedContent.embeds}
                         {activePortal && <WebPortalFrame url={activePortal} onClose={() => setActivePortal(null)} />}
@@ -396,10 +403,29 @@ const MessageItem = React.memo<MessageItemProps>(({
                 {msg.audioUrl && <div className="mt-1 w-full"><AudioPlayer audioUrl={msg.audioUrl} initialVolume={1.0} voiceConfig={voiceConfig} autoPlay={isLatest} /></div>}
                 <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => onCopy(msg.text, msg.id)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">{copiedId === msg.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />} {copiedId === msg.id ? 'COPIED' : 'COPY'}</button>
+                    
                     <button onClick={() => onReply(msg)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest"><Reply className="w-3 h-3" /> REPLY</button>
+                    
+                    {/* EDIT / RE-SYNC BUTTON */}
+                    <button onClick={() => onEditStart(msg)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">
+                        <Edit2 className="w-3 h-3" /> {msg.role === 'user' ? 'RE-SYNC' : 'EDIT'}
+                    </button>
+
+                    {/* TRANSLATE BUTTON */}
+                    {msg.role === 'model' && (
+                        <button 
+                            onClick={() => msg.translatedText ? onToggleTranslation(msg.id) : onTranslate(msg.id, msg.text)} 
+                            className={`text-[9px] font-bold flex items-center gap-1 transition-colors uppercase tracking-widest ${isTranslating === msg.id ? 'text-amber-400 animate-pulse' : msg.translatedText ? 'text-[#d3bc8e]' : 'text-gray-500 hover:text-amber-500'}`}
+                        >
+                            {isTranslating === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <TranslateIcon className="w-3 h-3" />} 
+                            {msg.translatedText ? (msg.showTranslation ? 'HIDE TRANSLATION' : 'SHOW TRANSLATION') : 'TRANSLATE'}
+                        </button>
+                    )}
+
                     {msg.role === 'model' && !msg.audioUrl && (
                         <button onClick={() => onPlayTTS(msg.id, msg.text)} className="text-[9px] font-bold text-gray-500 hover:text-amber-500 flex items-center gap-1 transition-colors uppercase tracking-widest">{generatingTTSId === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />} VOICE</button>
                     )}
+                    
                     <button onClick={() => onDelete(msg.id)} className="text-[9px] font-bold text-gray-500 hover:text-red-500 ml-auto transition-colors p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
             </div>
