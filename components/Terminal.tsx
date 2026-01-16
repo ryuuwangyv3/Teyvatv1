@@ -216,24 +216,26 @@ ${commentsStr}
                 imageParts
             );
 
-            const rawResponse = resObj.text;
+            const rawResponse = resObj.text || "";
             const groundingMetadata = resObj.metadata;
 
             let imgUrl: string | undefined;
-            const visualTagPattern = /\|\|GEN_IMG:\s*(.*?)\s*\|\|/i;
+            // ROBUST REGEX for GEN_IMG detection
+            const visualTagPattern = /\|\|GEN_IMG:\s*([\s\S]*?)\s*\|\|/i;
             const imgMatch = rawResponse.match(visualTagPattern);
             const cleanText = rawResponse.replace(/\|\|GEN_IMG:[\s\S]*?\|\|/gi, '').trim();
             
-            if (imgMatch) {
+            if (imgMatch && imgMatch[1]) {
                 setTypingStatus('Manifesting Artifact...');
-                const generatedImg = await generateImage(imgMatch[1], currentPersona.id, undefined, undefined, selectedModel);
+                // Ensure personaId is passed for visualSummary injection
+                const generatedImg = await generateImage(imgMatch[1], currentPersona.id, undefined, undefined, 'gemini-2.5-flash-image');
                 if (generatedImg) imgUrl = generatedImg;
             }
 
             const modelMsg: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'model',
-                text: cleanText,
+                text: cleanText || (imgUrl ? "Here is the visual you requested." : "..."),
                 imageUrl: imgUrl,
                 timestamp: Date.now(),
                 model: selectedModel,

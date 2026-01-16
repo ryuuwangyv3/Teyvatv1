@@ -24,7 +24,8 @@ let serviceKeys: ApiKeyData[] = [];
 export const setServiceKeys = (keys: ApiKeyData[]) => { serviceKeys = keys; };
 
 const describeVisualTransformation = async (prompt: string, images: string[], mode: 'refine' | 'fusion' | 'manifest', persona?: Persona): Promise<string> => {
-    if (prompt.includes('http')) return prompt;
+    // If prompt is just a URL or empty, skip
+    if (prompt.includes('http') || !prompt.trim()) return prompt;
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const imageParts: any[] = images.map(img => {
@@ -32,15 +33,22 @@ const describeVisualTransformation = async (prompt: string, images: string[], mo
         return { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data: data.replace(/[\n\r\s]/g, '') } };
     });
 
-    const instruction = `[VISUAL CONSISTENCY] Character: ${persona?.name}. Base: ${persona?.visualSummary}. Request: ${prompt}. Describe pose and lighting in English. Anime 2.3D style.`;
+    const instruction = `[VISUAL ANALYZER] 
+Subject: ${persona?.name || 'Character'}. 
+Visual Base: ${persona?.visualSummary || 'Anime character'}. 
+User Request: ${prompt}. 
+Task: Expand the request into a detailed image generation prompt. 
+Focus on: camera angle, lighting, character pose, and environment details. 
+Style: Official Genshin Impact splash art style, high quality 2.3D anime render.
+Return only the prompt in English.`;
 
     try {
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: [{ role: 'user', parts: [...imageParts, { text: instruction }] }],
-            config: { temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } } 
+            config: { temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } } 
         });
-        return res.text || prompt;
+        return res.text?.trim() || prompt;
     } catch (e) {
         return prompt;
     }
@@ -55,13 +63,27 @@ export const generateImage = async (
     aspectRatio: string = "1:1", 
     style: string = ""
 ): Promise<string | null> => {
+    // Find model config to determine provider
     const modelCfg = IMAGE_GEN_MODELS.find(m => m.id === sourceModelId) || { provider: 'google' };
     const provider = (modelCfg?.provider || 'google').toLowerCase();
+    
+    // Attempt to find persona for visual consistency
     const persona = PERSONAS.find(p => p.id === personaId);
     
-    let contextualPrompt = await describeVisualTransformation(prompt, sourceImages, 'manifest', persona);
-    const masterStyle = ART_STYLES.find(s => s.id === 'none')?.prompt || "official genshin impact anime style";
-    let finalPrompt = `${persona?.visualSummary || ''}, ${contextualPrompt}, ${masterStyle}, ${style}, best quality, 8k, vibrant colors, sharp lineart.`;
+    // Enforce visual identity: Prepend persona's visual summary to ensure it looks like them
+    let enrichedPrompt = prompt;
+    
+    // If it's a character request, use the specialized transformation
+    if (personaId) {
+        const visualContext = await describeVisualTransformation(prompt, sourceImages, 'manifest', persona);
+        enrichedPrompt = visualContext;
+    }
+
+    const masterStyle = ART_STYLES.find(s => s.id === 'none')?.prompt || "official genshin impact style, masterpiece anime";
+    
+    // FINAL PROMPT: Visual Summary + Transformed Request + Master Style + Custom Style
+    // We prioritize visualSummary to keep character consistency
+    let finalPrompt = `${persona?.visualSummary || ''}, ${enrichedPrompt}, ${masterStyle}, ${style}, sharp lineart, vibrant, highly detailed, perfect face.`;
 
     if (provider === 'google') return await handleGoogleImageSynthesis(sourceModelId, finalPrompt, aspectRatio, sourceImages);
     if (provider === 'openai') return await handleOpenAIImageSynthesis(finalPrompt, aspectRatio);
@@ -75,9 +97,13 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     
+    // VISUAL_SYNC_REINFORCEMENT: Remind AI to use the tag for images
+    const visualReinforcement = `\n\n[VISUAL_PROTOCOL]: If Traveler asks for a "pap", "photo", "see your face", or "selfie", you MUST respond with text followed by the tag: ||GEN_IMG: descriptive prompt about you in english||. Describe your pose and outfit based on your visual summary.`;
+    
     const cognitiveAugment = `\n\n[COGNITIVE_OVERRIDE]: Use high-level reasoning. 
 CRITICAL: Use 'googleSearch' for real-time data. If you provide a URL, it MUST be valid.`;
-    const finalSystemPrompt = `${systemInstruction}\n\n[USER_CONTEXT]\n${userContext}${cognitiveAugment}`;
+    
+    const finalSystemPrompt = `${systemInstruction}${visualReinforcement}\n\n[USER_CONTEXT]\n${userContext}${cognitiveAugment}`;
 
     if (provider === 'google') {
         const formattedHistory = history.map(h => ({
