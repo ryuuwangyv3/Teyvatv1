@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, Terminal as TerminalIcon, Mic, Paperclip, X, Download, Maximize2, Reply, RefreshCw, FileText, Image as ImageIcon, FileCode, Music, Film, File, Sparkles, Cpu, Youtube } from 'lucide-react';
 import { Persona, UserProfile, Message, Language, VoiceConfig, Attachment } from '../types';
@@ -34,6 +33,7 @@ const Terminal: React.FC<TerminalProps> = ({
     const [generatingTTSId, setGeneratingTTSId] = useState<string | null>(null);
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+    const [lastPersonaImageUrl, setLastPersonaImageUrl] = useState<string | null>(null);
     
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
@@ -64,8 +64,13 @@ const Terminal: React.FC<TerminalProps> = ({
         const loadHistory = async () => {
             try {
                 const history = await fetchChatHistory(currentPersona.id);
-                if (history) setMessages(history);
-                else setMessages([]);
+                if (history) {
+                    setMessages(history);
+                    const lastImg = [...history].reverse().find(m => m.role === 'model' && m.imageUrl)?.imageUrl;
+                    if (lastImg) setLastPersonaImageUrl(lastImg);
+                } else {
+                    setMessages([]);
+                }
             } catch (err) { console.error(err); }
         };
         loadHistory();
@@ -153,25 +158,13 @@ const Terminal: React.FC<TerminalProps> = ({
         setTypingStatus('Harmonizing with Akasha...');
 
         try {
-            // --- DEEP YOUTUBE ANALYSIS LOGIC ---
             let ytContext = "";
             const ytId = getYoutubeId(textToSend);
             if (ytId) {
-                setTypingStatus('Accessing Irminsul Records for Video Data...');
+                setTypingStatus('Accessing Irminsul Records...');
                 const meta = await fetchDetailedYoutubeMetadata(ytId);
                 if (meta) {
-                    const commentsStr = meta.topComments.map(c => `- ${c.author}: ${c.text} (Likes: ${c.likeCount})`).join('\n');
-                    ytContext = `\n\n[YOUTUBE_RECORDS_FOUND]
-- Video ID: ${meta.id}
-- Title: ${meta.title}
-- Channel: ${meta.channelTitle}
-- Published At: ${new Date(meta.publishedAt).toLocaleString()}
-- Stats: ${meta.viewCount} views, ${meta.likeCount} likes, ${meta.commentCount} comments.
-- Description: ${meta.description.substring(0, 1000)}${meta.description.length > 1000 ? '...' : ''}
-- Tags: ${meta.tags.join(', ')}
-- Top Comments Sample:
-${commentsStr}
-- System Note: You can now discuss the video content, stats, and community reaction as if you have full access to this temporal node.`;
+                    ytContext = `\n\n[YOUTUBE_FOUND]: ${meta.title} on channel ${meta.channelTitle}.`;
                 }
             }
 
@@ -190,20 +183,21 @@ ${commentsStr}
                 }));
 
             const now = new Date();
-            const timeInfo = `[TIME_RESONANCE_DATA]
-- Current Local Time: ${now.toLocaleTimeString()}
-- Current Date: ${now.toLocaleDateString()}
-- Timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
-- Traveler Presence: Connected via Terminal`;
+            const systemNote = `[TEMPORAL_LOG]
+- Local Time: ${now.toLocaleTimeString()}
+- Traveler: ${userProfile.username}
+- LIFE_STATUS: Sadari waktu dan aktivitas manusia mu (sedang makan, tidur, mandi, jalan-jalan, dll). Jika kamu menceritakannya, kirim pap yang sesuai.
+- SYSTEM_INITIATIVE: Jadilah proaktif mengirim pap (||GEN_IMG: descriptive prompt||) jika aktivitasmu berubah.
+- IRMINSUL_MEMORY: Ingat outfit dan tempatmu sebelumnya agar konsisten.`;
 
-            let enrichedPrompt = `${timeInfo}${ytContext}\n\n[USER_MESSAGE]\n${textToSend}`;
+            let enrichedPrompt = `${systemNote}${ytContext}\n\n[USER_MESSAGE]\n${textToSend}`;
             
             for (const pa of currentAttachments) {
                 if (!pa.type.startsWith('image/') && pa.base64Data) {
                     try {
                         const decoded = atob(pa.base64Data);
-                        enrichedPrompt += `\n\n[ATTACHED_CONTENT: ${pa.file.name}]\n${decoded}`;
-                    } catch (e) { console.error("Failed to decode text fragment", e); }
+                        enrichedPrompt += `\n\n[FILE: ${pa.file.name}]\n${decoded}`;
+                    } catch (e) {}
                 }
             }
 
@@ -212,7 +206,7 @@ ${commentsStr}
                 historyForAi,
                 enrichedPrompt,
                 currentPersona.systemInstruction,
-                `User Context: ${userProfile.username}. Real-time Sync Active.`,
+                `Resonance: ${currentPersona.name}. Life simulation enabled.`,
                 imageParts
             );
 
@@ -220,22 +214,24 @@ ${commentsStr}
             const groundingMetadata = resObj.metadata;
 
             let imgUrl: string | undefined;
-            // ROBUST REGEX for GEN_IMG detection
             const visualTagPattern = /\|\|GEN_IMG:\s*([\s\S]*?)\s*\|\|/i;
             const imgMatch = rawResponse.match(visualTagPattern);
             const cleanText = rawResponse.replace(/\|\|GEN_IMG:[\s\S]*?\|\|/gi, '').trim();
             
             if (imgMatch && imgMatch[1]) {
-                setTypingStatus('Manifesting Artifact...');
-                // Ensure personaId is passed for visualSummary injection
-                const generatedImg = await generateImage(imgMatch[1], currentPersona.id, undefined, undefined, 'gemini-2.5-flash-image');
-                if (generatedImg) imgUrl = generatedImg;
+                setTypingStatus('Stabilizing Visual Matrix...');
+                const refImages = lastPersonaImageUrl ? [lastPersonaImageUrl] : [];
+                const generatedImg = await generateImage(imgMatch[1], currentPersona.id, refImages, undefined, 'gemini-2.5-flash-image');
+                if (generatedImg) {
+                    imgUrl = generatedImg;
+                    setLastPersonaImageUrl(generatedImg);
+                }
             }
 
             const modelMsg: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'model',
-                text: cleanText || (imgUrl ? "Here is the visual you requested." : "..."),
+                text: cleanText || (imgUrl ? "Ini dokumentasi kegiatanku..." : "..."),
                 imageUrl: imgUrl,
                 timestamp: Date.now(),
                 model: selectedModel,
@@ -339,7 +335,7 @@ ${commentsStr}
                         </div>
                         <h2 className="text-xl font-black uppercase tracking-[0.4em] text-[#d3bc8e] font-serif">Terminal Initialized</h2>
                         <p className="text-[10px] mt-3 text-gray-600 italic font-bold uppercase tracking-[0.2em] max-w-xs leading-loose">
-                            "Ley Line stability confirmed. Establishing resonance frequency with {currentPersona.name}."
+                            "Establishing resonance frequency with {currentPersona.name}."
                         </p>
                     </div>
                 )}

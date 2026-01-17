@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { 
   PhoneCall, Terminal as TerminalIcon, Users, User, Settings as SettingsIcon, 
@@ -7,7 +6,7 @@ import {
 } from 'lucide-react';
 import { MenuType, Persona, UserProfile, VoiceConfig, Language, ApiKeyData } from './types';
 import { DEFAULT_PERSONAS, INITIAL_USER_PROFILE } from './constants';
-import { LANGUAGES, AI_MODELS } from './data';
+import { LANGUAGES, AI_MODELS, PERSONAS } from './data';
 import HistorySidebar from './components/HistorySidebar';
 import DonationModal from './components/DonationModal';
 import OnboardingTutorial from './components/OnboardingTutorial';
@@ -74,7 +73,7 @@ const App: React.FC = () => {
   });
   const [currentLanguage, setCurrentLanguage] = useState<Language>(LANGUAGES[0]);
   const [selectedModel, setSelectedModel] = useState<string>(AI_MODELS[0].id);
-  const [currentPersona, setCurrentPersona] = useState<Persona>(DEFAULT_PERSONAS[0]);
+  const [currentPersona, setCurrentPersona] = useState<Persona>(PERSONAS[0]);
 
   useEffect(() => {
     enableRuntimeProtection(); 
@@ -116,12 +115,14 @@ const App: React.FC = () => {
       setCurrentPersona(p);
       setActiveMenu(MenuType.TERMINAL);
       
+      // Dynamic Voice Scaling
       setVoiceConfig(prev => ({
           ...prev,
           voiceId: p.voiceName,
           pitch: p.pitch || 1.0,
           speed: p.speed || 1.0,
-          gain: p.pitch && p.pitch < 1 ? 1.2 : 1.0
+          gain: p.id === 'akasha_system' ? 1.4 : 1.0,
+          reverb: p.id === 'akasha_system' ? 15 : 0
       }));
   };
 
@@ -146,9 +147,8 @@ const App: React.FC = () => {
     ![MenuType.ADMIN_CONSOLE, MenuType.API_KEY, MenuType.LIVE_CALL].includes(m)
   );
 
-  // FIXED: Memastikan instruksi bahasa digabungkan ke system instruction persona
   const combinedSystemInstruction = useMemo(() => {
-    return `${currentPersona.systemInstruction}\n\n[MANDATORY_LANGUAGE_SYNC]\n- ${currentLanguage.instruction}\n- ALWAYS respond using the dialect and cultural rules of ${currentLanguage.label}.\n- IGNORE previous language defaults if they conflict with this protocol.`;
+    return `${currentPersona.systemInstruction}\n\n[MANDATORY_LANGUAGE_SYNC]\n- ${currentLanguage.instruction}\n- ALWAYS respond using the dialect and cultural rules of ${currentLanguage.label}.`;
   }, [currentPersona.systemInstruction, currentLanguage]);
 
   const activeContent = useMemo(() => {
@@ -191,28 +191,28 @@ const App: React.FC = () => {
 
       {isSidebarOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[110] transition-opacity duration-500" onClick={() => setIsSidebarOpen(false)} />}
 
-      <aside className={`fixed inset-y-0 left-0 z-[120] h-full genshin-panel rounded-none border-r border-[#d3bc8e]/20 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) flex flex-col ${isSidebarOpen ? 'translate-x-0 w-80 shadow-[30px_0_100px_rgba(0,0,0,0.9)]' : '-translate-x-full w-80'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-[120] w-72 h-full bg-[#0d111c]/98 backdrop-blur-3xl border-r border-[#d3bc8e]/20 transition-transform duration-500 cubic-bezier(0.4, 0, 0.2, 1) flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-none'}`}>
           <div className="p-8 flex items-center justify-between shrink-0 border-b border-[#d3bc8e]/10 bg-black/20">
               <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#d3bc8e]/10 border border-[#d3bc8e]/30 flex items-center justify-center shadow-inner">
-                    <Sparkles className="w-7 h-7 text-[#d3bc8e] animate-pulse" />
+                  <div className="w-10 h-10 rounded-2xl bg-[#d3bc8e]/10 border border-[#d3bc8e]/30 flex items-center justify-center shadow-inner">
+                    <Sparkles className="w-6 h-6 text-[#d3bc8e] animate-pulse" />
                   </div>
                   <div className="flex flex-col">
-                      <span className="text-xl font-black tracking-[0.2em] text-[#d3bc8e] font-serif leading-none">AKASHA</span>
-                      <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-1">Ley Line Interface</span>
+                      <span className="text-lg font-black tracking-[0.2em] text-[#d3bc8e] font-serif leading-none">AKASHA</span>
+                      <span className="text-[7px] font-bold text-gray-500 uppercase tracking-widest mt-1">V8.8 Core</span>
                   </div>
               </div>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-500 hover:text-[#d3bc8e] hover:rotate-90 transition-all"><X className="w-6 h-6"/></button>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-500 hover:text-[#d3bc8e] hover:rotate-90 transition-all"><X className="w-5 h-5"/></button>
           </div>
           
-          <nav className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-2">
-            <button onClick={() => { setIsLiveCallOpen(true); setIsSidebarOpen(false); }} className="w-full flex items-center gap-4 p-5 rounded-2xl mb-6 bg-[#d3bc8e]/10 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/20 hover:border-[#d3bc8e]/40 transition-all group shadow-lg">
-                <div className="w-10 h-10 rounded-full bg-[#d3bc8e]/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <PhoneCall className="w-5 h-5" />
+          <nav className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-1">
+            <button onClick={() => { setIsLiveCallOpen(true); setIsSidebarOpen(false); }} className="w-full flex items-center gap-4 p-4 rounded-2xl mb-6 bg-[#d3bc8e]/10 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/20 hover:border-[#d3bc8e]/40 transition-all group shadow-lg">
+                <div className="w-8 h-8 rounded-full bg-[#d3bc8e]/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <PhoneCall className="w-4 h-4" />
                 </div>
                 <div className="flex flex-col items-start">
-                    <span className="font-black uppercase tracking-widest text-[10px]">Celestial Call</span>
-                    <span className="text-[8px] text-[#d3bc8e]/60 font-bold">Synchronous Voice Link</span>
+                    <span className="font-black uppercase tracking-widest text-[9px]">Celestial Call</span>
+                    <span className="text-[7px] text-[#d3bc8e]/60 font-bold">Voice Resonance</span>
                 </div>
             </button>
             
@@ -224,11 +224,11 @@ const App: React.FC = () => {
                     <button 
                         key={m} 
                         onClick={() => { setActiveMenu(m); setIsSidebarOpen(false); }} 
-                        className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all duration-300 relative group ${isActive ? 'bg-[#d3bc8e] text-black shadow-xl shadow-[#d3bc8e]/20 translate-x-2' : 'text-gray-400 hover:bg-white/5 hover:text-[#d3bc8e]'}`}
+                        className={`w-full text-left p-3.5 rounded-xl flex items-center gap-4 transition-all duration-300 relative group ${isActive ? 'bg-[#d3bc8e] text-black shadow-xl shadow-[#d3bc8e]/20 translate-x-2' : 'text-gray-400 hover:bg-white/5 hover:text-[#d3bc8e]'}`}
                     >
-                      <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'scale-110' : 'group-hover:scale-110 transition-transform'}`} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">{m.replace(/_/g, ' ')}</span>
-                      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-black rounded-r-full"></div>}
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'scale-110' : 'group-hover:scale-110 transition-transform'}`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">{m.replace(/_/g, ' ')}</span>
+                      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-black rounded-r-full"></div>}
                     </button>
                   );
                 })}
@@ -236,34 +236,34 @@ const App: React.FC = () => {
           </nav>
 
           <div className="p-6 border-t border-[#d3bc8e]/10 bg-black/40">
-             <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#d3bc8e]/5 border border-[#d3bc8e]/10 hover:border-[#d3bc8e]/30 transition-all cursor-pointer group">
+             <div className="flex items-center gap-4 p-3 rounded-2xl bg-[#d3bc8e]/5 border border-[#d3bc8e]/10 hover:border-[#d3bc8e]/30 transition-all cursor-pointer group">
                 <div className="relative">
-                    <img src={userProfile.avatar} className="w-12 h-12 rounded-2xl border-2 border-[#d3bc8e]/30 group-hover:scale-105 transition-transform" alt="av" />
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#0b0e14] rounded-full"></div>
+                    <img src={userProfile.avatar} className="w-10 h-10 rounded-xl border-2 border-[#d3bc8e]/30 group-hover:scale-105 transition-transform" alt="av" />
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-[#0b0e14] rounded-full"></div>
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-black text-[#d3bc8e] uppercase truncate tracking-widest">{userProfile.username}</p>
-                    <p className="text-[8px] text-gray-500 uppercase tracking-tighter font-bold">Resonance Level: LVL. 90</p>
+                    <p className="text-[10px] font-black text-[#d3bc8e] uppercase truncate tracking-widest">{userProfile.username}</p>
+                    <p className="text-[7px] text-gray-500 uppercase font-bold">Resonance Lv.90</p>
                 </div>
              </div>
           </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-h-0 relative w-full overflow-hidden">
-        <header className="h-20 border-b border-[#d3bc8e]/10 flex items-center justify-between px-8 bg-[#0b0e14]/80 backdrop-blur-xl z-[100] shrink-0">
-           <div className="flex items-center gap-6">
+      <main className="flex-1 flex flex-col min-h-0 relative w-full overflow-hidden transition-all duration-500">
+        <header className="h-16 sm:h-20 border-b border-[#d3bc8e]/10 flex items-center justify-between px-4 sm:px-8 bg-[#0b0e14]/80 backdrop-blur-xl z-[100] shrink-0">
+           <div className="flex items-center gap-4 sm:gap-6">
               <button 
                 onClick={() => setIsSidebarOpen(true)} 
-                className="p-3 rounded-2xl bg-[#d3bc8e]/5 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/10 hover:scale-110 transition-all shadow-lg active:scale-95"
+                className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-[#d3bc8e]/5 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/10 hover:scale-110 transition-all shadow-lg active:scale-95"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5 sm:w-6 h-6" />
               </button>
               
               <div className="flex flex-col">
-                <h2 className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.4em] font-serif leading-none">{activeMenu.replace(/_/g, ' ')}</h2>
-                <div className="flex items-center gap-2 mt-1.5">
-                    <div className="h-1 w-6 bg-[#d3bc8e] rounded-full"></div>
-                    <div className="h-1 w-2 bg-[#d3bc8e]/40 rounded-full"></div>
+                <h2 className="text-[9px] sm:text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.4em] font-serif leading-none">{activeMenu.replace(/_/g, ' ')}</h2>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                    <div className="h-1 w-5 sm:w-6 bg-[#d3bc8e] rounded-full"></div>
+                    <div className="h-1 w-1.5 sm:w-2 bg-[#d3bc8e]/40 rounded-full"></div>
                 </div>
               </div>
            </div>
@@ -274,15 +274,12 @@ const App: React.FC = () => {
                     <div className="relative">
                         <button 
                             onClick={() => setShowModelDropdown(!showModelDropdown)}
-                            className="flex items-center gap-3 px-5 py-2.5 rounded-2xl bg-[#d3bc8e]/10 border border-[#d3bc8e]/30 text-[#d3bc8e] hover:bg-[#d3bc8e]/20 transition-all group shadow-lg"
+                            className="flex items-center gap-3 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl bg-[#d3bc8e]/10 border border-[#d3bc8e]/30 text-[#d3bc8e] hover:bg-[#d3bc8e]/20 transition-all group shadow-lg"
                         >
                             <Cpu className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                            <div className="flex flex-col items-start leading-none">
-                                <span className="text-[10px] font-black uppercase tracking-widest hidden md:block">
+                            <div className="flex flex-col items-start leading-none hidden md:flex">
+                                <span className="text-[10px] font-black uppercase tracking-widest">
                                     {AI_MODELS.find(m => m.id === selectedModel)?.label.split(' ')[0] || 'Model'}
-                                </span>
-                                <span className="text-[6px] text-gray-500 uppercase font-black tracking-tighter mt-0.5 hidden md:block">
-                                    Core: {AI_MODELS.find(m => m.id === selectedModel)?.provider}
                                 </span>
                             </div>
                             <ChevronDown className={`w-3 h-3 transition-transform ${showModelDropdown ? 'rotate-180' : ''}`} />
@@ -291,9 +288,9 @@ const App: React.FC = () => {
                         {showModelDropdown && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setShowModelDropdown(false)}></div>
-                                <div className="absolute top-full right-0 mt-3 w-72 bg-[#1a1f35] border-2 border-[#d3bc8e]/40 rounded-[1.5rem] shadow-[0_30px_70px_rgba(0,0,0,0.9)] z-[100] py-3 overflow-hidden animate-in slide-in-from-top-3 duration-300">
+                                <div className="absolute top-full right-0 mt-3 w-64 sm:w-72 bg-[#1a1f35] border-2 border-[#d3bc8e]/40 rounded-[1.5rem] shadow-[0_30px_70px_rgba(0,0,0,0.9)] z-[100] py-3 overflow-hidden animate-in slide-in-from-top-3 duration-300">
                                     <div className="px-5 py-2 border-b border-[#d3bc8e]/10 mb-2">
-                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Wisdom Core Selection</span>
+                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Wisdom Core</span>
                                     </div>
                                     <div className="max-h-72 overflow-y-auto custom-scrollbar px-2 space-y-1">
                                         {AI_MODELS.map(m => (
@@ -303,12 +300,11 @@ const App: React.FC = () => {
                                                 className={`w-full text-left px-4 py-3 rounded-xl flex flex-col transition-all group/item relative ${selectedModel === m.id ? 'bg-[#d3bc8e] text-black shadow-lg' : 'hover:bg-white/5 text-gray-400 hover:text-[#d3bc8e]'}`}
                                             >
                                                 <div className="flex justify-between items-start w-full">
-                                                    <span className="text-[11px] font-black uppercase tracking-tight max-w-[70%] truncate">{m.label}</span>
-                                                    <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase border transition-colors ${selectedModel === m.id ? 'bg-black/20 border-black/30 text-black' : getProviderStyle(m.provider)}`}>
+                                                    <span className="text-[10px] font-black uppercase tracking-tight truncate">{m.label}</span>
+                                                    <span className={`text-[6px] font-black px-1 py-0.5 rounded-md uppercase border ${selectedModel === m.id ? 'bg-black/20 border-black/30 text-black' : getProviderStyle(m.provider)}`}>
                                                         {m.provider}
                                                     </span>
                                                 </div>
-                                                <span className={`text-[8px] mt-1 uppercase tracking-widest font-bold opacity-60 ${selectedModel === m.id ? 'text-black/70' : 'text-gray-500'}`}>{m.desc}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -319,7 +315,7 @@ const App: React.FC = () => {
 
                     <button 
                         onClick={handleClearChat}
-                        className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400/70 hover:text-red-400 hover:bg-red-500/20 hover:scale-110 transition-all shadow-lg"
+                        className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400/70 hover:text-red-400 hover:bg-red-500/20 hover:scale-110 transition-all shadow-lg"
                         title="Purge Memory"
                     >
                         <Trash2 className="w-5 h-5" />
@@ -331,11 +327,10 @@ const App: React.FC = () => {
 
               <button 
                 onClick={() => setIsHistoryOpen(true)} 
-                className="p-3 rounded-2xl bg-[#d3bc8e]/5 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/10 hover:scale-110 transition-all shadow-lg relative" 
-                title="Resonance Log"
+                className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-[#d3bc8e]/5 border border-[#d3bc8e]/20 text-[#d3bc8e] hover:bg-[#d3bc8e]/10 hover:scale-110 transition-all shadow-lg relative" 
               >
-                <History className="w-6 h-6" />
-                <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-[#0b0e14] animate-pulse"></div>
+                <History className="w-5 h-5 sm:w-6 h-6" />
+                <div className="absolute top-0 right-0 w-2 h-2 bg-amber-500 rounded-full border-2 border-[#0b0e14] animate-pulse"></div>
               </button>
            </div>
         </header>

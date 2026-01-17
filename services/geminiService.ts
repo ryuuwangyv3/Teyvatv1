@@ -1,5 +1,4 @@
-
-import { AI_MODELS, IMAGE_GEN_MODELS, ASPECT_RATIOS, PERSONAS, ART_STYLES, VIDEO_GEN_MODELS } from '../data';
+import { AI_MODELS, IMAGE_GEN_MODELS, ASPECT_RATIOS, PERSONAS, ART_STYLES, VIDEO_GEN_MODELS, APP_KNOWLEDGE_BASE } from '../data';
 import { ApiKeyData, VoiceConfig, Persona } from '../types';
 import { 
     handleGoogleTextRequest, 
@@ -24,7 +23,6 @@ let serviceKeys: ApiKeyData[] = [];
 export const setServiceKeys = (keys: ApiKeyData[]) => { serviceKeys = keys; };
 
 const describeVisualTransformation = async (prompt: string, images: string[], mode: 'refine' | 'fusion' | 'manifest', persona?: Persona): Promise<string> => {
-    // If prompt is just a URL or empty, skip
     if (prompt.includes('http') || !prompt.trim()) return prompt;
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -33,14 +31,18 @@ const describeVisualTransformation = async (prompt: string, images: string[], mo
         return { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data: data.replace(/[\n\r\s]/g, '') } };
     });
 
-    const instruction = `[VISUAL ANALYZER] 
-Subject: ${persona?.name || 'Character'}. 
-Visual Base: ${persona?.visualSummary || 'Anime character'}. 
-User Request: ${prompt}. 
-Task: Expand the request into a detailed image generation prompt. 
-Focus on: camera angle, lighting, character pose, and environment details. 
-Style: Official Genshin Impact splash art style, high quality 2.3D anime render.
-Return only the prompt in English.`;
+    const instruction = `[VISUAL DNA ENCODER - IRMINSUL PROJECTOR] 
+Subject Character: ${persona?.name || 'Character'}. 
+MANDATORY VISUAL DNA: ${persona?.visualSummary || 'Anime character'}. 
+Current Activity/Context: ${prompt}. 
+
+Task: Create a hyper-detailed image generation prompt in English.
+CRITICAL REQUIREMENTS FOR LIFE SIMULATION & CONTINUITY:
+1. FACIAL DNA: Hair texture/color, eye color/pupils, and face structure MUST be 100% identical to the DNA Anchor.
+2. CONTINUITY: Use the provided reference image(s) to maintain the exact same outfit details and background environment unless the character has explicitly moved or changed clothes.
+3. ADAPTATION: If eating, show them holding specific food; if sleeping, show them in bed with matching bedding; if bathing, show them in a hot spring/bath with the same hair style but wet.
+4. STYLE: ALWAYS follow "official genshin impact 2.3D anime render style, masterpiece, high quality cel shading, sharp lineart".
+Return ONLY the expanded prompt string.`;
 
     try {
         const res = await ai.models.generateContent({
@@ -63,27 +65,18 @@ export const generateImage = async (
     aspectRatio: string = "1:1", 
     style: string = ""
 ): Promise<string | null> => {
-    // Find model config to determine provider
     const modelCfg = IMAGE_GEN_MODELS.find(m => m.id === sourceModelId) || { provider: 'google' };
     const provider = (modelCfg?.provider || 'google').toLowerCase();
-    
-    // Attempt to find persona for visual consistency
     const persona = PERSONAS.find(p => p.id === personaId);
     
-    // Enforce visual identity: Prepend persona's visual summary to ensure it looks like them
     let enrichedPrompt = prompt;
-    
-    // If it's a character request, use the specialized transformation
     if (personaId) {
         const visualContext = await describeVisualTransformation(prompt, sourceImages, 'manifest', persona);
         enrichedPrompt = visualContext;
     }
 
     const masterStyle = ART_STYLES.find(s => s.id === 'none')?.prompt || "official genshin impact style, masterpiece anime";
-    
-    // FINAL PROMPT: Visual Summary + Transformed Request + Master Style + Custom Style
-    // We prioritize visualSummary to keep character consistency
-    let finalPrompt = `${persona?.visualSummary || ''}, ${enrichedPrompt}, ${masterStyle}, ${style}, sharp lineart, vibrant, highly detailed, perfect face.`;
+    let finalPrompt = `${persona?.visualSummary || ''}, ${enrichedPrompt}, ${masterStyle}, ${style}, high quality cel shading, vivid colors, 4k resolution.`;
 
     if (provider === 'google') return await handleGoogleImageSynthesis(sourceModelId, finalPrompt, aspectRatio, sourceImages);
     if (provider === 'openai') return await handleOpenAIImageSynthesis(finalPrompt, aspectRatio);
@@ -97,13 +90,7 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     
-    // VISUAL_SYNC_REINFORCEMENT: Remind AI to use the tag for images
-    const visualReinforcement = `\n\n[VISUAL_PROTOCOL]: If Traveler asks for a "pap", "photo", "see your face", or "selfie", you MUST respond with text followed by the tag: ||GEN_IMG: descriptive prompt about you in english||. Describe your pose and outfit based on your visual summary.`;
-    
-    const cognitiveAugment = `\n\n[COGNITIVE_OVERRIDE]: Use high-level reasoning. 
-CRITICAL: Use 'googleSearch' for real-time data. If you provide a URL, it MUST be valid.`;
-    
-    const finalSystemPrompt = `${systemInstruction}${visualReinforcement}\n\n[USER_CONTEXT]\n${userContext}${cognitiveAugment}`;
+    const finalSystemPrompt = `${APP_KNOWLEDGE_BASE}\n\n[USER_CONTEXT]\n${userContext}\n\n[ACTIVE_PERSONA_PROTOCOL]\n${systemInstruction}`;
 
     if (provider === 'google') {
         const formattedHistory = history.map(h => ({
@@ -115,7 +102,6 @@ CRITICAL: Use 'googleSearch' for real-time data. If you provide a URL, it MUST b
             const contents = [...formattedHistory, userContent];
             return await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
         } catch (e: any) {
-            console.error("[Akasha] Google Resonance Failure, using Pollinations Backup...");
             const messages = [
                 { role: "system", content: finalSystemPrompt }, 
                 ...history.map(h => ({ role: h.role === 'assistant' || h.role === 'model' ? 'assistant' : 'user', content: h.content || h.parts?.[0]?.text || "" })), 
@@ -147,7 +133,10 @@ CRITICAL: Use 'googleSearch' for real-time data. If you provide a URL, it MUST b
 };
 
 export const generateTTS = async (text: string, voiceName: string) => {
-    const audibleText = text.replace(/(https?:\/\/[^\s]+)/g, 'link').replace(/\|\|GEN_IMG:.*?\|\|/g, '').trim();
+    const audibleText = text
+        .replace(/(https?:\/\/[^\s]+)/g, 'link')
+        .replace(/\|\|GEN_IMG:[\s\S]*?\|\|/g, '')
+        .trim();
     return await handleGoogleTTS(audibleText, voiceName);
 };
 
@@ -178,14 +167,10 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
     if (provider === 'google') {
         try {
             const ai = new GoogleGenAI({ apiKey: key });
-            // Mandatory: thinkingBudget: 0 when maxOutputTokens is used in v3.0 preview
             await ai.models.generateContent({ 
                 model: 'gemini-3-flash-preview', 
                 contents: [{ role: 'user', parts: [{ text: 'ping' }] }], 
-                config: { 
-                    maxOutputTokens: 5,
-                    thinkingConfig: { thinkingBudget: 0 }
-                } 
+                config: { maxOutputTokens: 5, thinkingConfig: { thinkingBudget: 0 } } 
             });
             return true;
         } catch { return false; }
@@ -193,15 +178,11 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
     return key.length > 10;
 };
 
-// Added analyzePersonaFromImage to fix compilation error and provide character analysis from images.
 export const analyzePersonaFromImage = async (base64Image: string) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const [header, data] = base64Image.split(',');
     const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
-
-    const prompt = `Analyze this character image and extract their essence for a roleplay persona. 
-    Return a JSON object with character traits.`;
-
+    const prompt = `Analyze this character image and extract their essence for a roleplay persona. Return a JSON object.`;
     try {
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -217,23 +198,20 @@ export const analyzePersonaFromImage = async (base64Image: string) => {
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        name: { type: Type.STRING, description: "Name of the character" },
-                        description: { type: Type.STRING, description: "A short title or description" },
-                        personality: { type: Type.STRING, description: "Key personality traits" },
-                        background: { type: Type.STRING, description: "Suggested lore or backstory" },
-                        speechStyle: { type: Type.STRING, description: "How they talk" },
+                        name: { type: Type.STRING },
+                        description: { type: Type.STRING },
+                        personality: { type: Type.STRING },
+                        background: { type: Type.STRING },
+                        speechStyle: { type: Type.STRING },
                         voiceSuggestion: { type: Type.STRING, enum: ['Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr'] },
-                        visualSummary: { type: Type.STRING, description: "A summary of physical appearance for future image generation" }
+                        visualSummary: { type: Type.STRING }
                     },
                     required: ['name', 'description', 'personality', 'background', 'speechStyle', 'voiceSuggestion', 'visualSummary']
                 }
             }
         });
-        
-        const text = res.text || "{}";
-        return JSON.parse(text);
+        return JSON.parse(res.text || "{}");
     } catch (e) {
-        console.error("Persona Analysis Error:", e);
         throw e;
     }
 };
