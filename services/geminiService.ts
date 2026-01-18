@@ -163,10 +163,17 @@ export const translateText = async (text: string, targetLanguage: string): Promi
     try {
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: [{ role: 'user', parts: [{ text: `Translate to ${targetLanguage}: ${text}` }] }],
-            config: { temperature: 0.3, thinkingConfig: { thinkingBudget: 0 } }
+            contents: [{ role: 'user', parts: [{ text: `Task: Translate the text below to ${targetLanguage}.\nRules: \n- Output ONLY the raw translation.\n- NO introductions (e.g. "Berikut adalah...").\n- NO conversational filler.\n- NO explanations.\n- NO quotes around the result unless they are part of the original text.\n\nText to translate: \n${text}` }] }],
+            config: { 
+                temperature: 0.0, 
+                thinkingConfig: { thinkingBudget: 0 } 
+            }
         });
-        return res.text?.trim() || text;
+        
+        let result = res.text?.trim() || text;
+        // Anti-filler cleanup just in case
+        result = result.replace(/^(Berikut adalah|Ini adalah|Translation:|Translated text:)/i, '').trim();
+        return result;
     } catch { return text; }
 };
 

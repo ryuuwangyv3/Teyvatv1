@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, Terminal as TerminalIcon, Mic, Paperclip, X, Download, Maximize2, Reply, RefreshCw, FileText, Image as ImageIcon, FileCode, Music, Film, File, Sparkles, Cpu, Youtube } from 'lucide-react';
 import { Persona, UserProfile, Message, Language, VoiceConfig, Attachment } from '../types';
@@ -135,12 +136,14 @@ const Terminal: React.FC<TerminalProps> = ({
         const textToSend = textOverride || input;
         if ((!textToSend.trim() && pendingAttachments.length === 0) || isTyping) return;
 
+        const currentReply = replyingTo ? { id: replyingTo.id, text: replyingTo.text, role: replyingTo.role } : undefined;
+
         const userMsg: Message = {
             id: Date.now().toString(),
             role: 'user',
             text: textToSend,
             timestamp: Date.now(),
-            replyTo: replyingTo ? { id: replyingTo.id, text: replyingTo.text, role: replyingTo.role } : undefined,
+            replyTo: currentReply,
             attachments: pendingAttachments.map(pa => ({
                 name: pa.file.name,
                 url: pa.previewUrl,
@@ -183,6 +186,8 @@ const Terminal: React.FC<TerminalProps> = ({
                 }));
 
             const now = new Date();
+            const replyContext = currentReply ? `\n\n[REPLY_CONTEXT]: Kamu sedang membalas pesan dari ${currentReply.role === 'user' ? 'Traveler' : currentPersona.name}: "${currentReply.text}"` : '';
+            
             const systemNote = `[TEMPORAL_LOG]
 - Local Time: ${now.toLocaleTimeString()}
 - Traveler: ${userProfile.username}
@@ -190,7 +195,7 @@ const Terminal: React.FC<TerminalProps> = ({
 - SYSTEM_INITIATIVE: Jadilah proaktif mengirim pap (||GEN_IMG: descriptive prompt||) jika aktivitasmu berubah.
 - IRMINSUL_MEMORY: Ingat outfit dan tempatmu sebelumnya agar konsisten.`;
 
-            let enrichedPrompt = `${systemNote}${ytContext}\n\n[USER_MESSAGE]\n${textToSend}`;
+            let enrichedPrompt = `${systemNote}${ytContext}${replyContext}\n\n[USER_MESSAGE]\n${textToSend}`;
             
             for (const pa of currentAttachments) {
                 if (!pa.type.startsWith('image/') && pa.base64Data) {
@@ -315,7 +320,7 @@ const Terminal: React.FC<TerminalProps> = ({
     return (
         <div className="flex flex-col h-full bg-[#0b0e14] relative overflow-hidden">
             {lightboxUrl && (
-                <div className="fixed inset-0 z-[500] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-4 overflow-y-auto custom-scrollbar animate-in fade-in duration-400" onClick={() => setLightboxUrl(null)}>
+                <div className="fixed inset-0 z-[1000] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-4 overflow-y-auto custom-scrollbar animate-in fade-in duration-400" onClick={() => setLightboxUrl(null)}>
                     <div className="relative group max-w-full flex flex-col items-center">
                         <img src={lightboxUrl} className="max-w-full max-h-[85vh] object-contain rounded-3xl border-2 border-[#d3bc8e]/40 shadow-[0_0_120px_rgba(211,188,142,0.35)] animate-in zoom-in-95 duration-500 mb-12" alt="Preview" onClick={e => e.stopPropagation()} />
                         <div className="flex items-center gap-10 bg-[#13182b]/95 backdrop-blur-2xl border border-[#d3bc8e]/30 px-12 py-5 rounded-full shadow-[0_30px_60px_rgba(0,0,0,0.9)] animate-in slide-in-from-bottom-12 duration-700" onClick={e => e.stopPropagation()}>

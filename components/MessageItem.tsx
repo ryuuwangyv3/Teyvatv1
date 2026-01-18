@@ -5,7 +5,8 @@ import {
     Reply, Cpu, Globe, Maximize2, X, Save, RefreshCw, Youtube, Globe2, 
     Terminal as TerminalIcon, Github, Music2, FileText as FileIcon, Twitter, 
     Instagram, Search, LayoutList, Book, Gamepad2, Palette, MessageSquare,
-    Image as LucideImage, Play, ArrowRight, Expand, Monitor, MousePointer2, ShieldCheck, Languages as TranslateIcon
+    Image as LucideImage, Play, ArrowRight, Expand, Monitor, MousePointer2, ShieldCheck, Languages as TranslateIcon,
+    File as GenericFile, FileCode, Music, Film, FileText
 } from 'lucide-react';
 import { Message, UserProfile, Persona, VoiceConfig } from '../types';
 import LazyImage from './LazyImage';
@@ -42,6 +43,23 @@ const parseTimestampToSeconds = (time: string) => {
     if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
     if (parts.length === 2) return parts[0] * 60 + parts[1];
     return 0;
+};
+
+const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return <LucideImage className="w-5 h-5 text-purple-400" />;
+    if (type.includes('javascript') || type.includes('json') || type.includes('typescript')) return <FileCode className="w-5 h-5 text-blue-400" />;
+    if (type.startsWith('audio/')) return <Music className="w-5 h-5 text-green-400" />;
+    if (type.startsWith('video/')) return <Film className="w-5 h-5 text-red-400" />;
+    if (type.includes('pdf') || type.includes('text')) return <FileText className="w-5 h-5 text-amber-400" />;
+    return <GenericFile className="w-5 h-5 text-gray-400" />;
+};
+
+const formatSize = (bytes?: number) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
 // --- COMPONENT: WEB PORTAL FRAME (Genshin Style) ---
@@ -361,12 +379,64 @@ const MessageItem = React.memo<MessageItemProps>(({
 
           <div className={`relative rounded-2xl w-full max-w-full overflow-hidden ${msg.role === 'user' ? 'bg-[#3d447a] rounded-tr-none text-white shadow-[0_4px_15px_rgba(61,68,122,0.3)]' : 'genshin-panel text-[#ece5d8] border border-[#d3bc8e]/10 shadow-[inset_0_0_20px_rgba(0,0,0,0.4)]'}`}>
             <div className="max-h-[700px] md:max-h-[800px] overflow-y-auto custom-scrollbar px-4 py-3">
+                {/* Memory Echo (Replying To context) */}
+                {msg.replyTo && (
+                    <div className="mb-3 p-2.5 bg-black/30 border-l-2 border-[#d3bc8e]/50 rounded-r-lg flex flex-col gap-1 animate-in slide-in-from-left-2 opacity-80 hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1.5">
+                            <Reply size={10} className="text-[#d3bc8e]/70" />
+                            <span className="text-[8px] font-black text-[#d3bc8e] uppercase tracking-widest">
+                                Echo: {msg.replyTo.role === 'user' ? userProfile.username : currentPersona.name}
+                            </span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 italic truncate font-medium max-w-xs">"{msg.replyTo.text}"</p>
+                    </div>
+                )}
+
+                {/* AI Generated Image Artifact */}
                 {msg.imageUrl && (
                     <div className="mb-3 rounded-xl overflow-hidden border border-amber-500/20 bg-black/40 relative group/img cursor-zoom-in" onClick={() => onLightbox(msg.imageUrl!)}>
                         <LazyImage src={msg.imageUrl} className="w-full h-auto max-h-[300px] object-cover transition-transform group-hover/img:scale-105" alt="Visual" />
                         <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity"><Maximize2 className="w-6 h-6 text-white" /></div>
                     </div>
                 )}
+
+                {/* User/Model Sent Fragments (Attachments) */}
+                {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mb-4">
+                        {msg.attachments.map((pa, idx) => {
+                            const isImg = pa.type.startsWith('image/');
+                            return (
+                                <div key={idx} className="relative group/att w-full max-w-[280px]">
+                                    {isImg ? (
+                                        <div className="relative aspect-video rounded-xl overflow-hidden border border-[#d3bc8e]/30 bg-black/40 cursor-zoom-in group/inner" onClick={() => onLightbox(pa.url)}>
+                                            <img src={pa.url} className="w-full h-full object-cover transition-transform group-hover/inner:scale-110" alt="Artifact" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/inner:opacity-100 transition-opacity flex items-center justify-center">
+                                                <Maximize2 className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-md rounded text-[8px] font-black text-[#d3bc8e] uppercase border border-[#d3bc8e]/20">
+                                                Visual Fragment
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-4 p-3 bg-black/40 border border-[#d3bc8e]/20 rounded-xl hover:bg-[#d3bc8e]/5 transition-all">
+                                            <div className="p-2 bg-[#d3bc8e]/10 rounded-lg shrink-0">
+                                                {getFileIcon(pa.type)}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-bold text-white truncate uppercase tracking-tighter">{pa.name}</p>
+                                                <p className="text-[8px] text-gray-500 uppercase font-black">{formatSize(pa.size)} • {pa.type.split('/')[1] || 'DATA'}</p>
+                                            </div>
+                                            <a href={pa.url} download={pa.name} className="p-2 text-gray-500 hover:text-white transition-colors">
+                                                <ExternalLink size={14} />
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {isEditing ? (
                     <div className="flex flex-col gap-3 min-w-[240px] md:min-w-[320px] animate-in fade-in zoom-in-95">
                         <textarea value={editValue} onChange={(e) => onEditChange(e.target.value)} className="w-full bg-black/40 border border-[#d3bc8e]/30 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#d3bc8e] resize-none min-h-[100px] select-text font-medium leading-relaxed custom-scrollbar" autoFocus />
