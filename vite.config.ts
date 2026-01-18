@@ -4,8 +4,7 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Muat env var agar bisa diakses di define jika diperlukan
-  // FIX: Cast process to any to resolve "Property 'cwd' does not exist on type 'Process'" error.
+  // Muat env var berdasarkan mode (development/production)
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
@@ -13,15 +12,20 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       port: 5173,
-      // Penting untuk Termux agar stabil
+      // Polling sangat disarankan untuk kestabilan di Termux (filesystem watch)
       watch: {
         usePolling: true,
       }
     },
-    // Shim process.env untuk compatibility dengan SDK yang meminta process.env.API_KEY
+    // Pengaturan Define yang Aman
     define: {
+      // Hanya definisikan kunci spesifik yang dibutuhkan oleh SDK
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
-      'process.env': env
+      // Sediakan objek process.env minimal agar library tidak error
+      'process.env': {
+        API_KEY: env.API_KEY || '',
+        NODE_ENV: JSON.stringify(mode)
+      }
     },
     build: {
       target: 'esnext',

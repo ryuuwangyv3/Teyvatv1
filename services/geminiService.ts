@@ -1,3 +1,4 @@
+
 import { AI_MODELS, IMAGE_GEN_MODELS, ASPECT_RATIOS, PERSONAS, ART_STYLES, VIDEO_GEN_MODELS, APP_KNOWLEDGE_BASE } from '../data';
 import { ApiKeyData, VoiceConfig, Persona } from '../types';
 import { 
@@ -92,43 +93,49 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
     
     const finalSystemPrompt = `${APP_KNOWLEDGE_BASE}\n\n[USER_CONTEXT]\n${userContext}\n\n[ACTIVE_PERSONA_PROTOCOL]\n${systemInstruction}`;
 
+    // Logika Khusus untuk Provider Google
     if (provider === 'google') {
         const formattedHistory = history.map(h => ({
             role: h.role === 'assistant' || h.role === 'model' ? 'model' : 'user',
             parts: [{ text: h.content || h.parts?.[0]?.text || "" }]
         }));
-        try {
-            const userContent = { role: 'user', parts: [...images, { text: message }] };
-            const contents = [...formattedHistory, userContent];
-            return await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
-        } catch (e: any) {
-            const messages = [
-                { role: "system", content: finalSystemPrompt }, 
-                ...history.map(h => ({ role: h.role === 'assistant' || h.role === 'model' ? 'assistant' : 'user', content: h.content || h.parts?.[0]?.text || "" })), 
-                { role: "user", content: message }
-            ];
-            const text = await handlePollinationsTextRequest('openai', messages);
-            return { text, metadata: null };
-        }
-    } else {
-        const messages: any[] = [
-            { role: "system", content: finalSystemPrompt }, 
-            ...history.map(h => ({ role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', content: h.parts?.[0]?.text || h.content || "" })), 
-            { role: "user", content: message }
-        ];
+        
+        // JANGAN gunakan fallback otomatis di sini agar user tahu jika Google error
+        const userContent = { role: 'user', parts: [...images, { text: message }] };
+        const contents = [...formattedHistory, userContent];
+        return await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
+    } 
+    
+    // Logika untuk Provider Lain (OpenAI, OpenRouter, Pollinations)
+    const messages: any[] = [
+        { role: "system", content: finalSystemPrompt }, 
+        ...history.map(h => ({ 
+            role: h.role === 'model' || h.role === 'assistant' ? 'assistant' : 'user', 
+            content: h.parts?.[0]?.text || h.content || "" 
+        })), 
+        { role: "user", content: message }
+    ];
 
-        try {
-            let text = "";
-            switch(provider) {
-                case 'openai': text = await handleOpenAITextRequest(modelId, messages); break;
-                case 'openrouter': text = await handleOpenRouterTextRequest(modelId, messages); break;
-                default: text = await handlePollinationsTextRequest(modelId, messages); break;
-            }
-            return { text, metadata: null };
-        } catch (e: any) {
-            const text = await handlePollinationsTextRequest('openai', messages);
-            return { text, metadata: null };
+    try {
+        let text = "";
+        switch(provider) {
+            case 'openai': 
+                text = await handleOpenAITextRequest(modelId, messages); 
+                break;
+            case 'openrouter': 
+                text = await handleOpenRouterTextRequest(modelId, messages); 
+                break;
+            case 'pollinations':
+            default: 
+                text = await handlePollinationsTextRequest(modelId, messages); 
+                break;
         }
+        return { text, metadata: null };
+    } catch (e: any) {
+        // Hanya berikan fallback ke Pollinations jika provider utama benar-benar gagal
+        // Namun kita kirimkan error aslinya ke console agar bisa di-debug
+        console.error(`[Akasha] Provider ${provider} failed:`, e);
+        throw e; // Lemparkan error agar UI bisa menampilkan DonationModal/Error log
     }
 };
 
