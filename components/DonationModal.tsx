@@ -1,6 +1,6 @@
 
-import React, { useMemo } from 'react';
-import { X, Lock, Bug, Check, Heart, AlertTriangle, ImageOff, MicOff, ShieldAlert, WifiOff } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { X, Lock, Bug, Check, Heart, AlertTriangle, ImageOff, MicOff, ShieldAlert, WifiOff, Copy } from 'lucide-react';
 
 const USER_AKASHA_URL = "https://mirror-uploads.trakteer.id/images/content/eml73oyywavr4d9q/ct-htCT0FFlItjxvdHgYsBymFl63ZdxC9r11765727946.jpg";
 const FALLBACK_AKASHA_URL = "https://img.freepik.com/premium-photo/anime-girl-looking-camera_950669-26.jpg"; 
@@ -11,10 +11,13 @@ interface DonationModalProps {
 }
 
 const DonationModal: React.FC<DonationModalProps> = ({ errorLog, onClose }) => {
-    if (!errorLog) return null;
+    const [copied, setCopied] = useState(false);
 
     // Logic to determine the specific message based on the error log content
+    // MOVED UP before any early return to prevent React Error #310 (Hook rule violation)
     const errorDetails = useMemo(() => {
+        if (!errorLog) return null;
+        
         const log = errorLog.toLowerCase();
 
         // 1. QUOTA / LIMIT (429)
@@ -67,6 +70,17 @@ const DonationModal: React.FC<DonationModalProps> = ({ errorLog, onClose }) => {
 
     }, [errorLog]);
 
+    // Check here AFTER hooks are initialized
+    if (!errorLog || !errorDetails) return null;
+
+    const handleCopyLog = () => {
+        if (errorLog) {
+            navigator.clipboard.writeText(errorLog);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 p-4">
             <div className="w-full max-w-4xl bg-[#13182b] border border-[#d3bc8e]/50 rounded-3xl shadow-[0_0_100px_rgba(211,188,142,0.2)] relative overflow-hidden flex flex-col md:flex-row">
@@ -111,10 +125,24 @@ const DonationModal: React.FC<DonationModalProps> = ({ errorLog, onClose }) => {
                     </div>
 
                     <div className="bg-black/40 rounded-lg p-3 border border-red-500/20 mb-6 font-mono text-[10px] text-red-300 overflow-x-auto custom-scrollbar">
-                        <div className="flex items-center gap-2 mb-1 border-b border-red-500/10 pb-1 font-bold">
-                            <Bug size={10}/> SYSTEM_DIAGNOSTIC_LOG
+                        <div className="flex items-center justify-between gap-2 mb-1 border-b border-red-500/10 pb-1 font-bold">
+                            <div className="flex items-center gap-2">
+                                <Bug size={10}/> SYSTEM_DIAGNOSTIC_LOG
+                            </div>
+                            <button 
+                                onClick={handleCopyLog} 
+                                className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer group"
+                                title="Copy Diagnostic Log"
+                            >
+                                {copied ? <Check size={10} className="text-green-400" /> : <Copy size={10} className="text-red-300 group-hover:text-white" />}
+                                <span className={`text-[8px] uppercase tracking-widest ${copied ? 'text-green-400' : 'text-red-300 group-hover:text-white'}`}>
+                                    {copied ? 'COPIED' : 'COPY'}
+                                </span>
+                            </button>
                         </div>
-                        {errorLog}
+                        <div className="whitespace-pre-wrap break-all">
+                            {errorLog}
+                        </div>
                     </div>
 
                     <div className="mt-auto space-y-3">

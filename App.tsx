@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { 
   PhoneCall, Terminal as TerminalIcon, Users, User, Settings as SettingsIcon, 
@@ -20,7 +21,7 @@ import {
   getCurrentSession, signInWithGoogle, checkDbConnection, getSessionId, clearChatHistory
 } from './services/supabaseService';
 import { enableRuntimeProtection } from './services/securityService';
-import { setServiceKeys } from './services/geminiService';
+import { setStoredKeys } from './services/apiKeyStore';
 
 // --- COMPONENTS ---
 import Terminal from './components/Terminal';
@@ -107,7 +108,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isDataLoaded) {
       syncUserSettings({ voiceConfig, apiKeys, currentLanguage, selectedModel });
-      setServiceKeys(apiKeys);
+      setStoredKeys(apiKeys);
     }
   }, [voiceConfig, apiKeys, currentLanguage, selectedModel, isDataLoaded]);
 

@@ -65,6 +65,12 @@ const formatSize = (bytes?: number) => {
 // --- COMPONENT: WEB PORTAL FRAME (Genshin Style) ---
 const WebPortalFrame: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const handleRefresh = () => {
+        setIsLoading(true);
+        setRefreshKey(prev => prev + 1);
+    };
     
     return (
         <div className="mt-4 w-full animate-in zoom-in-95 slide-in-from-top-2 duration-500">
@@ -72,11 +78,14 @@ const WebPortalFrame: React.FC<{ url: string; onClose: () => void }> = ({ url, o
                 <div className="px-4 py-3 bg-[#131823] border-b border-[#d3bc8e]/20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.2em] truncate max-w-[200px]">
-                            Dimensional Portal: {new URL(url).hostname}
+                        <span className="text-[10px] font-black text-[#d3bc8e] uppercase tracking-[0.2em] truncate max-w-[150px] sm:max-w-[200px]">
+                            Portal: {new URL(url).hostname}
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button onClick={handleRefresh} className="p-1.5 text-gray-500 hover:text-amber-400 transition-colors" title="Reload Portal">
+                            <RefreshCw size={14} />
+                        </button>
                         <button onClick={() => window.open(url, '_blank')} className="p-1.5 text-gray-500 hover:text-white transition-colors" title="Open in New Tab">
                             <ExternalLink size={14} />
                         </button>
@@ -85,7 +94,8 @@ const WebPortalFrame: React.FC<{ url: string; onClose: () => void }> = ({ url, o
                         </button>
                     </div>
                 </div>
-                <div className="relative aspect-video sm:aspect-[16/10] bg-white">
+                {/* Ratio changed to 3:4 as requested */}
+                <div className="relative aspect-[3/4] bg-white">
                     {isLoading && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0b0e14] z-10">
                             <Loader2 className="w-8 h-8 text-[#d3bc8e] animate-spin mb-3" />
@@ -93,6 +103,7 @@ const WebPortalFrame: React.FC<{ url: string; onClose: () => void }> = ({ url, o
                         </div>
                     )}
                     <iframe 
+                        key={refreshKey}
                         src={url} 
                         className="w-full h-full border-0" 
                         onLoad={() => setIsLoading(false)}

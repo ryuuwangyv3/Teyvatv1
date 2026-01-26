@@ -1,8 +1,11 @@
+
 import { GoogleGenAI, Modality } from "@google/genai";
 import { addWavHeader } from "../../utils/audioUtils";
+import { getStoredKey } from "../apiKeyStore";
 
 export const handleGoogleTextRequest = async (model: string, contents: any[], systemInstruction: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const key = getStoredKey('google') || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey: key });
     const targetModel = model.includes('gemini') ? model : 'gemini-3-flash-preview';
     const supportSearch = !targetModel.includes('image') && !targetModel.includes('tts');
     
@@ -32,7 +35,8 @@ export const handleGoogleTextRequest = async (model: string, contents: any[], sy
 };
 
 export const handleGoogleImageSynthesis = async (modelId: string, prompt: string, aspectRatio: string, base64Images?: string[]): Promise<string | null> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const key = getStoredKey('google') || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey: key });
     let targetModel = modelId.includes('pro') ? "gemini-3-pro-image-preview" : "gemini-2.5-flash-image";
 
     try {
@@ -72,7 +76,8 @@ export const handleGoogleImageSynthesis = async (modelId: string, prompt: string
 
 export const handleGoogleTTS = async (text: string, voiceName: string) => {
     if (!text || !text.trim()) return null;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const key = getStoredKey('google') || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey: key });
     const cleanText = text.replace(/```[\s\S]*?```/g, ' ').replace(/\|\|GEN_IMG:.*?\|\|/g, '').replace(/[*#~>|\\-]/g, ' ').trim();
 
     try {
@@ -94,7 +99,8 @@ export const handleGoogleTTS = async (text: string, voiceName: string) => {
 };
 
 export const handleGoogleVideoGeneration = async (prompt: string, image?: string, modelId: string = 'veo-3.1-fast-generate-preview'): Promise<string | null> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const key = getStoredKey('google') || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey: key });
     try {
         const config: any = { model: modelId, prompt: prompt, config: { numberOfVideos: 1, resolution: '720p', aspectRatio: '16:9' } };
         if (image) {
@@ -107,7 +113,7 @@ export const handleGoogleVideoGeneration = async (prompt: string, image?: string
             operation = await ai.operations.getVideosOperation({ operation: operation });
         }
         const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-        return downloadLink ? `${downloadLink}&key=${process.env.API_KEY}` : null;
+        return downloadLink ? `${downloadLink}&key=${key}` : null;
     } catch (e) {
         return null;
     }

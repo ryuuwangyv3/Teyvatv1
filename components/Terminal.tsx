@@ -346,10 +346,24 @@ const Terminal: React.FC<TerminalProps> = ({
         }
     };
 
+    // --- AUTO-DETECT USER ZONE TRANSLATE ---
     const handleTranslate = async (id: string, text: string) => {
         setIsTranslating(id);
         try {
-            const translated = await translateText(text, currentLanguage.label);
+            // 1. Detect Browser Language (User Zone)
+            const userLocale = navigator.language || 'id-ID';
+            let targetLang = "Indonesian"; // Default Fallback if detection fails
+
+            try {
+                // 2. Convert locale code (e.g., 'id-ID') to readable name (e.g., 'Indonesian')
+                // This ensures the AI understands "Translate to Indonesian" regardless of App Settings
+                targetLang = new Intl.DisplayNames(['en'], { type: 'language' }).of(userLocale) || targetLang;
+            } catch (e) {
+                // Fallback logic
+                if (userLocale.toLowerCase().includes('id')) targetLang = "Indonesian";
+            }
+
+            const translated = await translateText(text, targetLang);
             setMessages(prev => prev.map(m => m.id === id ? { ...m, translatedText: translated, showTranslation: true } : m));
         } catch (err) {
             onError("Linguistic bridge failure.");

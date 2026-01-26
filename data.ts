@@ -1,3 +1,4 @@
+
 import { Persona } from './types';
 
 export const AI_MODELS = [
@@ -15,6 +16,8 @@ export const AI_MODELS = [
     { id: "microsoft/phi-3-mini-128k-instruct:free", label: "Phi-3 Mini (Free)", provider: "openrouter", desc: "Compact Neural Fragment" },
     { id: "gemini-flash-latest", label: "Gemini Flash 1.5", provider: "google", desc: "Stable Ley Line Stream" },
     { id: "gpt-4o", label: "OpenAI GPT-4o", provider: "openai", desc: "Original Sovereign Logic" },
+    { id: "gpt-5", label: "OpenAI GPT-5", provider: "openai", desc: "Next-Gen Sovereign Logic" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 Mini", provider: "openai", desc: "Efficient Multimodal Core" },
     { id: "openai", label: "GPT-4o (Standard)", provider: "pollinations", desc: "Balanced Knowledge Resonance" },
     { id: "deepseek", label: "DeepSeek V3", provider: "pollinations", desc: "Strategic Reasoning Synthesis" },
     { id: "claude-large", label: "Claude 3.5 Large", provider: "pollinations", desc: "Advanced Reasoning Catalyst" },

@@ -12,6 +12,7 @@ import { handleOpenRouterTextRequest, handleOpenRouterImageSynthesis, handleOpen
 import { handlePollinationsTextRequest, handlePollinationsImageSynthesis, handlePollinationsVideoGeneration } from './providers/pollinationsProvider';
 import { handleGeminigenVideoGeneration } from './providers/geminigenProvider';
 import { GoogleGenAI, Type } from "@google/genai";
+import { getStoredKey } from './apiKeyStore';
 
 export interface ImageAttachment {
     inlineData: {
@@ -20,13 +21,11 @@ export interface ImageAttachment {
     };
 }
 
-let serviceKeys: ApiKeyData[] = [];
-export const setServiceKeys = (keys: ApiKeyData[]) => { serviceKeys = keys; };
-
 const describeVisualTransformation = async (prompt: string, images: string[], mode: 'refine' | 'fusion' | 'manifest', persona?: Persona): Promise<string> => {
     if (prompt.includes('http') || !prompt.trim()) return prompt;
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getStoredKey('google') || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
     const imageParts: any[] = images.map(img => {
         const [header, data] = img.split(',');
         return { inlineData: { mimeType: header.match(/:(.*?);/)?.[1] || 'image/png', data: data.replace(/[\n\r\s]/g, '') } };
@@ -184,19 +183,31 @@ export const generateVideo = async (prompt: string, image?: string, modelId: str
 };
 
 export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getStoredKey('google') || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
     try {
         const res = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
-            contents: [{ role: 'user', parts: [{ text: `Task: Translate the text below to ${targetLanguage}.\nRules: \n- Output ONLY the raw translation.\n- NO introductions (e.g. "Berikut adalah...").\n- NO conversational filler.\n- NO explanations.\n- NO quotes around the result unless they are part of the original text.\n\nText to translate: \n${text}` }] }],
+            contents: [{ role: 'user', parts: [{ text: `Task: Translate the text below to ${targetLanguage}.
+            
+STRICT RULES: 
+1. Output ONLY the raw translation.
+2. NO introductions (e.g. "Here is the translation...").
+3. NO conversational filler.
+4. NO explanations or notes.
+5. PRESERVE original formatting and special characters if possible.
+6. The target language is strictly: ${targetLanguage}. Adjust the translation to sound natural for a native speaker of that language zone.
+
+Text to translate: 
+${text}` }] }],
             config: { 
-                temperature: 0.0, 
+                temperature: 0.2, 
                 thinkingConfig: { thinkingBudget: 0 } 
             }
         });
         
         let result = res.text?.trim() || text;
-        result = result.replace(/^(Berikut adalah|Ini adalah|Translation:|Translated text:)/i, '').trim();
+        result = result.replace(/^(Here is|Berikut adalah|Ini adalah|Translation:|Translated text:)/i, '').trim();
         return result;
     } catch { return text; }
 };
@@ -217,7 +228,8 @@ export const validateApiKey = async (key: string, provider: string): Promise<boo
 };
 
 export const analyzePersonaFromImage = async (base64Image: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getStoredKey('google') || process.env.API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
     const [header, data] = base64Image.split(',');
     const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
     const prompt = `Analyze this character image and extract their essence for a roleplay persona. Return a JSON object.`;
