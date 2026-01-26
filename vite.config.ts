@@ -10,21 +10,22 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
-      host: true,
+      host: true, // Membuka akses network
       port: 5173,
+      allowedHosts: true, // Izinkan semua host untuk tunneling/termux
       // Polling sangat disarankan untuk kestabilan di Termux (filesystem watch)
       watch: {
         usePolling: true,
+        interval: 1000,
       }
     },
     // Pengaturan Define yang Aman
     define: {
-      // Hanya definisikan kunci spesifik yang dibutuhkan oleh SDK
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
-      // Sediakan objek process.env minimal agar library tidak error
+      // Definisi process.env untuk kompatibilitas SDK Google GenAI
       'process.env': {
         API_KEY: env.API_KEY || '',
-        NODE_ENV: JSON.stringify(mode)
+        NODE_ENV: JSON.stringify(mode),
+        ...env
       }
     },
     build: {

@@ -42,7 +42,11 @@ const Terminal: React.FC<TerminalProps> = ({
     const [copiedId, setCopiedId] = useState<string | null>(null);
     
     const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+    
+    // Voice Recording State
     const [isRecording, setIsRecording] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -82,6 +86,60 @@ const Terminal: React.FC<TerminalProps> = ({
         const timer = setTimeout(scrollToBottom, 300);
         return () => clearTimeout(timer);
     }, [messages, isTyping, editingId]);
+
+    // Voice Recording Functions
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Prefer audio/webm if supported, widely used for recording
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+            const recorder = new MediaRecorder(stream, { mimeType });
+            
+            mediaRecorderRef.current = recorder;
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            recorder.onstop = () => {
+                // 1. Create Blob for UI (Player)
+                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                // 2. Read Blob for AI (Base64)
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    const base64Audio = (reader.result as string).split(',')[1];
+                    // Automatically send the voice note with the UI URL
+                    if (base64Audio) {
+                        await handleSendMessage(undefined, { base64: base64Audio, mimeType }, audioUrl);
+                    }
+                };
+                
+                // Stop all tracks to release mic
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            recorder.start();
+            setIsRecording(true);
+        } catch (err: any) {
+            console.error("Microphone access denied:", err);
+            onError("Microphone access denied. Please enable permissions.");
+            setIsRecording(false);
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -132,18 +190,24 @@ const Terminal: React.FC<TerminalProps> = ({
         }
     };
 
-    const handleSendMessage = async (textOverride?: string) => {
-        const textToSend = textOverride || input;
-        if ((!textToSend.trim() && pendingAttachments.length === 0) || isTyping) return;
+    const handleSendMessage = async (textOverride?: string, audioData?: { base64: string, mimeType: string }, userAudioUrl?: string) => {
+        const textToSend = textOverride !== undefined ? textOverride : input;
+        
+        // Prevent empty sends unless there's an attachment or audio
+        if ((!textToSend.trim() && pendingAttachments.length === 0 && !audioData) || isTyping) return;
 
         const currentReply = replyingTo ? { id: replyingTo.id, text: replyingTo.text, role: replyingTo.role } : undefined;
 
+        // Construct User Message
+        // If it's a voice note, use a placeholder text if input is empty, and attach the blob URL
         const userMsg: Message = {
             id: Date.now().toString(),
             role: 'user',
-            text: textToSend,
+            text: textToSend || (audioData ? "🎤 Voice Transmission" : ""), 
             timestamp: Date.now(),
             replyTo: currentReply,
+            isVoiceNote: !!audioData,
+            audioUrl: userAudioUrl, // Display the recorded audio in user bubble
             attachments: pendingAttachments.map(pa => ({
                 name: pa.file.name,
                 url: pa.previewUrl,
@@ -196,6 +260,7 @@ const Terminal: React.FC<TerminalProps> = ({
 - IRMINSUL_MEMORY: Ingat outfit dan tempatmu sebelumnya agar konsisten.`;
 
             let enrichedPrompt = `${systemNote}${ytContext}${replyContext}\n\n[USER_MESSAGE]\n${textToSend}`;
+            if (audioData) enrichedPrompt += "\n[AUDIO_TRANSMISSION_RECEIVED: User has sent a voice note. Listen closely to the tone and respond appropriately.]";
             
             for (const pa of currentAttachments) {
                 if (!pa.type.startsWith('image/') && pa.base64Data) {
@@ -212,7 +277,8 @@ const Terminal: React.FC<TerminalProps> = ({
                 enrichedPrompt,
                 currentPersona.systemInstruction,
                 `Resonance: ${currentPersona.name}. Life simulation enabled.`,
-                imageParts
+                imageParts,
+                audioData
             );
 
             const rawResponse = resObj.text || "";
@@ -399,10 +465,10 @@ const Terminal: React.FC<TerminalProps> = ({
                 
                 <div className="flex gap-6 items-end max-w-6xl mx-auto">
                     <button 
-                        onMouseDown={() => setIsRecording(true)}
-                        onMouseUp={() => setIsRecording(false)}
-                        onTouchStart={() => setIsRecording(true)}
-                        onTouchEnd={() => setIsRecording(false)}
+                        onMouseDown={startRecording}
+                        onMouseUp={stopRecording}
+                        onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+                        onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
                         className={`w-16 h-16 sm:w-20 sm:h-20 rounded-[1.8rem] flex items-center justify-center transition-all shrink-0 mb-1 relative group ${isRecording ? 'bg-red-600 shadow-[0_0_50px_rgba(220,38,38,0.7)] scale-115' : 'bg-white/5 border border-[#d3bc8e]/30 text-[#d3bc8e] hover:bg-[#d3bc8e]/15 hover:border-[#d3bc8e]/80 hover:scale-105 shadow-2xl hover:shadow-[0_0_30px_rgba(211,188,142,0.2)]'}`}
                         title="Celestial Resonance (Hold to Transmit Voice)"
                     >

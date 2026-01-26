@@ -87,7 +87,15 @@ export const generateImage = async (
     return await handlePollinationsImageSynthesis(finalPrompt, 'flux-anime', ratioCfg.width, ratioCfg.height);
 };
 
-export const chatWithAI = async (modelId: string, history: any[], message: string, systemInstruction: string, userContext: string = "", images: ImageAttachment[] = []) => {
+export const chatWithAI = async (
+    modelId: string, 
+    history: any[], 
+    message: string, 
+    systemInstruction: string, 
+    userContext: string = "", 
+    images: ImageAttachment[] = [],
+    audioData?: { base64: string, mimeType: string }
+) => {
     const modelCfg = AI_MODELS.find(m => m.id === modelId);
     const provider = (modelCfg?.provider || 'google').toLowerCase();
     
@@ -100,13 +108,32 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
             parts: [{ text: h.content || h.parts?.[0]?.text || "" }]
         }));
         
-        // JANGAN gunakan fallback otomatis di sini agar user tahu jika Google error
-        const userContent = { role: 'user', parts: [...images, { text: message }] };
+        const currentParts: any[] = [];
+        
+        // Add Images
+        if (images.length > 0) {
+            images.forEach(img => currentParts.push({ inlineData: img.inlineData }));
+        }
+
+        // Add Audio
+        if (audioData) {
+            currentParts.push({
+                inlineData: {
+                    mimeType: audioData.mimeType,
+                    data: audioData.base64
+                }
+            });
+        }
+
+        // Add Text (Ensure text exists if audio is present to prevent empty content error if message is empty)
+        currentParts.push({ text: message || (audioData ? " " : "") });
+
+        const userContent = { role: 'user', parts: currentParts };
         const contents = [...formattedHistory, userContent];
         return await handleGoogleTextRequest(modelId, contents, finalSystemPrompt);
     } 
     
-    // Logika untuk Provider Lain (OpenAI, OpenRouter, Pollinations)
+    // Logika untuk Provider Lain (OpenAI, OpenRouter, Pollinations) - Audio ignored for now as they require different endpoints (Whisper etc)
     const messages: any[] = [
         { role: "system", content: finalSystemPrompt }, 
         ...history.map(h => ({ 
@@ -132,10 +159,8 @@ export const chatWithAI = async (modelId: string, history: any[], message: strin
         }
         return { text, metadata: null };
     } catch (e: any) {
-        // Hanya berikan fallback ke Pollinations jika provider utama benar-benar gagal
-        // Namun kita kirimkan error aslinya ke console agar bisa di-debug
         console.error(`[Akasha] Provider ${provider} failed:`, e);
-        throw e; // Lemparkan error agar UI bisa menampilkan DonationModal/Error log
+        throw e;
     }
 };
 
@@ -171,7 +196,6 @@ export const translateText = async (text: string, targetLanguage: string): Promi
         });
         
         let result = res.text?.trim() || text;
-        // Anti-filler cleanup just in case
         result = result.replace(/^(Berikut adalah|Ini adalah|Translation:|Translated text:)/i, '').trim();
         return result;
     } catch { return text; }
